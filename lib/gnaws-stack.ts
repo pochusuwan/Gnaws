@@ -10,5 +10,8 @@ export class GnawsStack extends cdk.Stack {
     new s3.Bucket(this, 'Gnaws-test', {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+    new s3.Bucket(this, 'Gnaws-test3', {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
   }
 }
