@@ -11,21 +11,29 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 export class GnawsStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
-        const { backendLambda, apiUrl } = this.buildBackend();
-        this.buildStorageResources(backendLambda);
+        const { serverManagerPassword, jwtSecret, userTable } = this.buildStorageResources();
+        const { apiUrl } = this.buildBackend(serverManagerPassword, jwtSecret, userTable);
 
         this.buildFrontend({
             API_BASE: apiUrl,
         });
     }
 
-    private buildBackend() {
+    private buildBackend(serverManagerPassword: secretsmanager.Secret, jwtSecret: secretsmanager.Secret, userTable: dynamodb.Table) {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: "index.handler",
             code: lambda.Code.fromAsset("backend/lambda"),
+            environment: {
+                USER_TABLE_NAME: userTable.tableName,
+                SERVER_MANAGER_PASSWORD: serverManagerPassword.secretArn,
+                JWT_SECRET: jwtSecret.secretArn,
+            },
         });
+        serverManagerPassword.grantRead(backend);
+        jwtSecret.grantRead(backend);
+        userTable.grantFullAccess(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -45,7 +53,7 @@ export class GnawsStack extends cdk.Stack {
         if (apiUrl === undefined) throw "No API url";
         new cdk.CfnOutput(this, "GnawsApiUrl", { value: apiUrl });
 
-        return { backendLambda: backend, apiUrl };
+        return { apiUrl };
     }
 
     private buildFrontend(webConfigs: { [key: string]: string }) {
@@ -77,16 +85,24 @@ export class GnawsStack extends cdk.Stack {
         });
     }
 
-    private buildStorageResources(backendLambda: lambda.Function) {
+    private buildStorageResources() {
         const serverManagerPassword = new secretsmanager.Secret(this, "GnawsServerManagerPassword", {
-            secretName: "gnaws/server-manager-password",
             secretStringValue: cdk.SecretValue.unsafePlainText("pass121"),
         });
-        serverManagerPassword.grantRead(backendLambda);
-
+        const jwtSecret = new secretsmanager.Secret(this, "GnawsJwtSigningSecret", {
+            generateSecretString: {
+                passwordLength: 64,
+                excludePunctuation: true,
+            },
+        });
         const userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
         });
-        userTable.grantFullAccess(backendLambda);
+
+        return {
+            serverManagerPassword,
+            jwtSecret,
+            userTable,
+        };
     }
 }
