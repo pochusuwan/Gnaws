@@ -22,6 +22,7 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.954.0",
     "aws-cdk-lib": "2.232.1",
     "constructs": "^10.0.0"
   }
