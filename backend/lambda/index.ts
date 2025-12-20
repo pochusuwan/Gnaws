@@ -1,10 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types"
-import { login } from "./auth";
+import { login, verifyJwt } from "./auth";
+import { getUsers } from "./users";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = 'login';
-const ALLOWED_REQUESTS = [LOGIN_TYPE];
+const GET_USERS_TYPE = 'getUsers';
+const ALLOWED_REQUESTS = [LOGIN_TYPE, GET_USERS_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -21,6 +23,19 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     if (requestType === LOGIN_TYPE) {
         return await login(params);
+    }
+    
+    let payload;
+    try {
+        payload = await verifyJwt(event.cookies);
+    } catch (e) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: "Internal server error" }),
+        };
+    }
+    if (requestType === GET_USERS_TYPE) {
+        return await getUsers(params, payload);
     }
 
     return {

@@ -13,13 +13,15 @@ const USER_TABLE = process.env.USER_TABLE_NAME!;
 const SERVER_MANAGER_PASSWORD = process.env.SERVER_MANAGER_PASSWORD!;
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-const ROLE_NEW = "new";
+export const ROLE_NEW = "new";
+export const ROLE_MANAGER = "manager";
+export const ROLE_ADMIN = "admin";
 type User = {
     username: string;
     role: string;
 };
 
-type JwtPayload = {
+export type JwtPayload = {
     username: string;
     role: string;
 };
@@ -75,10 +77,13 @@ export const login = async (params: Params): Promise<APIGatewayProxyResult> => {
 
     return {
         statusCode: 200,
+        headers: {
+            "Set-Cookie": `jwt=${token}; HttpOnly; Secure; Path=/; Max-Age=86400; SameSite=None`,
+            "Access-Control-Allow-Credentials": "true",
+        },
         body: JSON.stringify({
             username: user.username,
             role: user.role,
-            token,
             timestamp: new Date().toISOString(),
         }),
     };
@@ -145,4 +150,23 @@ const createJwt = (username: string, role: string, secret: string) => {
         issuer: "gnaws",
         audience: "gnaws-web",
     });
+};
+
+export const verifyJwt = async (cookies: string[] | undefined = []): Promise<JwtPayload | null> => {
+    const match = cookies.map(c => c.match(/jwt=([^;]+)/)).filter(c => c != null)[0];
+    if (!match) return null;
+
+    const token = match[1];
+
+    const secret = await getJwtSecret();
+    const payload = jwt.verify(token, secret);
+    if (typeof payload === "string") {
+        return null;
+    }
+    const username = payload.username;
+    const role = payload.role;
+    if (typeof username !== "string" || typeof role !== "string") {
+        return null;
+    }
+    return { username, role };
 };

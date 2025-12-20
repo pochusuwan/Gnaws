@@ -7,19 +7,21 @@ import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as cr from "aws-cdk-lib/custom-resources";
 
 export class GnawsStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         const { serverManagerPassword, jwtSecret, userTable } = this.buildStorageResources();
-        const { apiUrl } = this.buildBackend(serverManagerPassword, jwtSecret, userTable);
+        const { websiteBucket, websiteUrl } = this.buildFrontend();
+        const { apiUrl } = this.buildBackend(websiteUrl, serverManagerPassword, jwtSecret, userTable);
 
-        this.buildFrontend({
+        this.deployFrontendConfig(websiteBucket, {
             API_BASE: apiUrl,
         });
     }
 
-    private buildBackend(serverManagerPassword: secretsmanager.Secret, jwtSecret: secretsmanager.Secret, userTable: dynamodb.Table) {
+    private buildBackend(websiteUrl: string, serverManagerPassword: secretsmanager.Secret, jwtSecret: secretsmanager.Secret, userTable: dynamodb.Table) {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -38,9 +40,11 @@ export class GnawsStack extends cdk.Stack {
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
             corsPreflight: {
-                allowOrigins: ["*"],
+                // TODO: change origin
+                allowOrigins: ["http://localhost:5174", websiteUrl],
                 allowMethods: [apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
-                allowHeaders: ["Content-Type"],
+                allowHeaders: ["Content-Type", "Authorization"],
+                allowCredentials: true,
             },
         });
         api.addRoutes({
@@ -56,7 +60,7 @@ export class GnawsStack extends cdk.Stack {
         return { apiUrl };
     }
 
-    private buildFrontend(webConfigs: { [key: string]: string }) {
+    private buildFrontend() {
         // S3 bucket for website resources
         const websiteBucket = new s3.Bucket(this, "GnawsWebsiteBucket", {
             publicReadAccess: true,
@@ -75,8 +79,11 @@ export class GnawsStack extends cdk.Stack {
         new cdk.CfnOutput(this, "GnawsWebsiteURL", {
             value: websiteUrl,
         });
-
-        const constants = Object.entries(webConfigs)
+        return { websiteBucket, websiteUrl };
+    }
+    
+    private deployFrontendConfig(websiteBucket: s3.Bucket, configs: { [key: string]: string }) {
+        const constants = Object.entries(configs)
             .map(([k, v]) => `const ${k} = '${v}';`)
             .join("\n");
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteConfig", {
@@ -97,6 +104,25 @@ export class GnawsStack extends cdk.Stack {
         });
         const userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
+        });
+
+        // Create initial admin user
+        new cr.AwsCustomResource(this, "GnawsInitialAdminUser", {
+            onCreate: {
+                service: "DynamoDB",
+                action: "putItem",
+                parameters: {
+                    TableName: userTable.tableName,
+                    Item: {
+                        username: { S: "admin" },
+                        role: { S: "admin" },
+                    },
+                },
+                physicalResourceId: cr.PhysicalResourceId.of("GnawsSeedAdminUser"),
+            },
+            policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+                resources: [userTable.tableArn],
+            }),
         });
 
         return {

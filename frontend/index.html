@@ -6,15 +6,43 @@
     <body>
         <h1>Game Server</h1>
         
-        <div>
-            <input type="text" id="username" placeholder="Username">
-            <input type="password" id="password" placeholder="Password">
-            <button onclick="login()">Login</button>
+        <form onsubmit="login(); return false;">
+            <input type="text" id="username" name="username" placeholder="Username" autocomplete="username">
+            <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password">
+            <button type="submit">Login</button>
+        </form>
+        
+        <nav>
+            <button onclick="showPage('servers')">Servers</button>
+            <button onclick="showPage('players')">Players</button>
+            <button onclick="showPage('logs')">Logs</button>
+        </nav>
+        
+        <div id="servers" class="page">
+            <h2>Servers</h2>
+            <button onclick="start()">Start Server</button>
         </div>
         
-        <button onclick="start()">Start</button>
+        <div id="players" class="page" style="display:none">
+            <h2>Players</h2>
+            <button onclick="getUsers()">Get Users</button>
+            <div id="usersList"></div>
+        </div>
+        
+        <div id="logs" class="page" style="display:none">
+            <h2>Logs</h2>
+            <p>Server logs coming soon...</p>
+        </div>
 
         <script src="config.js"></script>
         <script src="app.js"></script>
+        <script>
+            function showPage(pageId) {
+                document.querySelectorAll('.page').forEach(page => {
+                    page.style.display = 'none';
+                });
+                document.getElementById(pageId).style.display = 'block';
+            }
+        </script>
     </body>
 </html>
