@@ -1,12 +1,13 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
-import { Request } from "./types"
-import { login, verifyJwt } from "./auth";
+import { Request } from "./types";
+import { getUserFromJwt, login, logout } from "./auth";
 import { getUsers } from "./users";
 
 const MAX_BODY = 10_000;
-const LOGIN_TYPE = 'login';
-const GET_USERS_TYPE = 'getUsers';
-const ALLOWED_REQUESTS = [LOGIN_TYPE, GET_USERS_TYPE];
+const LOGIN_TYPE = "login";
+const LOGOUT_TYPE = "logout";
+const GET_USERS_TYPE = "getUsers";
+const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -21,21 +22,26 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         params = request.params;
     }
 
-    if (requestType === LOGIN_TYPE) {
-        return await login(params);
+    // Handle login request which may be with username and password or JWT
+    if (requestType === LOGOUT_TYPE) {
+        return await logout(params);
     }
-    
-    let payload;
-    try {
-        payload = await verifyJwt(event.cookies);
-    } catch (e) {
+
+    // Handle login request which may be with username and password or JWT
+    if (requestType === LOGIN_TYPE) {
+        return await login(params, event.cookies);
+    }
+
+    // All other request require valid JWT
+    const user = await getUserFromJwt(event.cookies);
+    if (!user) {
         return {
-            statusCode: 400,
-            body: JSON.stringify({ error: "Internal server error" }),
+            statusCode: 401,
+            body: JSON.stringify({ error: "Invalid credentials" }),
         };
     }
     if (requestType === GET_USERS_TYPE) {
-        return await getUsers(params, payload);
+        return await getUsers(user, params);
     }
 
     return {

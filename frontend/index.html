@@ -2,46 +2,74 @@
 <html>
     <head>
         <title>Game Server Control</title>
+        <style>
+            body {
+                color: #333;
+                font-family: Sans-serif;
+                font-size: 20;
+                max-width: 800px;
+                margin: auto;
+            }
+            .row {
+                display: flex;
+                flex-direction: row;
+            }
+            .right {
+                justify-content: flex-end;
+            }
+        </style>
     </head>
     <body>
-        <h1>Game Server</h1>
-        
-        <form onsubmit="login(); return false;">
-            <input type="text" id="username" name="username" placeholder="Username" autocomplete="username">
-            <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password">
-            <button type="submit">Login</button>
-        </form>
-        
-        <nav>
-            <button onclick="showPage('servers')">Servers</button>
-            <button onclick="showPage('players')">Players</button>
-            <button onclick="showPage('logs')">Logs</button>
-        </nav>
-        
-        <div id="servers" class="page">
-            <h2>Servers</h2>
-            <button onclick="start()">Start Server</button>
+        <div id="login_input" style="display: none; margin-top: 20px">
+            <div class="row right">
+                <div>
+                    <form onsubmit="login(true); return false;">
+                        <input type="text" id="username" name="username" placeholder="Username" autocomplete="username" />
+                        <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" />
+                        <button type="submit">Login</button>
+                    </form>
+                    <div id="login_message"></div>
+                </div>
+            </div>
         </div>
-        
-        <div id="players" class="page" style="display:none">
-            <h2>Players</h2>
-            <button onclick="getUsers()">Get Users</button>
-            <div id="usersList"></div>
+        <div id="logged_in_input" style="display: none; text-align: right; margin-top: 20px">
+            <div class="row right">
+                <div id="username_logged_in" style="margin-right: 20px"></div>
+                <button onclick="logout()">Log out</button>
+            </div>
         </div>
-        
-        <div id="logs" class="page" style="display:none">
-            <h2>Logs</h2>
-            <p>Server logs coming soon...</p>
-        </div>
+        <div id="content" style="display: none">
+            <nav>
+                <button onclick="showPage('servers')">Servers</button>
+                <button onclick="showPage('players')">Players</button>
+                <button onclick="showPage('logs')">Logs</button>
+            </nav>
 
+            <div id="servers" class="page">
+                <h2>Servers</h2>
+                <button onclick="start()">Start Server</button>
+            </div>
+
+            <div id="players" class="page" style="display: none">
+                <h2>Players</h2>
+                <button onclick="getUsers()">Get Users</button>
+                <div id="usersList"></div>
+            </div>
+
+            <div id="logs" class="page" style="display: none">
+                <h2>Logs</h2>
+                <p>Server logs coming soon...</p>
+            </div>
+        </div>
         <script src="config.js"></script>
         <script src="app.js"></script>
         <script>
+            login(false);
             function showPage(pageId) {
-                document.querySelectorAll('.page').forEach(page => {
-                    page.style.display = 'none';
+                document.querySelectorAll(".page").forEach((page) => {
+                    page.style.display = "none";
                 });
-                document.getElementById(pageId).style.display = 'block';
+                document.getElementById(pageId).style.display = "block";
             }
         </script>
     </body>
