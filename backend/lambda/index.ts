@@ -1,13 +1,14 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
-import { getUsers } from "./users";
+import { getUsers, updateUsers } from "./users";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
 const LOGOUT_TYPE = "logout";
 const GET_USERS_TYPE = "getUsers";
-const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE];
+const UPDATE_USERS_TYPE = "updateUsers";
+const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -43,6 +44,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     if (requestType === GET_USERS_TYPE) {
         return await getUsers(user, params);
     }
+    if (requestType === UPDATE_USERS_TYPE) {
+        return await updateUsers(user, params);
+    }
 
     return {
         statusCode: 400,
@@ -56,13 +60,7 @@ const parseRequest = (body: string | undefined): Request | null => {
         const parsed = JSON.parse(body || "{}");
         if (!ALLOWED_REQUESTS.includes(parsed.requestType)) return null;
 
-        let params: { [key: string]: string } = {};
-        for (const [key, value] of Object.entries(parsed.params ?? {})) {
-            if (typeof value !== "string") return null;
-            params[key] = value;
-        }
-
-        return { requestType: parsed.requestType, params };
+        return { requestType: parsed.requestType, params: parsed.params };
     } catch (e) {
         return null;
     }

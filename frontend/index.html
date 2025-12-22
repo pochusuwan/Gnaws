@@ -13,9 +13,31 @@
             .row {
                 display: flex;
                 flex-direction: row;
+                align-items: center;
             }
             .right {
                 justify-content: flex-end;
+            }
+            .user {
+                display: flex;
+                flex-direction: row;
+                margin: 5px 0;
+                padding: 5px;
+            }
+            nav button {
+                padding: 5px 5px;
+                margin: 5px;
+                border: 1px solid #ccc;
+                background: #f9f9f9;
+                cursor: pointer;
+            }
+            nav button:hover {
+                background: #e9e9e9;
+            }
+            nav button.active {
+                background: #007cba;
+                color: white;
+                border-color: #005a87;
             }
         </style>
     </head>
@@ -40,8 +62,8 @@
         </div>
         <div id="content" style="display: none">
             <nav>
-                <button onclick="showPage('servers')">Servers</button>
-                <button onclick="showPage('players')">Players</button>
+                <button onclick="showPage('servers')" class="active">Servers</button>
+                <button onclick="showPage('users')">Users</button>
                 <button onclick="showPage('logs')">Logs</button>
             </nav>
 
@@ -50,9 +72,12 @@
                 <button onclick="start()">Start Server</button>
             </div>
 
-            <div id="players" class="page" style="display: none">
-                <h2>Players</h2>
-                <button onclick="getUsers()">Get Users</button>
+            <div id="users" class="page" style="display: none">
+                <div class="row">
+                    <h2>Users</h2>
+                    <button id="updateUsers" onclick="updateUsers()" style="display: none; height: 20px; margin-left: 20px">Save</button>
+                    <div id="updateUsersMessage" style="height: 20px; margin-left: 20px"></div>
+                </div>
                 <div id="usersList"></div>
             </div>
 
@@ -69,7 +94,12 @@
                 document.querySelectorAll(".page").forEach((page) => {
                     page.style.display = "none";
                 });
+                document.querySelectorAll("nav button").forEach((btn) => {
+                    btn.classList.remove("active");
+                });
                 document.getElementById(pageId).style.display = "block";
+                event.target.classList.add("active");
+                loadPage(pageId);
             }
         </script>
     </body>

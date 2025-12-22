@@ -1,4 +1,3 @@
-import { Params } from "./types";
 import { getOrCreateUser, User, getUserFromDB } from "./users";
 import { APIGatewayProxyResult } from "aws-lambda";
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
@@ -15,7 +14,7 @@ export type JwtPayload = {
     username: string;
 };
 
-export const logout = async (params: Params): Promise<APIGatewayProxyResult> => {
+export const logout = async (params: any): Promise<APIGatewayProxyResult> => {
     return {
         statusCode: 200,
         headers: {
@@ -26,9 +25,9 @@ export const logout = async (params: Params): Promise<APIGatewayProxyResult> => 
     };
 }
 
-export const login = async (params: Params, cookies: string[] | undefined = []): Promise<APIGatewayProxyResult> => {
+export const login = async (params: any, cookies: string[] | undefined = []): Promise<APIGatewayProxyResult> => {
     // Login with username and password and create new JWT
-    if (typeof params.username === "string" && typeof params.password === "string") {
+    if (typeof params?.username === "string" && typeof params?.password === "string") {
         return await loginWithUsernamePassword(params.username, params.password);
     }
     // Otherwise, verify JWT and return user

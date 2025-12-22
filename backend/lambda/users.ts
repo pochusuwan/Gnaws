@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from "aws-lambda";
-import { Params } from "./types";
-import { DynamoDBClient, GetItemCommand, PutItemCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 
 const dynamoClient = new DynamoDBClient({});
 
@@ -8,14 +7,15 @@ const USER_TABLE = process.env.USER_TABLE_NAME!;
 export const ROLE_NEW = "new";
 export const ROLE_MANAGER = "manager";
 export const ROLE_ADMIN = "admin";
+const ROLES = [ROLE_NEW, ROLE_MANAGER, ROLE_ADMIN];
 
 export type User = {
     username: string;
     role: string;
 };
 
-export const getUsers = async (user: User, params: Params): Promise<APIGatewayProxyResult> => {
-    if (user.role !== "admin") {
+export const getUsers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
+    if (user.role !== ROLE_ADMIN) {
         return {
             statusCode: 403,
             body: JSON.stringify({ error: "Forbidden" }),
@@ -99,4 +99,75 @@ export const getUserFromDB = async (username: string): Promise<User | null> => {
         username: result.Item.username.S!,
         role: result.Item.role?.S ?? ROLE_NEW,
     };
+};
+
+export const updateUsers = async (requestUser: User, params: any): Promise<APIGatewayProxyResult> => {
+    if (requestUser.role !== ROLE_ADMIN) {
+        return {
+            statusCode: 403,
+            body: JSON.stringify({ error: "Forbidden" }),
+        };
+    }
+    if (!Array.isArray(params?.users)) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: "Invalid request" }),
+        };
+    }
+    const users = params.users
+        .map((user: any) => {
+            if (typeof user?.username === "string" && typeof user?.role === "string" && ROLES.includes(user.role) && user.username != requestUser.username) {
+                return {
+                    username: user.username,
+                    role: user.role,
+                };
+            }
+            return null;
+        })
+        .filter((u: User | null) => u != null) as User[];
+    if (users.length === 0) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: "Invalid request" }),
+        };
+    }
+
+    try {
+        const updates = users.map((user) =>
+            dynamoClient.send(
+                new UpdateItemCommand({
+                    TableName: USER_TABLE,
+                    Key: {
+                        username: { S: user.username },
+                    },
+                    UpdateExpression: "SET #r = :role",
+                    ExpressionAttributeNames: {
+                        "#r": "role",
+                    },
+                    ExpressionAttributeValues: {
+                        ":role": { S: user.role },
+                    },
+                })
+            )
+        );
+
+        const results = await Promise.allSettled(updates);
+        const success = results.filter((result) => result.status === "rejected").length === 0;
+        if (success) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ result: "success" }),
+            };
+        } else {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: "Internal server error" }),
+            };
+        }
+    } catch (e) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "Internal server error" }),
+        };
+    }
 };
