@@ -1,0 +1,188 @@
+{
+  "Comment": "Start EC2 then start game server",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "ssmChecks": {
+          "val": 0
+        },
+        "ec2Checks": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
+      "Parameters": {
+        "InstanceIds.$": "$.instanceIds"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "IncrementEC2Check"
+    },
+    "IncrementEC2Check": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.ec2Checks.val, 1)"
+      },
+      "ResultPath": "$.meta.ec2Checks",
+      "Next": "IsInstanceRunning"
+    },
+    "IsInstanceRunning": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ec2.Reservations",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0]",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeEC2Fail"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "stopped",
+          "Next": "StartInstances"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "pending",
+          "Next": "WaitForEC2Running"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "running",
+          "Next": "DescribeEC2SSM"
+        },
+        {
+          "Variable": "$.meta.ec2Checks.val",
+          "NumericGreaterThanEquals": 10,
+          "Next": "FailEC2Timeout"
+        }
+      ],
+      "Default": "InvalidEC2State"
+    },
+    "StartInstances": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:startInstances",
+      "Parameters": {
+        "InstanceIds.$": "$.instanceIds"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "WaitForEC2Running"
+    },
+    "WaitForEC2Running": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2SSM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
+      "Parameters": {
+        "Filters": [
+          {
+            "Key": "InstanceIds",
+            "Values.$": "$.instanceIds"
+          }
+        ]
+      },
+      "ResultPath": "$.ssm",
+      "Next": "IncrementSSMCheck"
+    },
+    "IncrementSSMCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.ssmChecks.val, 1)"
+      },
+      "ResultPath": "$.meta.ssmChecks",
+      "Next": "IsSSMReady"
+    },
+    "IsSSMReady": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.ssm.InstanceInformationList",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0]",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+              "StringEquals": "Online"
+            }
+          ],
+          "Next": "RunGameServer"
+        },
+        {
+          "Variable": "$.meta.ssmChecks.val",
+          "NumericGreaterThanEquals": 10,
+          "Next": "FailSSMTimeout"
+        }
+      ],
+      "Default": "WaitBeforeRetrySSM"
+    },
+    "WaitBeforeRetrySSM": {
+      "Type": "Wait",
+      "Seconds": 20,
+      "Next": "DescribeEC2SSM"
+    },
+    "RunGameServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "$.instanceIds",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "cd /home/ubuntu",
+            "./start-server.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "End": true
+    },
+    "FailSSMTimeout": {
+      "Type": "Fail",
+      "Error": "SSMTimeout",
+      "Cause": "SSM agent did not come online in time"
+    },
+    "FailEC2Timeout": {
+      "Type": "Fail",
+      "Error": "FailEC2Timeout",
+      "Cause": "EC2 did not start in time"
+    },
+    "InvalidEC2State": {
+      "Type": "Fail",
+      "Error": "InvalidEC2State",
+      "Cause": "EC2 is not in expected state"
+    },
+    "DescribeEC2Fail": {
+      "Type": "Fail",
+      "Error": "DescribeEC2Fail",
+      "Cause": "Failed to get EC2 state"
+    }
+  }
+}

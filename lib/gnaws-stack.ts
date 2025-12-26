@@ -8,20 +8,31 @@ import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as cr from "aws-cdk-lib/custom-resources";
+import * as sfn from "aws-cdk-lib/aws-stepfunctions";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export class GnawsStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
-        const { serverManagerPassword, jwtSecret, userTable } = this.buildStorageResources();
+        const { serverManagerPassword, jwtSecret, userTable, gameServerTable, workflowTable } = this.buildStorageResources();
         const { websiteBucket, websiteUrl } = this.buildFrontend();
-        const { apiUrl } = this.buildBackend(websiteUrl, serverManagerPassword, jwtSecret, userTable);
+        const { startServerFunction } = this.buildWorkflows();
+        const { apiUrl } = this.buildBackend(websiteUrl, serverManagerPassword, jwtSecret, startServerFunction, userTable, gameServerTable, workflowTable);
 
         this.deployFrontendConfig(websiteBucket, {
             API_BASE: apiUrl,
         });
     }
 
-    private buildBackend(websiteUrl: string, serverManagerPassword: secretsmanager.Secret, jwtSecret: secretsmanager.Secret, userTable: dynamodb.Table) {
+    private buildBackend(
+        websiteUrl: string,
+        serverManagerPassword: secretsmanager.Secret,
+        jwtSecret: secretsmanager.Secret,
+        startServerFunction: sfn.StateMachine,
+        userTable: dynamodb.Table,
+        gameServerTable: dynamodb.Table,
+        workflowTable: dynamodb.Table
+    ) {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -31,11 +42,15 @@ export class GnawsStack extends cdk.Stack {
                 USER_TABLE_NAME: userTable.tableName,
                 SERVER_MANAGER_PASSWORD: serverManagerPassword.secretArn,
                 JWT_SECRET: jwtSecret.secretArn,
+                START_SERVER_FUNCTION_ARN: startServerFunction.stateMachineArn,
             },
         });
         serverManagerPassword.grantRead(backend);
         jwtSecret.grantRead(backend);
         userTable.grantFullAccess(backend);
+        gameServerTable.grantFullAccess(backend);
+        workflowTable.grantFullAccess(backend);
+        startServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -81,7 +96,7 @@ export class GnawsStack extends cdk.Stack {
         });
         return { websiteBucket, websiteUrl };
     }
-    
+
     private deployFrontendConfig(websiteBucket: s3.Bucket, configs: { [key: string]: string }) {
         const constants = Object.entries(configs)
             .map(([k, v]) => `const ${k} = '${v}';`)
@@ -104,6 +119,12 @@ export class GnawsStack extends cdk.Stack {
         });
         const userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
+        });
+        const gameServerTable = new dynamodb.Table(this, "GnawsGameServersTable", {
+            partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
+        });
+        const workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
+            partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
         });
 
         // Create initial admin user
@@ -129,6 +150,26 @@ export class GnawsStack extends cdk.Stack {
             serverManagerPassword,
             jwtSecret,
             userTable,
+            gameServerTable,
+            workflowTable,
+        };
+    }
+
+    private buildWorkflows() {
+        const startServerFunction = new sfn.StateMachine(this, "GnawsStartGameServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/start-game-server.asl.json"),
+            timeout: cdk.Duration.minutes(10),
+        });
+
+        startServerFunction.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand"],
+                resources: ["*"],
+            })
+        );
+        new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: startServerFunction.stateMachineArn });
+        return {
+            startServerFunction,
         };
     }
 }

@@ -198,3 +198,18 @@ async function updateUsers() {
         document.getElementById("updateUsersMessage").textContent = "Update failed";
     }
 }
+
+async function start() {
+    const res = await fetch(`${API_BASE}call`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            requestType: "startTestServer",
+            params: {},
+        }),
+        credentials: "include",
+    });
+    console.log(await res.json());
+}
