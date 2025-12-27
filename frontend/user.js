@@ -7,6 +7,7 @@ function resetUsers() {
     user_loadingUsers = false;
     user_editingUsers = {};
     document.getElementById("usersList").replaceChildren();
+    document.getElementById("usersListNoPermission").style.display = "none";
 }
 
 async function loadUsersPage() {
@@ -23,7 +24,7 @@ async function loadUsersPage() {
         }
     } else {
         user_loadingUsers = true;
-        document.getElementById("usersList").textContent = "No permission";
+        document.getElementById("usersListNoPermission").style.display = "block";
     }
 }
 
@@ -43,6 +44,7 @@ async function loadUsers() {
 }
 
 function renderUsers() {
+    document.getElementById("usersListNoPermission").style.display = "none";
     const usersList = document.getElementById("usersList");
     usersList.replaceChildren();
     usersList.appendChild(createUserRow(auth_username, auth_role, [auth_role], true));

@@ -14,13 +14,6 @@ export type Server = {
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
-    if (user.role !== ROLE_ADMIN && user.role !== ROLE_MANAGER) {
-        return {
-            statusCode: 403,
-            body: JSON.stringify({ error: "Forbidden" }),
-        };
-    }
-
     const command = new ScanCommand({ TableName: SERVER_TABLE });
     let result;
     try {

@@ -24,6 +24,25 @@
                 margin: 5px 0;
                 padding: 5px;
             }
+            .tableList {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .tableList th {
+                border: 1px solid #ccc;
+                padding: 4px;
+                width: 1px;
+                white-space: nowrap;
+            }
+            .tableList td {
+                border: 1px solid #ccc;
+                padding: 4px;
+                width: 1px;
+                white-space: nowrap;
+            }
+            .tableList td:last-child {
+                width: 100%;
+            }
             nav button {
                 padding: 5px 5px;
                 margin: 5px;
@@ -69,8 +88,20 @@
 
             <div id="servers" class="page">
                 <h2>Servers</h2>
-                <div id="serversList"></div>
-                <button onclick="testStart()">Start Server</button>
+                <div id="serverMessage" style="padding-bottom: 4px; height: 20px;"></div>
+                <table id="serversList" class="tableList">
+                    <thead style="width: 100%">
+                        <tr style="background: #f0f0f0; width: 100%">
+                            <th>Name</th>
+                            <th>Game</th>
+                            <th>Instance Type</th>
+                            <th>Status</th>
+                            <th>Current Task</th>
+                            <th style="width: 99%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serversListBody"></tbody>
+                </table>
             </div>
 
             <div id="users" class="page" style="display: none">
@@ -79,6 +110,7 @@
                     <button id="updateUsers" onclick="updateUsers()" style="display: none; height: 20px; margin-left: 20px">Save</button>
                     <div id="updateUsersMessage" style="height: 20px; margin-left: 20px"></div>
                 </div>
+                <div id="usersListNoPermission" style="display: none">No permission</div>
                 <div id="usersList"></div>
             </div>
 
