@@ -12,51 +12,54 @@ import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 export class GnawsStack extends cdk.Stack {
+    // Storage
+    private serverManagerPassword: secretsmanager.Secret;
+    private jwtSecret: secretsmanager.Secret;
+    private userTable: dynamodb.Table;
+    private serverTable: dynamodb.Table;
+    private workflowTable: dynamodb.Table;
+    // Frontend
+    private websiteBucket: s3.Bucket;
+    // State Machines
+    private startServerFunction: sfn.StateMachine;
+    // Controller lambda
+    private apiUrl: string;
+
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
-        const { serverManagerPassword, jwtSecret, userTable, gameServerTable, workflowTable } = this.buildStorageResources();
-        const { websiteBucket, websiteUrl } = this.buildFrontend();
-        const { startServerFunction } = this.buildWorkflows();
-        const { apiUrl } = this.buildBackend(websiteUrl, serverManagerPassword, jwtSecret, startServerFunction, userTable, gameServerTable, workflowTable);
-
-        this.deployFrontendConfig(websiteBucket, {
-            API_BASE: apiUrl,
-        });
+        this.buildStorageResources();
+        this.buildFrontend();
+        this.buildWorkflows();
+        this.buildBackend();
+        this.deployFrontendConfig();
     }
 
-    private buildBackend(
-        websiteUrl: string,
-        serverManagerPassword: secretsmanager.Secret,
-        jwtSecret: secretsmanager.Secret,
-        startServerFunction: sfn.StateMachine,
-        userTable: dynamodb.Table,
-        gameServerTable: dynamodb.Table,
-        workflowTable: dynamodb.Table
-    ) {
+    private buildBackend() {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: "index.handler",
             code: lambda.Code.fromAsset("backend/lambda"),
             environment: {
-                USER_TABLE_NAME: userTable.tableName,
-                SERVER_MANAGER_PASSWORD: serverManagerPassword.secretArn,
-                JWT_SECRET: jwtSecret.secretArn,
-                START_SERVER_FUNCTION_ARN: startServerFunction.stateMachineArn,
+                USER_TABLE_NAME: this.userTable.tableName,
+                SERVER_TABLE_NAME: this.serverTable.tableName,
+                SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
+                JWT_SECRET: this.jwtSecret.secretArn,
+                START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
             },
         });
-        serverManagerPassword.grantRead(backend);
-        jwtSecret.grantRead(backend);
-        userTable.grantFullAccess(backend);
-        gameServerTable.grantFullAccess(backend);
-        workflowTable.grantFullAccess(backend);
-        startServerFunction.grantStartExecution(backend);
+        this.serverManagerPassword.grantRead(backend);
+        this.jwtSecret.grantRead(backend);
+        this.userTable.grantFullAccess(backend);
+        this.serverTable.grantFullAccess(backend);
+        this.workflowTable.grantFullAccess(backend);
+        this.startServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
             corsPreflight: {
                 // TODO: change origin
-                allowOrigins: ["http://localhost:5174", websiteUrl],
+                allowOrigins: ["http://localhost:5174", this.websiteBucket.bucketWebsiteUrl],
                 allowMethods: [apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
                 allowHeaders: ["Content-Type", "Authorization"],
                 allowCredentials: true,
@@ -70,14 +73,13 @@ export class GnawsStack extends cdk.Stack {
 
         const apiUrl = api.url;
         if (apiUrl === undefined) throw "No API url";
+        this.apiUrl = apiUrl;
         new cdk.CfnOutput(this, "GnawsApiUrl", { value: apiUrl });
-
-        return { apiUrl };
     }
 
     private buildFrontend() {
         // S3 bucket for website resources
-        const websiteBucket = new s3.Bucket(this, "GnawsWebsiteBucket", {
+        this.websiteBucket = new s3.Bucket(this, "GnawsWebsiteBucket", {
             publicReadAccess: true,
             websiteIndexDocument: "index.html",
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
@@ -86,44 +88,45 @@ export class GnawsStack extends cdk.Stack {
         // Deploy frontend to S3
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
             sources: [s3deploy.Source.asset("frontend")],
-            destinationBucket: websiteBucket,
+            destinationBucket: this.websiteBucket,
         });
 
         // CloudFormation outputs
-        const websiteUrl = websiteBucket.bucketWebsiteUrl;
         new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: websiteUrl,
+            value: this.websiteBucket.bucketWebsiteUrl,
         });
-        return { websiteBucket, websiteUrl };
     }
 
-    private deployFrontendConfig(websiteBucket: s3.Bucket, configs: { [key: string]: string }) {
+    private deployFrontendConfig() {
+        const configs = {
+            apiUrl: this.apiUrl,
+        };
         const constants = Object.entries(configs)
             .map(([k, v]) => `const ${k} = '${v}';`)
             .join("\n");
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteConfig", {
-            destinationBucket: websiteBucket,
+            destinationBucket: this.websiteBucket,
             sources: [s3deploy.Source.asset("frontend"), s3deploy.Source.data("config.js", constants)],
         });
     }
 
     private buildStorageResources() {
-        const serverManagerPassword = new secretsmanager.Secret(this, "GnawsServerManagerPassword", {
+        this.serverManagerPassword = new secretsmanager.Secret(this, "GnawsServerManagerPassword", {
             secretStringValue: cdk.SecretValue.unsafePlainText("pass121"),
         });
-        const jwtSecret = new secretsmanager.Secret(this, "GnawsJwtSigningSecret", {
+        this.jwtSecret = new secretsmanager.Secret(this, "GnawsJwtSigningSecret", {
             generateSecretString: {
                 passwordLength: 64,
                 excludePunctuation: true,
             },
         });
-        const userTable = new dynamodb.Table(this, "GnawsUsersTable", {
+        this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
         });
-        const gameServerTable = new dynamodb.Table(this, "GnawsGameServersTable", {
+        this.serverTable = new dynamodb.Table(this, "GnawsGameServersTable", {
             partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
         });
-        const workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
+        this.workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
             partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
         });
 
@@ -133,7 +136,7 @@ export class GnawsStack extends cdk.Stack {
                 service: "DynamoDB",
                 action: "putItem",
                 parameters: {
-                    TableName: userTable.tableName,
+                    TableName: this.userTable.tableName,
                     Item: {
                         username: { S: "admin" },
                         role: { S: "admin" },
@@ -142,34 +145,23 @@ export class GnawsStack extends cdk.Stack {
                 physicalResourceId: cr.PhysicalResourceId.of("GnawsSeedAdminUser"),
             },
             policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
-                resources: [userTable.tableArn],
+                resources: [this.userTable.tableArn],
             }),
         });
-
-        return {
-            serverManagerPassword,
-            jwtSecret,
-            userTable,
-            gameServerTable,
-            workflowTable,
-        };
     }
 
     private buildWorkflows() {
-        const startServerFunction = new sfn.StateMachine(this, "GnawsStartGameServer", {
+        this.startServerFunction = new sfn.StateMachine(this, "GnawsStartGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/start-game-server.asl.json"),
             timeout: cdk.Duration.minutes(10),
         });
 
-        startServerFunction.role.addToPrincipalPolicy(
+        this.startServerFunction.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
                 actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand"],
                 resources: ["*"],
             })
         );
-        new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: startServerFunction.stateMachineArn });
-        return {
-            startServerFunction,
-        };
+        new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
     }
 }

@@ -3,14 +3,16 @@ import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
 import { getUsers, updateUsers } from "./users";
 import { testStartServer } from "./workflows";
+import { getServers } from "./servers";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
 const LOGOUT_TYPE = "logout";
 const GET_USERS_TYPE = "getUsers";
 const UPDATE_USERS_TYPE = "updateUsers";
+const GET_SERVERS_TYPE = "getServers";
 const START_TEST_SERVER_TYPE = "startTestServer";
-const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, START_TEST_SERVER_TYPE];
+const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, START_TEST_SERVER_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -48,6 +50,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (requestType === UPDATE_USERS_TYPE) {
         return await updateUsers(user, params);
+    }
+    if (requestType === GET_SERVERS_TYPE) {
+        return await getServers(user, params);
     }
     if (requestType === START_TEST_SERVER_TYPE) {
         return await testStartServer(user, params);

@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from "aws-lambda";
-import { DynamoDBClient, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
-
-const dynamoClient = new DynamoDBClient({});
+import { GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { dynamoClient } from "./clients";
 
 const USER_TABLE = process.env.USER_TABLE_NAME!;
 export const ROLE_NEW = "new";

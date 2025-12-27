@@ -62,14 +62,15 @@
         </div>
         <div id="content" style="display: none">
             <nav>
-                <button onclick="showPage('servers')" class="active">Servers</button>
-                <button onclick="showPage('users')">Users</button>
-                <button onclick="showPage('logs')">Logs</button>
+                <button onclick="showPage(this, 'servers')" class="active">Servers</button>
+                <button onclick="showPage(this, 'users')">Users</button>
+                <button onclick="showPage(this, 'logs')">Logs</button>
             </nav>
 
             <div id="servers" class="page">
                 <h2>Servers</h2>
-                <button onclick="start()">Start Server</button>
+                <div id="serversList"></div>
+                <button onclick="testStart()">Start Server</button>
             </div>
 
             <div id="users" class="page" style="display: none">
@@ -88,19 +89,12 @@
         </div>
         <script src="config.js"></script>
         <script src="app.js"></script>
+        <script src="auth.js"></script>
+        <script src="user.js"></script>
+        <script src="server.js"></script>
+        <script src="shared.js"></script>
         <script>
             login(false);
-            function showPage(pageId) {
-                document.querySelectorAll(".page").forEach((page) => {
-                    page.style.display = "none";
-                });
-                document.querySelectorAll("nav button").forEach((btn) => {
-                    btn.classList.remove("active");
-                });
-                document.getElementById(pageId).style.display = "block";
-                event.target.classList.add("active");
-                loadPage(pageId);
-            }
         </script>
     </body>
 </html>
