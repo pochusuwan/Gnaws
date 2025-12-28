@@ -39,7 +39,13 @@ function renderServers() {
     const serversList = document.getElementById("serversListBody");
     serversList.replaceChildren();
 
-    server_servers.forEach((server) => serversList.appendChild(buildRow(server.name, server.game, server.instanceType, server.status, server.currentTask)));
+    server_servers.forEach((server) => serversList.appendChild(buildRow(
+        server.name,
+        server.game?.name,
+        server.ec2?.instanceType,
+        server.status?.status,
+        server.workflow?.currentTask
+    )));
 }
 
 function buildRow(name, game, instanceType, status, currentTask) {
@@ -72,7 +78,7 @@ function buildRow(name, game, instanceType, status, currentTask) {
 
 async function onActionClick(name, action) {
     document.getElementById("serverMessage").textContent = "";
-    const res = await callAPI("serverAction", { name, action });
+    const res = await callAPI("serverAction", { name, action: action.toLowerCase() });
     const data = await res.json();
     if (res.ok) {
         document.getElementById("serverMessage").textContent = data.message;

@@ -162,6 +162,19 @@
         }
       },
       "ResultPath": "$.command",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName": "GnawsStack-GnawsWorkflowTable992D6BAE-1FBSS3DDOMJ5C",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceIds[0]"
+          }
+        }
+      },
       "End": true
     },
     "FailSSMTimeout": {

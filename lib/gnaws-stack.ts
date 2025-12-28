@@ -43,6 +43,7 @@ export class GnawsStack extends cdk.Stack {
             environment: {
                 USER_TABLE_NAME: this.userTable.tableName,
                 SERVER_TABLE_NAME: this.serverTable.tableName,
+                WORKFLOW_TABLE_NAME: this.workflowTable.tableName,
                 SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
                 JWT_SECRET: this.jwtSecret.secretArn,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
@@ -162,6 +163,7 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["*"],
             })
         );
+        this.workflowTable.grantWriteData(this.startServerFunction);
         new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
     }
 }
