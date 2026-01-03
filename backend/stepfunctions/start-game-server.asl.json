@@ -19,7 +19,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
       "Parameters": {
-        "InstanceIds.$": "$.instanceIds"
+        "InstanceIds.$": "States.Array($.instanceId)"
       },
       "ResultPath": "$.ec2",
       "Next": "IncrementEC2Check"
@@ -83,7 +83,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ec2:startInstances",
       "Parameters": {
-        "InstanceIds.$": "$.instanceIds"
+        "InstanceIds.$": "States.Array($.instanceId)"
       },
       "ResultPath": "$.ec2",
       "Next": "WaitForEC2Running"
@@ -100,7 +100,7 @@
         "Filters": [
           {
             "Key": "InstanceIds",
-            "Values.$": "$.instanceIds"
+            "Values.$": "States.Array($.instanceId)"
           }
         ]
       },
@@ -152,7 +152,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
       "Parameters": {
-        "InstanceIds.$": "$.instanceIds",
+        "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
@@ -168,10 +168,10 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::dynamodb:deleteItem",
       "Parameters": {
-        "TableName": "GnawsStack-GnawsWorkflowTable992D6BAE-1FBSS3DDOMJ5C",
+        "TableName.$": "$.workflowTable",
         "Key": {
           "resourceId": {
-            "S.$": "$.instanceIds[0]"
+            "S.$": "$.instanceId"
           }
         }
       },

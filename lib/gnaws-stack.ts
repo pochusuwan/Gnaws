@@ -22,6 +22,7 @@ export class GnawsStack extends cdk.Stack {
     private websiteBucket: s3.Bucket;
     // State Machines
     private startServerFunction: sfn.StateMachine;
+    private getServerStatusFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
 
@@ -47,6 +48,7 @@ export class GnawsStack extends cdk.Stack {
                 SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
                 JWT_SECRET: this.jwtSecret.secretArn,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
+                GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
             },
         });
         this.serverManagerPassword.grantRead(backend);
@@ -55,6 +57,7 @@ export class GnawsStack extends cdk.Stack {
         this.serverTable.grantFullAccess(backend);
         this.workflowTable.grantFullAccess(backend);
         this.startServerFunction.grantStartExecution(backend);
+        this.getServerStatusFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -160,10 +163,23 @@ export class GnawsStack extends cdk.Stack {
         this.startServerFunction.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
                 actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand"],
-                resources: ["*"],
+                resources: ["*"], // TODO: to managed EC2 only
             })
         );
         this.workflowTable.grantWriteData(this.startServerFunction);
         new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
+
+        this.getServerStatusFunction = new sfn.StateMachine(this, "GnawsGetServerStatus", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/get-server-status.asl.json"),
+            timeout: cdk.Duration.minutes(5),
+        });
+        this.getServerStatusFunction.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
+                resources: ["*"], // TODO: to managed EC2 only
+            })
+        );
+        this.serverTable.grantWriteData(this.getServerStatusFunction);
+        new cdk.CfnOutput(this, "GnawsGetServerStatusFunctionArn", { value: this.getServerStatusFunction.stateMachineArn });
     }
 }

@@ -3,12 +3,13 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { startServerWorkflow } from "./workflows";
+import { getServerStatusWorkflow, startServerWorkflow } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const LOCK_TIMEOUT_MS = 15 * 60 * 1000;
+const GET_STATUS_TIMEOUT = 30 * 1000;
 
 const ACTION_START = "start";
 const ACTION_STOP = "stop";
@@ -26,7 +27,8 @@ export type Server = {
     };
     status?: {
         status?: string;
-        lastUpdated?: number;
+        message?: string;
+        lastUpdated?: string;
     };
     workflow?: {
         currentTask?: string;
@@ -38,16 +40,45 @@ export type Server = {
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
-    const command = new ScanCommand({ TableName: SERVER_TABLE });
-    let result;
+    const refreshStatus = !!params?.refreshStatus;
+    let servers;
     try {
-        result = await dynamoClient.send(command);
+        servers = await getServersFromDB();
     } catch (e) {
         return serverError("Failed to get servers");
     }
+    if (!refreshStatus) {
+        return success({ servers });
+    }
+    const now = new Date();
+    const promises: Promise<any>[] = []
+    servers.forEach((server) => {
+        const lastUpdated = server?.status?.lastUpdated;
+        const lastChecked = lastUpdated ? new Date(lastUpdated) : undefined;
+        const instanceId = server.ec2?.instanceId;
+        if (instanceId && (!lastChecked || now.getTime() - lastChecked.getTime() > GET_STATUS_TIMEOUT)) {
+            server.status = {
+                lastUpdated: now.toISOString()
+            }
+            promises.push(getServerStatusWorkflow(server.name, instanceId));
+            promises.push(setServerStatusObj(server.name, server.status));
+        }
+    });
+    
+    const results = await Promise.allSettled(promises);
+    const isSuccess = results.filter((result) => result.status === "rejected").length === 0;
+    if (!isSuccess) {
+        return serverError("Failed to get servers status");
+    }
+    return success({ servers });
+};
 
-    const items = result.Items?.map((item) => unmarshall(item));
-    return success({ servers: items ?? [] });
+const getServersFromDB = async (): Promise<Server[]> => {
+    const command = new ScanCommand({
+        TableName: SERVER_TABLE
+    });
+    const result = await dynamoClient.send(command);
+    return result.Items?.map((item) => unmarshall(item)) as Server[] ?? [];
 };
 
 // Get server from name. If not valid, return null.
@@ -171,3 +202,21 @@ const setServerWorkflowObj = async (name: string, workflowObj: Server["workflow"
         })
     );
 };
+
+const setServerStatusObj = async (name: string, statusObj: Server["status"]) => {
+    await dynamoClient.send(
+        new UpdateItemCommand({
+            TableName: SERVER_TABLE,
+            Key: {
+                name: { S: name },
+            },
+            UpdateExpression: "SET #s = :status",
+            ExpressionAttributeNames: {
+                "#s": "status",
+            },
+            ExpressionAttributeValues: marshall({
+                ":status": statusObj,
+            }),
+        })
+    );
+}

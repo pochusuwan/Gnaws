@@ -1,5 +1,6 @@
 let server_servers = null;
 let server_loadingServers = false;
+let server_blockRefresh = false;
 
 const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
@@ -15,17 +16,33 @@ function resetServers() {
 async function loadServersPage() {
     if (!server_loadingServers && server_servers === null) {
         server_loadingServers = true;
-        const servers = await loadServers();
+        const servers = await loadServers(true);
         if (servers !== null) {
             server_servers = servers;
             renderServers();
         }
+        scheduleRefreshServers();
         server_loadingServers = false;
     }
 }
 
-async function loadServers() {
-    const res = await callAPI("getServers");
+function scheduleRefreshServers() {
+    const shouldSchedule = server_servers?.some((server) => !server.status?.status);
+    if (shouldSchedule && !server_blockRefresh) {
+        const refresh = async () => {
+            const servers = await loadServers(false);
+            if (servers !== null) {
+                server_servers = servers;
+                renderServers();
+            }
+            scheduleRefreshServers();
+        }
+        setTimeout(refresh, 2000);
+    }
+}
+
+async function loadServers(refreshStatus) {
+    const res = await callAPI("getServers", { refreshStatus });
     if (res.ok) {
         const data = await res.json();
         if (data.servers) {
