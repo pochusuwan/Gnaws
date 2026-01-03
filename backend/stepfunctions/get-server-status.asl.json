@@ -2,6 +2,118 @@
   "Comment": "Get game server status with /opt/is_online.sh and update server status in DDB",
   "StartAt": "DescribeEC2",
   "States": {
+    "DescribeEC2Fail": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "instance offline"
+        },
+        "message": {
+          "S": "Could not get EC2 state"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "InvalidEC2State": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "instance offline"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "DescribeSSMFail": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "instance offline"
+        },
+        "message": {
+          "S": "Could not get ssm status"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "InvalidSSMStatus": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "instance offline"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "SetOnline": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "server online"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "SetOffline": {
+      "Type": "Pass",
+      "Parameters": {
+        "status": {
+          "S": "server offline"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        }
+      },
+      "ResultPath": "$.statusObj.val",
+      "Next": "WriteToDDB"
+    },
+    "WriteToDDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Parameters": {
+        "TableName.$": "$.serverTable",
+        "Key": {
+          "name": {
+            "S.$": "$.serverName"
+          }
+        },
+        "UpdateExpression": "SET #s = :statusObj",
+        "ExpressionAttributeNames": {
+          "#s": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":statusObj": {
+            "M.$": "$.statusObj.val"
+          }
+        }
+      },
+      "End": true
+    },
     "DescribeEC2": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
@@ -76,12 +188,12 @@
         {
           "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
           "StringEquals": "Online",
-          "Next": "CheckGameServer"
+          "Next": "CheckGameServerStatus"
         }
       ],
       "Default": "InvalidSSMStatus"
     },
-    "CheckGameServer": {
+    "CheckGameServerStatus": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
       "Parameters": {
@@ -98,7 +210,7 @@
     },
     "WaitForCommand": {
       "Type": "Wait",
-      "Seconds": 1,
+      "Seconds": 2,
       "Next": "GetCommandResult"
     },
     "GetCommandResult": {
@@ -116,135 +228,11 @@
       "Choices": [
         {
           "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "online",
+          "StringEquals": "online\n",
           "Next": "SetOnline"
         }
       ],
       "Default": "SetOffline"
-    },
-    "SetOnline": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "server online"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "SetOffline": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "server offline"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "DescribeEC2Fail": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "instance offline"
-          },
-          "message": {
-            "S": "Could not get EC2 state"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "InvalidEC2State": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "instance offline"
-          },
-          "message": {
-            "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "DescribeSSMFail": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "instance offline"
-          },
-          "message": {
-            "S": "Could not get ssm status"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "InvalidSSMStatus": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": {
-          "status": {
-            "S": "instance offline"
-          },
-          "message": {
-            "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
-          },
-          "lastUpdated": {
-            "S.$": "$$.State.EnteredTime"
-          }
-        }
-      },
-      "ResultPath": "$.statusObj",
-      "Next": "WriteToDDB"
-    },
-    "WriteToDDB": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
-      "Parameters": {
-        "TableName.$": "$.serverTable",
-        "Key": {
-          "name": {
-            "S.$": "$.serverName"
-          }
-        },
-        "UpdateExpression": "SET #s = :statusObj",
-        "ExpressionAttributeNames": {
-          "#s": "status"
-        },
-        "ExpressionAttributeValues": {
-          ":statusObj": {
-            "M.$": "$.statusObj.val"
-          }
-        }
-      },
-      "End": true
     }
   }
 }

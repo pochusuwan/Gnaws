@@ -1,6 +1,8 @@
 let server_servers = null;
 let server_loadingServers = false;
 let server_blockRefresh = false;
+let server_refreshScheduled = false;
+let server_autoRefreshCount = 0;
 
 const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
@@ -27,17 +29,25 @@ async function loadServersPage() {
 }
 
 function scheduleRefreshServers() {
-    const shouldSchedule = server_servers?.some((server) => !server.status?.status);
-    if (shouldSchedule && !server_blockRefresh) {
-        const refresh = async () => {
-            const servers = await loadServers(false);
-            if (servers !== null) {
-                server_servers = servers;
-                renderServers();
-            }
-            scheduleRefreshServers();
-        }
-        setTimeout(refresh, 2000);
+    const shouldSchedule = server_servers?.some((server) => !server.status?.status || server.workflow?.status === "running");
+    if (shouldSchedule && !server_blockRefresh && !server_refreshScheduled && server_autoRefreshCount < 10) {
+        server_refreshScheduled = true;
+        server_autoRefreshCount += 1;
+        setTimeout(() => {
+            server_refreshScheduled = false;
+            refreshServers();
+        }, 3500);
+    }
+}
+
+async function refreshServers() {
+    const servers = await loadServers(false);
+    if (servers !== null) {
+        server_servers = servers;
+        renderServers();
+        scheduleRefreshServers();
+    } else {
+        server_blockRefresh = true;
     }
 }
 
@@ -56,13 +66,13 @@ function renderServers() {
     const serversList = document.getElementById("serversListBody");
     serversList.replaceChildren();
 
-    server_servers.forEach((server) => serversList.appendChild(buildRow(
-        server.name,
-        server.game?.name,
-        server.ec2?.instanceType,
-        server.status?.status,
-        server.workflow?.currentTask
-    )));
+    server_servers.forEach((server) => {
+        let currentTask = server.workflow?.currentTask;
+        if (currentTask) {
+            currentTask += ": " + server.workflow.status;
+        }
+        serversList.appendChild(buildRow(server.name, server.game?.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask));
+    });
 }
 
 function buildRow(name, game, instanceType, status, currentTask) {
@@ -99,6 +109,9 @@ async function onActionClick(name, action) {
     const data = await res.json();
     if (res.ok) {
         document.getElementById("serverMessage").textContent = data.message;
+        if (!server_refreshScheduled) {
+            refreshServers();
+        }
     } else {
         document.getElementById("serverMessage").textContent = "Error: " + data.error;
     }

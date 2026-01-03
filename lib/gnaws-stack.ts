@@ -160,12 +160,12 @@ export class GnawsStack extends cdk.Stack {
     private buildWorkflows() {
         this.startServerFunction = new sfn.StateMachine(this, "GnawsStartGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/start-game-server.asl.json"),
-            timeout: cdk.Duration.minutes(10),
+            timeout: cdk.Duration.minutes(40),
         });
 
         this.startServerFunction.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand"],
+                actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
                 resources: ["*"], // TODO: to managed EC2 only
             })
         );
@@ -175,7 +175,7 @@ export class GnawsStack extends cdk.Stack {
 
         this.stopServerFunction = new sfn.StateMachine(this, "GnawsStopGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/stop-game-server.asl.json"),
-            timeout: cdk.Duration.minutes(10),
+            timeout: cdk.Duration.minutes(15),
         });
 
         this.stopServerFunction.role.addToPrincipalPolicy(

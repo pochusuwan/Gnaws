@@ -51,20 +51,20 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
         return success({ servers });
     }
     const now = new Date();
-    const promises: Promise<any>[] = []
+    const promises: Promise<any>[] = [];
     servers.forEach((server) => {
         const lastUpdated = server?.status?.lastUpdated;
         const lastChecked = lastUpdated ? new Date(lastUpdated) : undefined;
         const instanceId = server.ec2?.instanceId;
         if (instanceId && (!lastChecked || now.getTime() - lastChecked.getTime() > GET_STATUS_TIMEOUT)) {
             server.status = {
-                lastUpdated: now.toISOString()
-            }
+                lastUpdated: now.toISOString(),
+            };
             promises.push(getServerStatusWorkflow(server.name, instanceId));
             promises.push(setServerStatusObj(server.name, server.status));
         }
     });
-    
+
     const results = await Promise.allSettled(promises);
     const isSuccess = results.filter((result) => result.status === "rejected").length === 0;
     if (!isSuccess) {
@@ -75,10 +75,10 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
 
 const getServersFromDB = async (): Promise<Server[]> => {
     const command = new ScanCommand({
-        TableName: SERVER_TABLE
+        TableName: SERVER_TABLE,
     });
     const result = await dynamoClient.send(command);
-    return result.Items?.map((item) => unmarshall(item)) as Server[] ?? [];
+    return (result.Items?.map((item) => unmarshall(item)) as Server[]) ?? [];
 };
 
 // Get server from name. If not valid, return null.
@@ -165,9 +165,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
             lastUpdated: result.startedAt.toISOString(),
         });
     } catch (e) {
-        return success("Started");
+        return success({ message: "Started" });
     }
-    return success("Started");
+    return success({ message: "Started" });
 };
 
 const aquireWorkflowLock = async (resourceId: string, action: string) => {
@@ -222,4 +222,4 @@ const setServerStatusObj = async (name: string, statusObj: Server["status"]) => 
             }),
         })
     );
-}
+};

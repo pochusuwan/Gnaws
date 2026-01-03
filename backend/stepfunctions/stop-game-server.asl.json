@@ -119,7 +119,7 @@
           "S": "failed"
         },
         "message": {
-          "S": "Game server did not stop in time"
+          "S": "Timeout waiting for game server to stop"
         }
       },
       "ResultPath": "$.workflowObj.val",
@@ -258,12 +258,12 @@
         {
           "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
           "StringEquals": "Online",
-          "Next": "CheckGameServer"
+          "Next": "CheckGameServerStatus"
         }
       ],
       "Default": "InvalidSSMStatus"
     },
-    "CheckGameServer": {
+    "CheckGameServerStatus": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
       "Parameters": {
@@ -280,7 +280,7 @@
     },
     "WaitForCommand": {
       "Type": "Wait",
-      "Seconds": 1,
+      "Seconds": 2,
       "Next": "GetCommandResult"
     },
     "GetCommandResult": {
@@ -306,14 +306,14 @@
       "Choices": [
         {
           "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "offline",
+          "StringEquals": "offline\n",
           "Next": "StopInstance"
         },
         {
           "And": [
             {
               "Variable": "$.commandResult.StandardOutputContent",
-              "StringEquals": "online"
+              "StringEquals": "online\n"
             },
             {
               "Variable": "$.meta.stopGameServerCommandSent.val",
@@ -324,7 +324,7 @@
         },
         {
           "Variable": "$.meta.gameServerChecks.val",
-          "NumericGreaterThanEquals": 10,
+          "NumericGreaterThanEquals": 20,
           "Next": "FailGameServerTimeout"
         }
       ],
@@ -332,8 +332,8 @@
     },
     "WaitGameServerOffline": {
       "Type": "Wait",
-      "Seconds": 20,
-      "Next": "CheckGameServer"
+      "Seconds": 30,
+      "Next": "CheckGameServerStatus"
     },
     "StopGameServer": {
       "Type": "Task",

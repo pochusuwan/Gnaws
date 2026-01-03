@@ -1,5 +1,5 @@
 {
-  "Comment": "Start EC2 then start game server",
+  "Comment": "Start EC2 instance, check game server is not online with /opt/is_online.sh, then start game server with /opt/start_server.sh",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -10,10 +10,184 @@
         },
         "ec2Checks": {
           "val": 0
+        },
+        "gameServerChecks": {
+          "val": 0
+        },
+        "startGameServerCommandSent": {
+          "val": false
         }
       },
       "ResultPath": "$.meta",
       "Next": "DescribeEC2"
+    },
+    "DescribeEC2Fail": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Could not get EC2 state"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidEC2State": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "FailEC2Timeout": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Timeout waiting for instance running"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "FailSSMTimeout": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Timeout waiting for SSM online"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "FailGameServerTimeout": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Timeout waiting for server to start"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "Success": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "start"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "success"
+        },
+        "message": {
+          "S": "Started game server"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "WriteToServerDDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Parameters": {
+        "TableName.$": "$.serverTable",
+        "Key": {
+          "name": {
+            "S.$": "$.serverName"
+          }
+        },
+        "UpdateExpression": "SET #w = :workflowObj",
+        "ExpressionAttributeNames": {
+          "#w": "workflow"
+        },
+        "ExpressionAttributeValues": {
+          ":workflowObj": {
+            "M.$": "$.workflowObj.val"
+          }
+        }
+      },
+      "ResultPath": "$.updateServer",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.workflowTable",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceId"
+          }
+        }
+      },
+      "End": true
     },
     "DescribeEC2": {
       "Type": "Task",
@@ -73,7 +247,7 @@
         },
         {
           "Variable": "$.meta.ec2Checks.val",
-          "NumericGreaterThanEquals": 10,
+          "NumericGreaterThanEquals": 30,
           "Next": "FailEC2Timeout"
         }
       ],
@@ -113,27 +287,28 @@
         "val.$": "States.MathAdd($.meta.ssmChecks.val, 1)"
       },
       "ResultPath": "$.meta.ssmChecks",
-      "Next": "IsSSMReady"
+      "Next": "IsSSMOnline"
     },
-    "IsSSMReady": {
+    "IsSSMOnline": {
       "Type": "Choice",
       "Choices": [
         {
-          "And": [
+          "Or": [
             {
               "Variable": "$.ssm.InstanceInformationList",
-              "IsPresent": true
+              "IsPresent": false
             },
             {
               "Variable": "$.ssm.InstanceInformationList[0]",
-              "IsPresent": true
-            },
-            {
-              "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
-              "StringEquals": "Online"
+              "IsPresent": false
             }
           ],
-          "Next": "RunGameServer"
+          "Next": "WaitBeforeRetrySSM"
+        },
+        {
+          "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+          "StringEquals": "Online",
+          "Next": "CheckGameServerStatus"
         },
         {
           "Variable": "$.meta.ssmChecks.val",
@@ -148,7 +323,7 @@
       "Seconds": 20,
       "Next": "DescribeEC2SSM"
     },
-    "RunGameServer": {
+    "CheckGameServerStatus": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
       "Parameters": {
@@ -156,46 +331,92 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "cd /home/ubuntu",
-            "./start-server.sh"
+            "/opt/is_online.sh"
           ]
         }
       },
       "ResultPath": "$.command",
-      "Next": "RemoveLock"
+      "Next": "WaitForCommand"
     },
-    "RemoveLock": {
+    "WaitForCommand": {
+      "Type": "Wait",
+      "Seconds": 2,
+      "Next": "GetCommandResult"
+    },
+    "GetCommandResult": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
       "Parameters": {
-        "TableName.$": "$.workflowTable",
-        "Key": {
-          "resourceId": {
-            "S.$": "$.instanceId"
-          }
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementGameServerCheck"
+    },
+    "IncrementGameServerCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.gameServerChecks.val, 1)"
+      },
+      "ResultPath": "$.meta.gameServerChecks",
+      "Next": "CheckGameServerOutput"
+    },
+    "CheckGameServerOutput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringEquals": "online\n",
+          "Next": "Success"
+        },
+        {
+          "And": [
+            {
+              "Variable": "$.commandResult.StandardOutputContent",
+              "StringEquals": "offline\n"
+            },
+            {
+              "Variable": "$.meta.startGameServerCommandSent.val",
+              "BooleanEquals": false
+            }
+          ],
+          "Next": "StartGameServer"
+        },
+        {
+          "Variable": "$.meta.gameServerChecks.val",
+          "NumericGreaterThanEquals": 40,
+          "Next": "FailGameServerTimeout"
+        }
+      ],
+      "Default": "WaitGameServerOnline"
+    },
+    "StartGameServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "/opt/start_server.sh"
+          ]
         }
       },
-      "End": true
+      "ResultPath": "$.command",
+      "Next": "SetGameServerStartSent"
     },
-    "FailSSMTimeout": {
-      "Type": "Fail",
-      "Error": "SSMTimeout",
-      "Cause": "SSM agent did not come online in time"
+    "SetGameServerStartSent": {
+      "Type": "Pass",
+      "Parameters": {
+        "val": true
+      },
+      "ResultPath": "$.meta.startGameServerCommandSent",
+      "Next": "WaitGameServerOnline"
     },
-    "FailEC2Timeout": {
-      "Type": "Fail",
-      "Error": "FailEC2Timeout",
-      "Cause": "EC2 did not start in time"
-    },
-    "InvalidEC2State": {
-      "Type": "Fail",
-      "Error": "InvalidEC2State",
-      "Cause": "EC2 is not in expected state"
-    },
-    "DescribeEC2Fail": {
-      "Type": "Fail",
-      "Error": "DescribeEC2Fail",
-      "Cause": "Failed to get EC2 state"
+    "WaitGameServerOnline": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckGameServerStatus"
     }
   }
 }
