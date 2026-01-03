@@ -3,7 +3,7 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { getServerStatusWorkflow, startServerWorkflow } from "./workflows";
+import { getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
@@ -32,10 +32,10 @@ export type Server = {
     };
     workflow?: {
         currentTask?: string;
-        executionArn?: string;
+        executionId?: string;
+        lastUpdated?: string;
         status?: string;
-        startedAt?: number;
-        error?: string;
+        message?: string;
     };
 };
 
@@ -118,25 +118,28 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (!instanceId) {
         return serverError("Server has no instance id");
     }
-
-    if (action === ACTION_START) {
-        return await startServer(server, instanceId);
+    if (action === ACTION_BACKUP) {
+        return serverError("Not implemented");
     }
-    return serverError("Not implemented");
-};
 
-const startServer = async (server: Server, instanceId: string): Promise<APIGatewayProxyResult> => {
+    // Acquire lock
     try {
-        await aquireWorkflowLock(instanceId, ACTION_START);
+        await aquireWorkflowLock(instanceId, action);
     } catch (err: any) {
         if (err.name === "ConditionalCheckFailedException") {
-            return clientError("Already in progress");
+            return clientError("Another action in progress");
         } else {
             return serverError("Failed to get workflow lock");
         }
     }
 
-    const result = await startServerWorkflow(instanceId);
+    let result;
+    if (action === ACTION_START) {
+        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN);
+    }
+    if (action === ACTION_STOP) {
+        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN);
+    }
     if (!result) {
         // Failed to start workflow. Remove lock and return error
         try {
@@ -148,18 +151,18 @@ const startServer = async (server: Server, instanceId: string): Promise<APIGatew
                     },
                 })
             );
-            return serverError("Failed to start server");
+            return serverError("Failed to start action");
         } catch (e) {
-            return serverError("Failed to start server");
+            return serverError("Failed to start action");
         }
     }
     // Workflow started. Update server table
     try {
         await setServerWorkflowObj(server.name, {
             currentTask: ACTION_START,
-            executionArn: result.executionArn,
+            executionId: result.executionId,
             status: "running",
-            startedAt: result.startedAt,
+            lastUpdated: result.startedAt.toISOString(),
         });
     } catch (e) {
         return success("Started");

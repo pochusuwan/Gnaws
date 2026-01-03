@@ -22,6 +22,7 @@ export class GnawsStack extends cdk.Stack {
     private websiteBucket: s3.Bucket;
     // State Machines
     private startServerFunction: sfn.StateMachine;
+    private stopServerFunction: sfn.StateMachine;
     private getServerStatusFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
@@ -48,6 +49,7 @@ export class GnawsStack extends cdk.Stack {
                 SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
                 JWT_SECRET: this.jwtSecret.secretArn,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
+                STOP_SERVER_FUNCTION_ARN: this.stopServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
             },
         });
@@ -57,6 +59,7 @@ export class GnawsStack extends cdk.Stack {
         this.serverTable.grantFullAccess(backend);
         this.workflowTable.grantFullAccess(backend);
         this.startServerFunction.grantStartExecution(backend);
+        this.stopServerFunction.grantStartExecution(backend);
         this.getServerStatusFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
@@ -167,7 +170,23 @@ export class GnawsStack extends cdk.Stack {
             })
         );
         this.workflowTable.grantWriteData(this.startServerFunction);
+        this.serverTable.grantWriteData(this.startServerFunction);
         new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
+
+        this.stopServerFunction = new sfn.StateMachine(this, "GnawsStopGameServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/stop-game-server.asl.json"),
+            timeout: cdk.Duration.minutes(10),
+        });
+
+        this.stopServerFunction.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:StopInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
+                resources: ["*"], // TODO: to managed EC2 only
+            })
+        );
+        this.workflowTable.grantWriteData(this.stopServerFunction);
+        this.serverTable.grantWriteData(this.stopServerFunction);
+        new cdk.CfnOutput(this, "GnawsStopServerFunctionArn", { value: this.stopServerFunction.stateMachineArn });
 
         this.getServerStatusFunction = new sfn.StateMachine(this, "GnawsGetServerStatus", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/get-server-status.asl.json"),
