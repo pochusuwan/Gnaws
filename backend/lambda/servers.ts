@@ -5,6 +5,12 @@ import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
+import { _InstanceType, DescribeInstanceTypesCommand, RunInstancesCommand } from "@aws-sdk/client-ec2";
+import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
+
+const VPC_ID = process.env.VPC_ID!;
+const SUBNET_ID = process.env.SUBNET_ID!;
+const EC2_PROFILE_ARN = process.env.EC2_PROFILE_ARN!;
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
@@ -15,6 +21,8 @@ const ACTION_START = "start";
 const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
 const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP];
+
+const ec2Client = new EC2Client({ region: "us-east-1" });
 
 export type Server = {
     name: string;
@@ -159,7 +167,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     // Workflow started. Update server table
     try {
         await setServerWorkflowObj(server.name, {
-            currentTask: ACTION_START,
+            currentTask: action,
             executionId: result.executionId,
             status: "running",
             lastUpdated: result.startedAt.toISOString(),
@@ -222,4 +230,151 @@ const setServerStatusObj = async (name: string, statusObj: Server["status"]) => 
             }),
         })
     );
+};
+
+const setServerEc2Obj = async (name: string, ec2: Server["ec2"]) => {
+    await dynamoClient.send(
+        new UpdateItemCommand({
+            TableName: SERVER_TABLE,
+            Key: {
+                name: { S: name },
+            },
+            UpdateExpression: "SET #e = :ec2",
+            ExpressionAttributeNames: {
+                "#e": "ec2",
+            },
+            ExpressionAttributeValues: marshall({
+                ":ec2": ec2,
+            }),
+        })
+    );
+};
+
+type Port = {
+    port: number;
+    protocal: string;
+};
+export const createServer = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
+    if (user.role !== ROLE_ADMIN) {
+        return forbidden();
+    }
+    const serverName = params?.serverName;
+    if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName)) {
+        return clientError("Invalid serverName");
+    }
+    const instanceType = params?.instanceType;
+    if (typeof instanceType !== "string") {
+        return clientError("Invalid instanceType");
+    }
+    try {
+        await ec2Client.send(
+            new DescribeInstanceTypesCommand({
+                InstanceTypes: [instanceType as _InstanceType],
+            })
+        );
+    } catch (e) {
+        return clientError("Invalid instanceType");
+    }
+
+    if (!Array.isArray(params?.ports)) {
+        return clientError("Invalid ports");
+    }
+    const ports = params.ports
+        .map((p: any) => {
+            if (typeof p.port === "number" && typeof p.protocal === "string") {
+                return { port: p.port, protocal: p.protocal };
+            }
+            return null;
+        })
+        .filter((u: Port | null) => u != null) as Port[];
+    if (ports.length !== params.ports.length) {
+        return clientError("Invalid ports");
+    }
+    const server: Server = {
+        name: serverName,
+        status: {
+            status: "creating",
+            lastUpdated: new Date().toISOString(),
+        },
+    };
+    try {
+        await dynamoClient.send(
+            new PutItemCommand({
+                TableName: SERVER_TABLE,
+                Item: marshall(server),
+                ConditionExpression: "attribute_not_exists(#name)",
+                ExpressionAttributeNames: {
+                    "#name": "name",
+                },
+            })
+        );
+    } catch (e: any) {
+        if (e.name === "ConditionalCheckFailedException") {
+            return clientError("Server already exists");
+        }
+        return serverError("Failed to create server");
+    }
+
+    try {
+        const sgResponse = await ec2Client.send(
+            new CreateSecurityGroupCommand({
+                GroupName: `gnaws-${serverName}-sg`,
+                Description: `Security Group for ${serverName}`,
+                VpcId: VPC_ID,
+            })
+        );
+        const sgId = sgResponse.GroupId;
+        if (!sgId) {
+            return serverError("Failed to create security group");
+        }
+
+        await ec2Client.send(
+            new AuthorizeSecurityGroupIngressCommand({
+                GroupId: sgId,
+                IpPermissions: ports.map(({ port, protocal }) => ({ IpProtocol: protocal, FromPort: port, ToPort: port, IpRanges: [{ CidrIp: "0.0.0.0/0" }] })),
+            })
+        );
+        const runCmd = new RunInstancesCommand({
+            ImageId: "ami-0ecb62995f68bb549", // Amazon Linux AMI
+            InstanceType: instanceType as _InstanceType,
+            MaxCount: 1,
+            MinCount: 1,
+            SecurityGroupIds: [sgId],
+            SubnetId: SUBNET_ID,
+            BlockDeviceMappings: [
+                {
+                    DeviceName: "/dev/sda1",
+                    Ebs: {
+                        DeleteOnTermination: false,
+                        Iops: 3000,
+                        VolumeSize: 16,
+                        VolumeType: "gp3",
+                        Throughput: 125,
+                    },
+                },
+            ],
+            InstanceInitiatedShutdownBehavior: "stop",
+            IamInstanceProfile: { Arn: EC2_PROFILE_ARN },
+            TagSpecifications: [
+                {
+                    ResourceType: "instance",
+                    Tags: [{ Key: "Name", Value: `Gnaws-${serverName}` }],
+                },
+            ],
+        });
+        const res = await ec2Client.send(runCmd);
+
+        const instanceId = res.Instances![0].InstanceId;
+        server.ec2 = {
+            instanceId,
+            instanceType,
+        };
+        await setServerEc2Obj(serverName, server.ec2);
+
+        // TODO: EC2 initialization
+
+        return success({ server });
+    } catch (e) {
+        return serverError("Failed to create server");
+    }
 };

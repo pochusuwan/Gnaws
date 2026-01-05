@@ -2,7 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
 import { getUsers, updateUsers } from "./users";
-import { getServers, serverAction } from "./servers";
+import { getServers, serverAction, createServer } from "./servers";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -10,8 +10,9 @@ const LOGOUT_TYPE = "logout";
 const GET_USERS_TYPE = "getUsers";
 const UPDATE_USERS_TYPE = "updateUsers";
 const GET_SERVERS_TYPE = "getServers";
+const CREATE_SERVER_TYPE = "createServer";
 const SERVER_ACTION_TYPE = "serverAction";
-const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, SERVER_ACTION_TYPE];
+const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, SERVER_ACTION_TYPE, CREATE_SERVER_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -55,6 +56,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (requestType === SERVER_ACTION_TYPE) {
         return await serverAction(user, params);
+    }
+    if (requestType === CREATE_SERVER_TYPE) {
+        return await createServer(user, params);
     }
 
     return {

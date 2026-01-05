@@ -10,6 +10,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
 
 export class GnawsStack extends cdk.Stack {
     // Storage
@@ -26,12 +27,18 @@ export class GnawsStack extends cdk.Stack {
     private getServerStatusFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
+    // Network
+    private vpc: ec2.Vpc;
+    private subnetId: string;
+    private ec2Role: iam.Role;
+    private ec2Profile: iam.CfnInstanceProfile;
 
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
         this.buildStorageResources();
         this.buildFrontend();
         this.buildWorkflows();
+        this.buildNetworkResources();
         this.buildBackend();
         this.deployFrontendConfig();
     }
@@ -51,8 +58,24 @@ export class GnawsStack extends cdk.Stack {
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
                 STOP_SERVER_FUNCTION_ARN: this.stopServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
+                VPC_ID: this.vpc.vpcId,
+                SUBNET_ID: this.subnetId,
+                EC2_PROFILE_ARN: this.ec2Profile.attrArn,
             },
+            timeout: cdk.Duration.seconds(20),
         });
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:CreateSecurityGroup", "ec2:AuthorizeSecurityGroupIngress", "ec2:RunInstances", "ec2:CreateTags", "ec2:DescribeInstanceTypes"],
+                resources: ["*"],
+            })
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["iam:PassRole"],
+                resources: [this.ec2Role.roleArn],
+            })
+        );
         this.serverManagerPassword.grantRead(backend);
         this.jwtSecret.grantRead(backend);
         this.userTable.grantFullAccess(backend);
@@ -90,6 +113,8 @@ export class GnawsStack extends cdk.Stack {
             publicReadAccess: true,
             websiteIndexDocument: "index.html",
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteObjects: true
         });
 
         // Deploy frontend to S3
@@ -129,12 +154,15 @@ export class GnawsStack extends cdk.Stack {
         });
         this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
         this.serverTable = new dynamodb.Table(this, "GnawsGameServersTable", {
             partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
         this.workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
             partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
 
         // Create initial admin user
@@ -200,5 +228,32 @@ export class GnawsStack extends cdk.Stack {
         );
         this.serverTable.grantWriteData(this.getServerStatusFunction);
         new cdk.CfnOutput(this, "GnawsGetServerStatusFunctionArn", { value: this.getServerStatusFunction.stateMachineArn });
+    }
+
+    private buildNetworkResources() {
+        this.vpc = new ec2.Vpc(this, "GnawsGameServerVPC", {
+            vpcName: "gnaws-game-server-vpc",
+            maxAzs: 1,
+            subnetConfiguration: [
+                {
+                    name: "gnaws-public-game-server-subnet",
+                    subnetType: ec2.SubnetType.PUBLIC,
+                    cidrMask: 24,
+                },
+            ],
+            natGateways: 0,
+        });
+        this.subnetId = this.vpc.publicSubnets[0].subnetId;
+
+        this.ec2Role = new iam.Role(this, "GnawsEC2Role", {
+            roleName: "gnaws-ec2-role",
+            assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+            description: "Shared EC2 role to allow SSM access",
+        });
+        this.ec2Profile = new iam.CfnInstanceProfile(this, "GnawsEC2Profile", {
+            roles: [this.ec2Role.roleName],
+            instanceProfileName: "gnaws-ec2-profile",
+        });
+        this.ec2Role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
     }
 }
