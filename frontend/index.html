@@ -58,6 +58,18 @@
                 color: white;
                 border-color: #005a87;
             }
+            .create-server-grid {
+                display: grid !important;
+                grid-template-columns: 150px 200px 1fr;
+                gap: 8px 12px;
+                align-items: center;
+            }
+            .create-server-port-grid {
+                display: grid !important;
+                grid-template-columns: 150px 200px 50px 100px;
+                gap: 8px 12px;
+                align-items: center;
+            }
         </style>
     </head>
     <body>
@@ -88,7 +100,7 @@
 
             <div id="servers" class="page">
                 <h2>Servers</h2>
-                <div id="serverMessage" style="padding-bottom: 4px; height: 20px;"></div>
+                <div id="serverMessage" style="padding-bottom: 4px; height: 20px"></div>
                 <table id="serversList" class="tableList">
                     <thead style="width: 100%">
                         <tr style="background: #f0f0f0; width: 100%">
@@ -102,6 +114,35 @@
                     </thead>
                     <tbody id="serversListBody"></tbody>
                 </table>
+                <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px">Add server</button>
+                <div id="createServerPanel" style="display: none; margin-top: 20px">
+                    <div id="createServerGrid" class="create-server-grid">
+                        <div>Server Name:</div>
+                        <input type="text" id="createServerName" />
+                        <div>Valid characters: a-z, A-Z, 0-9, _-</div>
+
+                        <div>Template:</div>
+                        <select type="text" id="createServerTemplate"></select>
+                        <div>Server template</div>
+
+                        <div>Instane Type:</div>
+                        <input type="text" id="createServerInstanceType" value="t3.small" />
+                        <div>EC2 instance type</div>
+
+                        <div>Storage:</div>
+                        <input type="text" id="createServerStorage" value="8" />
+                        <div>GiB</div>
+                    </div>
+
+                    <div id="createServerPortGrid" class="create-server-port-grid" style="margin-top: 5px"></div>
+                    <button onclick="createServerAddPortClick()">Add Port</button>
+
+                    <div class="row" style="margin-top: 5px">
+                        <button onclick="createServerClick()">Create</button>
+                        <button onclick="cancelCreateServer()" style="margin-left: 10px">Cancel</button>
+                        <div id="createServerMessage" style="margin-left: 10px"></div>
+                    </div>
+                </div>
             </div>
 
             <div id="users" class="page" style="display: none">

@@ -3,6 +3,8 @@ let server_loadingServers = false;
 let server_blockRefresh = false;
 let server_refreshScheduled = false;
 let server_autoRefreshCount = 0;
+let server_createServerInitialized = false;
+let server_portCount = 0;
 
 const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
@@ -114,5 +116,112 @@ async function onActionClick(name, action) {
         }
     } else {
         document.getElementById("serverMessage").textContent = "Error: " + data.error;
+    }
+}
+
+function openCreateServer() {
+    document.getElementById("createServerPanel").style.display = "block";
+    document.getElementById("openCreateServer").style.display = "none";
+
+    if (!server_createServerInitialized) {
+        server_createServerInitialized = true;
+        const templateSelect = document.getElementById("createServerTemplate");
+        const blankOption = document.createElement("option");
+        blankOption.value = "Blank Instance";
+        blankOption.textContent = "Blank Instance";
+        templateSelect.appendChild(blankOption);
+    }
+}
+
+function cancelCreateServer() {
+    document.getElementById("createServerPanel").style.display = "none";
+    document.getElementById("openCreateServer").style.display = "block";
+}
+
+function createServerAddPortClick() {
+    const grid = document.getElementById("createServerPortGrid");
+
+    const portLabel = document.createElement("div");
+    portLabel.textContent = "Port: ";
+    const protocalLabel = document.createElement("div");
+    protocalLabel.textContent = "Protocal: ";
+
+    const portInput = document.createElement("input");
+    portInput.id = "portNumber"+server_portCount;
+
+    const protocalSelect = document.createElement("select");
+    protocalSelect.id = "protocalSelect"+server_portCount;
+    const tcpOption = document.createElement("option");
+    tcpOption.value = "tcp";
+    tcpOption.textContent = "TCP";
+    tcpOption.selected = true;
+    const udpOption = document.createElement("option");
+    udpOption.value = "udp";
+    udpOption.textContent = "UDP";
+    protocalSelect.appendChild(tcpOption)
+    protocalSelect.appendChild(udpOption)
+
+    grid.appendChild(portLabel);
+    grid.appendChild(portInput);
+    grid.appendChild(protocalLabel);
+    grid.appendChild(protocalSelect);
+    server_portCount += 1;
+}
+
+async function createServerClick() {
+    const serverName = document.getElementById("createServerName").value;
+    const template = document.getElementById("createServerTemplate").value;
+    const instanceType = document.getElementById("createServerInstanceType").value;
+    const storageString = document.getElementById("createServerStorage").value;
+    const message = document.getElementById("createServerMessage");
+
+    if (serverName.length === 0) {
+        message.textContent = "Server name is required";
+        return;
+    }
+    if (instanceType.length === 0) {
+        message.textContent = "Instance type is required";
+        return;
+    }
+    if (!/^\d+$/.test(storageString)) {
+        message.textContent = "Invalid storage";
+        return;
+    }
+    const storage = parseInt(storageString, 10);
+    if (storage < 4) {
+        message.textContent = "Invalid storage";
+        return;
+    }
+
+    const ports = [];
+    for (let i = 0; i < server_portCount; i++) {
+        const portString = document.getElementById("portNumber"+i).value;
+        const protocal = document.getElementById("protocalSelect"+i).value;
+
+        if (!/^\d+$/.test(portString)) {
+            message.textContent = "Invalid port";
+            return;
+        }
+
+        const port = parseInt(portString, 10);
+        if (port >= 1 && port <= 65535) {
+            ports.push({ port, protocal });
+        } else {
+            message.textContent = "Invalid port";
+            return;
+        }
+    }
+    message.textContent = "";
+
+    const res = await callAPI("createServer", { serverName , instanceType, ports, template, storage });
+    const data = await res.json();
+    if (res.ok) {
+        message.textContent = "Created";
+        document.getElementById("createServerName").value="";
+        document.getElementById("createServerPortGrid").replaceChildren();
+        server_portCount = 0;
+        refreshServers();
+    } else {
+        message.textContent = data.error;
     }
 }

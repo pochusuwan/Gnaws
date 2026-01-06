@@ -259,7 +259,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         return forbidden();
     }
     const serverName = params?.serverName;
-    if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName)) {
+    if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName) || serverName.length === 0) {
         return clientError("Invalid serverName");
     }
     const instanceType = params?.instanceType;
@@ -274,6 +274,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         );
     } catch (e) {
         return clientError("Invalid instanceType");
+    }
+    const storage = params?.storage;
+    if (typeof storage !== "number") {
+        return clientError("Invalid storage");
     }
 
     if (!Array.isArray(params?.ports)) {
@@ -312,7 +316,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         if (e.name === "ConditionalCheckFailedException") {
             return clientError("Server already exists");
         }
-        return serverError("Failed to create server");
+        return serverError("Failed to create server: " + e.message);
     }
 
     try {
@@ -327,13 +331,14 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         if (!sgId) {
             return serverError("Failed to create security group");
         }
-
-        await ec2Client.send(
-            new AuthorizeSecurityGroupIngressCommand({
-                GroupId: sgId,
-                IpPermissions: ports.map(({ port, protocal }) => ({ IpProtocol: protocal, FromPort: port, ToPort: port, IpRanges: [{ CidrIp: "0.0.0.0/0" }] })),
-            })
-        );
+        if (ports.length > 0) {
+            await ec2Client.send(
+                new AuthorizeSecurityGroupIngressCommand({
+                    GroupId: sgId,
+                    IpPermissions: ports.map(({ port, protocal }) => ({ IpProtocol: protocal, FromPort: port, ToPort: port, IpRanges: [{ CidrIp: "0.0.0.0/0" }] })),
+                })
+            );
+        }
         const runCmd = new RunInstancesCommand({
             ImageId: "ami-0ecb62995f68bb549", // Amazon Linux AMI
             InstanceType: instanceType as _InstanceType,
@@ -347,7 +352,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
                     Ebs: {
                         DeleteOnTermination: false,
                         Iops: 3000,
-                        VolumeSize: 16,
+                        VolumeSize: storage,
                         VolumeType: "gp3",
                         Throughput: 125,
                     },
@@ -374,7 +379,8 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         // TODO: EC2 initialization
 
         return success({ server });
-    } catch (e) {
-        return serverError("Failed to create server");
+    } catch (e: any) {
+        // TODO: delete created resources
+        return serverError("Failed to create server. Some resource created and require manual delete: " + e?.message);
     }
 };
