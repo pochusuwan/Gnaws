@@ -5,7 +5,7 @@ import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
-import { _InstanceType, DescribeInstanceTypesCommand, RunInstancesCommand } from "@aws-sdk/client-ec2";
+import { _InstanceType, DeleteSecurityGroupCommand, DescribeInstanceTypesCommand, RunInstancesCommand, TerminateInstancesCommand } from "@aws-sdk/client-ec2";
 import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
 
 const VPC_ID = process.env.VPC_ID!;
@@ -32,6 +32,7 @@ export type Server = {
     ec2?: {
         instanceId?: string;
         instanceType?: string;
+        securityGroupId?: string;
     };
     status?: {
         status?: string;
@@ -232,32 +233,42 @@ const setServerStatusObj = async (name: string, statusObj: Server["status"]) => 
     );
 };
 
-const setServerEc2Obj = async (name: string, ec2: Server["ec2"]) => {
+const updateServerAttributes = async (name: string, server: Partial<Server>) => {
+    const updates: string[] = [];
+    const names: Record<string, string> = {};
+    const values: Record<string, any> = {};
+
+    if (server.ec2) {
+        updates.push("#ec2 = :ec2");
+        names["#ec2"] = "ec2";
+        values[":ec2"] = server.ec2;
+    }
+    if (server.status) {
+        updates.push("#status = :status");
+        names["#status"] = "status";
+        values[":status"] = server.status;
+    }
+    if (server.workflow) {
+        updates.push("#workflow = :workflow");
+        names["#workflow"] = "workflow";
+        values[":workflow"] = server.workflow;
+    }
     await dynamoClient.send(
         new UpdateItemCommand({
             TableName: SERVER_TABLE,
-            Key: {
-                name: { S: name },
-            },
-            UpdateExpression: "SET #e = :ec2",
-            ExpressionAttributeNames: {
-                "#e": "ec2",
-            },
-            ExpressionAttributeValues: marshall({
-                ":ec2": ec2,
-            }),
+            Key: { name: { S: name } },
+            UpdateExpression: `SET ${updates.join(", ")}`,
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: marshall(values),
         })
     );
 };
 
-type Port = {
-    port: number;
-    protocal: string;
-};
 export const createServer = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     if (user.role !== ROLE_ADMIN) {
         return forbidden();
     }
+    // Validate params
     const serverName = params?.serverName;
     if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName) || serverName.length === 0) {
         return clientError("Invalid serverName");
@@ -276,7 +287,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         return clientError("Invalid instanceType");
     }
     const storage = params?.storage;
-    if (typeof storage !== "number") {
+    if (typeof storage !== "number" && storage >= 8) {
         return clientError("Invalid storage");
     }
 
@@ -285,8 +296,8 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     }
     const ports = params.ports
         .map((p: any) => {
-            if (typeof p.port === "number" && typeof p.protocal === "string") {
-                return { port: p.port, protocal: p.protocal };
+            if (typeof p.port === "number" && 1 <= p.port && p.port <= 65535 && typeof p.protocol === "string" && ["tcp", "udp"].includes(p.protocol)) {
+                return { port: p.port, protocol: p.protocol };
             }
             return null;
         })
@@ -294,6 +305,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (ports.length !== params.ports.length) {
         return clientError("Invalid ports");
     }
+    // Add server to DDB with conditional check
     const server: Server = {
         name: serverName,
         status: {
@@ -319,6 +331,55 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         return serverError("Failed to create server: " + e.message);
     }
 
+    // Create EC2 with ingress rules
+    const res = await createEc2(serverName, ports, instanceType, storage);
+    if (res.instanceId && res.securityGroupId && !res.errorMessage) {
+        // Successfully create EC2. Update server item in DDB and start initialize workflow
+        try {
+            await updateServerAttributes(serverName, {
+                ec2: {
+                    instanceType,
+                    instanceId: res.instanceId,
+                    securityGroupId: res.securityGroupId,
+                },
+                status: {
+                    status: "initializing",
+                    lastUpdated: new Date().toISOString(),
+                },
+            });
+            // TODO initialize
+            return success({ message: "Server created. Initializing." });
+        } catch (e: any) {
+            res.errorMessage = `Failed to update server state: ${e.message}`;
+        }
+    }
+    // If create EC2 fail, clean up created resources.
+    // NOT TESTED
+    try {
+        await cleanupResources(serverName, res.instanceId, res.securityGroupId, res.errorMessage);
+        return serverError(`Failed to create server: ${res.errorMessage}. Successfully cleaned up resources.`);
+    } catch (e) {
+        return serverError(`Failed to create server: ${res.errorMessage}. Resource clean up needed!`);
+    }
+};
+
+type Port = {
+    port: number;
+    protocol: string;
+};
+const createEc2 = async (
+    serverName: string,
+    ports: Port[],
+    instanceType: string,
+    storage: number
+): Promise<{
+    instanceId?: string;
+    securityGroupId?: string;
+    errorMessage?: string;
+}> => {
+    let securityGroupId;
+    let instanceId;
+
     try {
         const sgResponse = await ec2Client.send(
             new CreateSecurityGroupCommand({
@@ -327,15 +388,22 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
                 VpcId: VPC_ID,
             })
         );
-        const sgId = sgResponse.GroupId;
-        if (!sgId) {
-            return serverError("Failed to create security group");
+
+        securityGroupId = sgResponse.GroupId;
+        if (!securityGroupId) {
+            throw new Error("CreateSecurityGroup succeeded but GroupId was undefined");
         }
+
         if (ports.length > 0) {
             await ec2Client.send(
                 new AuthorizeSecurityGroupIngressCommand({
-                    GroupId: sgId,
-                    IpPermissions: ports.map(({ port, protocal }) => ({ IpProtocol: protocal, FromPort: port, ToPort: port, IpRanges: [{ CidrIp: "0.0.0.0/0" }] })),
+                    GroupId: securityGroupId,
+                    IpPermissions: ports.map(({ port, protocol }) => ({
+                        IpProtocol: protocol,
+                        FromPort: port,
+                        ToPort: port,
+                        IpRanges: [{ CidrIp: "0.0.0.0/0" }],
+                    })),
                 })
             );
         }
@@ -344,7 +412,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             InstanceType: instanceType as _InstanceType,
             MaxCount: 1,
             MinCount: 1,
-            SecurityGroupIds: [sgId],
+            SecurityGroupIds: [securityGroupId],
             SubnetId: SUBNET_ID,
             BlockDeviceMappings: [
                 {
@@ -368,19 +436,34 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             ],
         });
         const res = await ec2Client.send(runCmd);
+        instanceId = res.Instances?.[0].InstanceId;
+        if (!instanceId) {
+            throw new Error("Create instance succeeded but instanceId was undefined");
+        }
 
-        const instanceId = res.Instances![0].InstanceId;
-        server.ec2 = {
+        return { instanceId, securityGroupId };
+    } catch (err: any) {
+        return {
             instanceId,
-            instanceType,
+            securityGroupId,
+            errorMessage: `Failed to create EC2 instance: ${err?.message}`,
         };
-        await setServerEc2Obj(serverName, server.ec2);
-
-        // TODO: EC2 initialization
-
-        return success({ server });
-    } catch (e: any) {
-        // TODO: delete created resources
-        return serverError("Failed to create server. Some resource created and require manual delete: " + e?.message);
     }
 };
+
+async function cleanupResources(serverName: string, instanceId?: string, sgId?: string, errorMessage?: string) {
+    if (instanceId) {
+        await ec2Client.send(new TerminateInstancesCommand({ InstanceIds: [instanceId] }));
+    }
+    if (sgId) {
+        await ec2Client.send(new DeleteSecurityGroupCommand({ GroupId: sgId }));
+    }
+
+    await updateServerAttributes(serverName, {
+        status: {
+            status: "create_failed",
+            message: errorMessage,
+            lastUpdated: new Date().toISOString(),
+        },
+    });
+}

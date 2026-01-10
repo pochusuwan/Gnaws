@@ -143,14 +143,14 @@ function createServerAddPortClick() {
 
     const portLabel = document.createElement("div");
     portLabel.textContent = "Port: ";
-    const protocalLabel = document.createElement("div");
-    protocalLabel.textContent = "Protocal: ";
+    const protocolLabel = document.createElement("div");
+    protocolLabel.textContent = "Protocol: ";
 
     const portInput = document.createElement("input");
     portInput.id = "portNumber"+server_portCount;
 
-    const protocalSelect = document.createElement("select");
-    protocalSelect.id = "protocalSelect"+server_portCount;
+    const protocolSelect = document.createElement("select");
+    protocolSelect.id = "protocolSelect"+server_portCount;
     const tcpOption = document.createElement("option");
     tcpOption.value = "tcp";
     tcpOption.textContent = "TCP";
@@ -158,13 +158,13 @@ function createServerAddPortClick() {
     const udpOption = document.createElement("option");
     udpOption.value = "udp";
     udpOption.textContent = "UDP";
-    protocalSelect.appendChild(tcpOption)
-    protocalSelect.appendChild(udpOption)
+    protocolSelect.appendChild(tcpOption)
+    protocolSelect.appendChild(udpOption)
 
     grid.appendChild(portLabel);
     grid.appendChild(portInput);
-    grid.appendChild(protocalLabel);
-    grid.appendChild(protocalSelect);
+    grid.appendChild(protocolLabel);
+    grid.appendChild(protocolSelect);
     server_portCount += 1;
 }
 
@@ -196,7 +196,7 @@ async function createServerClick() {
     const ports = [];
     for (let i = 0; i < server_portCount; i++) {
         const portString = document.getElementById("portNumber"+i).value;
-        const protocal = document.getElementById("protocalSelect"+i).value;
+        const protocol = document.getElementById("protocolSelect"+i).value;
 
         if (!/^\d+$/.test(portString)) {
             message.textContent = "Invalid port";
@@ -205,7 +205,7 @@ async function createServerClick() {
 
         const port = parseInt(portString, 10);
         if (port >= 1 && port <= 65535) {
-            ports.push({ port, protocal });
+            ports.push({ port, protocol });
         } else {
             message.textContent = "Invalid port";
             return;
