@@ -19,11 +19,13 @@ export class GnawsStack extends cdk.Stack {
     private userTable: dynamodb.Table;
     private serverTable: dynamodb.Table;
     private workflowTable: dynamodb.Table;
+    private backupBucket: s3.Bucket;
     // Frontend
     private websiteBucket: s3.Bucket;
     // State Machines
     private startServerFunction: sfn.StateMachine;
     private stopServerFunction: sfn.StateMachine;
+    private backupServerFunction: sfn.StateMachine;
     private getServerStatusFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
@@ -57,6 +59,7 @@ export class GnawsStack extends cdk.Stack {
                 JWT_SECRET: this.jwtSecret.secretArn,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
                 STOP_SERVER_FUNCTION_ARN: this.stopServerFunction.stateMachineArn,
+                BACKUP_SERVER_FUNCTION_ARN: this.backupServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
@@ -83,6 +86,7 @@ export class GnawsStack extends cdk.Stack {
         this.workflowTable.grantFullAccess(backend);
         this.startServerFunction.grantStartExecution(backend);
         this.stopServerFunction.grantStartExecution(backend);
+        this.backupServerFunction.grantStartExecution(backend);
         this.getServerStatusFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
@@ -183,6 +187,10 @@ export class GnawsStack extends cdk.Stack {
                 resources: [this.userTable.tableArn],
             }),
         });
+        // Create backup S3 bucket
+        this.backupBucket = new s3.Bucket(this, "GnawsBackupBucket", {
+            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY
+        });
     }
 
     private buildWorkflows() {
@@ -215,6 +223,21 @@ export class GnawsStack extends cdk.Stack {
         this.workflowTable.grantWriteData(this.stopServerFunction);
         this.serverTable.grantWriteData(this.stopServerFunction);
         new cdk.CfnOutput(this, "GnawsStopServerFunctionArn", { value: this.stopServerFunction.stateMachineArn });
+
+        this.backupServerFunction = new sfn.StateMachine(this, "GnawsBackupGameServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/backup-server.asl.json"),
+            timeout: cdk.Duration.minutes(15),
+        });
+
+        this.backupServerFunction.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
+                resources: ["*"], // TODO: to managed EC2 only
+            })
+        );
+        this.workflowTable.grantWriteData(this.backupServerFunction);
+        this.serverTable.grantWriteData(this.backupServerFunction);
+        new cdk.CfnOutput(this, "GnawsBackupServerFunctionArn", { value: this.backupServerFunction.stateMachineArn });
 
         this.getServerStatusFunction = new sfn.StateMachine(this, "GnawsGetServerStatus", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/get-server-status.asl.json"),
@@ -255,5 +278,6 @@ export class GnawsStack extends cdk.Stack {
             instanceProfileName: "gnaws-ec2-profile",
         });
         this.ec2Role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
+        this.backupBucket.grantWrite(this.ec2Role);
     }
 }

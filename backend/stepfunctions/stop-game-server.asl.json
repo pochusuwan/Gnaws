@@ -343,7 +343,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/stop_server.sh"
+            "sudo -u game /opt/stop_server.sh"
           ]
         }
       },

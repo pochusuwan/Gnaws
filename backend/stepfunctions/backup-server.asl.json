@@ -1,21 +1,12 @@
 {
-  "Comment": "Start EC2 instance, check game server is not online with /opt/is_online.sh, then start game server with /opt/start_server.sh",
+  "Comment": "Check EC2 instance online, backup save with /opt/backup_server.sh and upload to S3",
   "StartAt": "Init",
   "States": {
     "Init": {
       "Type": "Pass",
       "Result": {
-        "ssmChecks": {
+        "backupCheck": {
           "val": 0
-        },
-        "ec2Checks": {
-          "val": 0
-        },
-        "gameServerChecks": {
-          "val": 0
-        },
-        "startGameServerCommandSent": {
-          "val": false
         }
       },
       "ResultPath": "$.meta",
@@ -25,7 +16,7 @@
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -47,7 +38,7 @@
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -65,11 +56,11 @@
       "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
-    "FailEC2Timeout": {
+    "DescribeSSMFail": {
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -81,17 +72,17 @@
           "S": "failed"
         },
         "message": {
-          "S": "Timeout waiting for instance running"
+          "S": "Could not get ssm status"
         }
       },
       "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
-    "FailSSMTimeout": {
+    "InvalidSSMStatus": {
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -103,17 +94,17 @@
           "S": "failed"
         },
         "message": {
-          "S": "Timeout waiting for SSM online"
+          "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
         }
       },
       "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
-    "FailGameServerTimeout": {
+    "FailBackupTimeout": {
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -125,7 +116,7 @@
           "S": "failed"
         },
         "message": {
-          "S": "Timeout waiting for server to start"
+          "S": "Timeout waiting for backup to complete"
         }
       },
       "ResultPath": "$.workflowObj.val",
@@ -135,7 +126,7 @@
       "Type": "Pass",
       "Parameters": {
         "currentTask": {
-          "S": "start"
+          "S": "backup"
         },
         "executionId": {
           "S.$": "$$.Execution.Id"
@@ -147,7 +138,7 @@
           "S": "success"
         },
         "message": {
-          "S": "Started game server"
+          "S": "Backup server"
         }
       },
       "ResultPath": "$.workflowObj.val",
@@ -196,14 +187,6 @@
         "InstanceIds.$": "States.Array($.instanceId)"
       },
       "ResultPath": "$.ec2",
-      "Next": "IncrementEC2Check"
-    },
-    "IncrementEC2Check": {
-      "Type": "Pass",
-      "Parameters": {
-        "val.$": "States.MathAdd($.meta.ec2Checks.val, 1)"
-      },
-      "ResultPath": "$.meta.ec2Checks",
       "Next": "IsInstanceRunning"
     },
     "IsInstanceRunning": {
@@ -232,40 +215,11 @@
         },
         {
           "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "stopped",
-          "Next": "StartInstances"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "pending",
-          "Next": "WaitForEC2Running"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
           "StringEquals": "running",
           "Next": "DescribeEC2SSM"
-        },
-        {
-          "Variable": "$.meta.ec2Checks.val",
-          "NumericGreaterThanEquals": 30,
-          "Next": "FailEC2Timeout"
         }
       ],
       "Default": "InvalidEC2State"
-    },
-    "StartInstances": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:startInstances",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)"
-      },
-      "ResultPath": "$.ec2",
-      "Next": "WaitForEC2Running"
-    },
-    "WaitForEC2Running": {
-      "Type": "Wait",
-      "Seconds": 30,
-      "Next": "DescribeEC2"
     },
     "DescribeEC2SSM": {
       "Type": "Task",
@@ -279,14 +233,6 @@
         ]
       },
       "ResultPath": "$.ssm",
-      "Next": "IncrementSSMCheck"
-    },
-    "IncrementSSMCheck": {
-      "Type": "Pass",
-      "Parameters": {
-        "val.$": "States.MathAdd($.meta.ssmChecks.val, 1)"
-      },
-      "ResultPath": "$.meta.ssmChecks",
       "Next": "IsSSMOnline"
     },
     "IsSSMOnline": {
@@ -303,27 +249,17 @@
               "IsPresent": false
             }
           ],
-          "Next": "WaitBeforeRetrySSM"
+          "Next": "DescribeSSMFail"
         },
         {
           "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
           "StringEquals": "Online",
-          "Next": "CheckGameServerStatus"
-        },
-        {
-          "Variable": "$.meta.ssmChecks.val",
-          "NumericGreaterThanEquals": 10,
-          "Next": "FailSSMTimeout"
+          "Next": "CreateBackup"
         }
       ],
-      "Default": "WaitBeforeRetrySSM"
+      "Default": "InvalidSSMStatus"
     },
-    "WaitBeforeRetrySSM": {
-      "Type": "Wait",
-      "Seconds": 20,
-      "Next": "DescribeEC2SSM"
-    },
-    "CheckGameServerStatus": {
+    "CreateBackup": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
       "Parameters": {
@@ -331,7 +267,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/is_online.sh"
+            "sudo -u game /opt/backup_server.sh"
           ]
         }
       },
@@ -340,7 +276,7 @@
     },
     "WaitForCommand": {
       "Type": "Wait",
-      "Seconds": 2,
+      "Seconds": 10,
       "Next": "GetCommandResult"
     },
     "GetCommandResult": {
@@ -351,72 +287,31 @@
         "InstanceId.$": "$.instanceId"
       },
       "ResultPath": "$.commandResult",
-      "Next": "IncrementGameServerCheck"
+      "Next": "IncrementBackupCheck"
     },
-    "IncrementGameServerCheck": {
+    "IncrementBackupCheck": {
       "Type": "Pass",
       "Parameters": {
-        "val.$": "States.MathAdd($.meta.gameServerChecks.val, 1)"
+        "val.$": "States.MathAdd($.meta.backupCheck.val, 1)"
       },
-      "ResultPath": "$.meta.gameServerChecks",
-      "Next": "CheckGameServerOutput"
+      "ResultPath": "$.meta.backupCheck",
+      "Next": "CheckBackupStatus"
     },
-    "CheckGameServerOutput": {
+    "CheckBackupStatus": {
       "Type": "Choice",
       "Choices": [
         {
           "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "online\n",
+          "StringMatches": "success*",
           "Next": "Success"
         },
         {
-          "And": [
-            {
-              "Variable": "$.commandResult.StandardOutputContent",
-              "StringEquals": "offline\n"
-            },
-            {
-              "Variable": "$.meta.startGameServerCommandSent.val",
-              "BooleanEquals": false
-            }
-          ],
-          "Next": "StartGameServer"
-        },
-        {
-          "Variable": "$.meta.gameServerChecks.val",
-          "NumericGreaterThanEquals": 40,
-          "Next": "FailGameServerTimeout"
+          "Variable": "$.meta.backupCheck.val",
+          "NumericGreaterThanEquals": 60,
+          "Next": "FailBackupTimeout"
         }
       ],
-      "Default": "WaitGameServerOnline"
-    },
-    "StartGameServer": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)",
-        "DocumentName": "AWS-RunShellScript",
-        "Parameters": {
-          "commands": [
-            "sudo -u game /opt/start_server.sh"
-          ]
-        }
-      },
-      "ResultPath": "$.command",
-      "Next": "SetGameServerStartSent"
-    },
-    "SetGameServerStartSent": {
-      "Type": "Pass",
-      "Parameters": {
-        "val": true
-      },
-      "ResultPath": "$.meta.startGameServerCommandSent",
-      "Next": "WaitGameServerOnline"
-    },
-    "WaitGameServerOnline": {
-      "Type": "Wait",
-      "Seconds": 30,
-      "Next": "CheckGameServerStatus"
+      "Default": "WaitForCommand"
     }
   }
 }

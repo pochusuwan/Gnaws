@@ -3,7 +3,7 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
+import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType, DeleteSecurityGroupCommand, DescribeInstanceTypesCommand, RunInstancesCommand, TerminateInstancesCommand } from "@aws-sdk/client-ec2";
 import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
@@ -14,7 +14,7 @@ const EC2_PROFILE_ARN = process.env.EC2_PROFILE_ARN!;
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
-const LOCK_TIMEOUT_MS = 15 * 60 * 1000;
+const LOCK_TIMEOUT_MS = 60 * 60 * 1000;
 const GET_STATUS_TIMEOUT = 30 * 1000;
 
 const ACTION_START = "start";
@@ -127,9 +127,6 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (!instanceId) {
         return serverError("Server has no instance id");
     }
-    if (action === ACTION_BACKUP) {
-        return serverError("Not implemented");
-    }
 
     // Acquire lock
     try {
@@ -148,6 +145,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_STOP) {
         result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN);
+    }
+    if (action === ACTION_BACKUP) {
+        result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN);
     }
     if (!result) {
         // Failed to start workflow. Remove lock and return error
@@ -189,10 +189,12 @@ const aquireWorkflowLock = async (resourceId: string, action: string) => {
                 workflow: { S: action },
                 startedAt: { N: now.toString() },
             },
-            ConditionExpression: "attribute_not_exists(resourceId) OR startedAt < :expiry",
-            ExpressionAttributeValues: {
-                ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
-            },
+            ConditionExpression: "attribute_not_exists(resourceId)"
+            // Always block for now if workflow exist
+            // ConditionExpression: "attribute_not_exists(resourceId) OR startedAt < :expiry",
+            // ExpressionAttributeValues: {
+                // ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
+            // },
         })
     );
 };
