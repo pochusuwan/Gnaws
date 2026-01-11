@@ -66,11 +66,14 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
         const lastChecked = lastUpdated ? new Date(lastUpdated) : undefined;
         const instanceId = server.ec2?.instanceId;
         if (instanceId && (!lastChecked || now.getTime() - lastChecked.getTime() > GET_STATUS_TIMEOUT)) {
-            server.status = {
-                lastUpdated: now.toISOString(),
-            };
             promises.push(getServerStatusWorkflow(server.name, instanceId));
-            promises.push(setServerStatusObj(server.name, server.status));
+            promises.push(
+                updateServerAttributes(server.name, {
+                    status: {
+                        lastUpdated: now.toISOString(),
+                    },
+                })
+            );
         }
     });
 
@@ -118,6 +121,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     const name = params.name;
     const action = params.action;
+    const shouldBackup = typeof params.shouldBackup === "boolean" ? params.shouldBackup : false;
 
     const server = await getServerFromDB(name);
     if (!server) {
@@ -144,7 +148,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN);
     }
     if (action === ACTION_STOP) {
-        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN);
+        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, { shouldBackup });
     }
     if (action === ACTION_BACKUP) {
         result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN);
@@ -167,11 +171,13 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     // Workflow started. Update server table
     try {
-        await setServerWorkflowObj(server.name, {
-            currentTask: action,
-            executionId: result.executionId,
-            status: "running",
-            lastUpdated: result.startedAt.toISOString(),
+        await updateServerAttributes(server.name, {
+            workflow: {
+                currentTask: action,
+                executionId: result.executionId,
+                status: "running",
+                lastUpdated: result.startedAt.toISOString(),
+            },
         });
     } catch (e) {
         return success({ message: "Started" });
@@ -189,48 +195,12 @@ const aquireWorkflowLock = async (resourceId: string, action: string) => {
                 workflow: { S: action },
                 startedAt: { N: now.toString() },
             },
-            ConditionExpression: "attribute_not_exists(resourceId)"
+            ConditionExpression: "attribute_not_exists(resourceId)",
             // Always block for now if workflow exist
             // ConditionExpression: "attribute_not_exists(resourceId) OR startedAt < :expiry",
             // ExpressionAttributeValues: {
-                // ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
+            // ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
             // },
-        })
-    );
-};
-
-const setServerWorkflowObj = async (name: string, workflowObj: Server["workflow"]) => {
-    await dynamoClient.send(
-        new UpdateItemCommand({
-            TableName: SERVER_TABLE,
-            Key: {
-                name: { S: name },
-            },
-            UpdateExpression: "SET #w = :workflow",
-            ExpressionAttributeNames: {
-                "#w": "workflow",
-            },
-            ExpressionAttributeValues: marshall({
-                ":workflow": workflowObj,
-            }),
-        })
-    );
-};
-
-const setServerStatusObj = async (name: string, statusObj: Server["status"]) => {
-    await dynamoClient.send(
-        new UpdateItemCommand({
-            TableName: SERVER_TABLE,
-            Key: {
-                name: { S: name },
-            },
-            UpdateExpression: "SET #s = :status",
-            ExpressionAttributeNames: {
-                "#s": "status",
-            },
-            ExpressionAttributeValues: marshall({
-                ":status": statusObj,
-            }),
         })
     );
 };

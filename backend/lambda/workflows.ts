@@ -35,10 +35,11 @@ export const getServerStatusWorkflow = async (serverName: string, instanceId: st
     }
 }
 
-export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string) => {
+export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string, additionalParams?: Record<string, string | boolean>) => {
     const cmd = new StartExecutionCommand({
         stateMachineArn,
         input: JSON.stringify({
+            ...additionalParams,
             serverName,
             instanceId,
             workflowTable: WORKFLOW_TABLE,

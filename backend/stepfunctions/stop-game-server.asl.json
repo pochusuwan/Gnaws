@@ -10,6 +10,9 @@
         },
         "gameServerChecks": {
           "val": 0
+        },
+        "backupCheck": {
+          "val": 0
         }
       },
       "ResultPath": "$.meta",
@@ -305,6 +308,23 @@
       "Type": "Choice",
       "Choices": [
         {
+          "And": [
+            {
+              "Variable": "$.commandResult.StandardOutputContent",
+              "StringEquals": "offline\n"
+            },
+            {
+              "Variable": "$.shouldBackup",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.shouldBackup",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "BackupServer"
+        },
+        {
           "Variable": "$.commandResult.StandardOutputContent",
           "StringEquals": "offline\n",
           "Next": "StopInstance"
@@ -357,6 +377,60 @@
       },
       "ResultPath": "$.meta.stopGameServerCommandSent",
       "Next": "WaitGameServerOffline"
+    },
+    "BackupServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "sudo -u game /opt/backup_server.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForBackup"
+    },
+    "WaitForBackup": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "GetBackupResult"
+    },
+    "GetBackupResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementBackupCheck"
+    },
+    "IncrementBackupCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.backupCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.backupCheck",
+      "Next": "CheckBackupStatus"
+    },
+    "CheckBackupStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringMatches": "success*",
+          "Next": "StopInstance"
+        },
+        {
+          "Variable": "$.meta.backupCheck.val",
+          "NumericGreaterThanEquals": 60,
+          "Next": "StopInstance"
+        }
+      ],
+      "Default": "WaitForBackup"
     },
     "StopInstance": {
       "Type": "Task",

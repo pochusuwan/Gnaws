@@ -107,7 +107,12 @@ function buildRow(name, game, instanceType, status, currentTask) {
 
 async function onActionClick(name, action) {
     document.getElementById("serverMessage").textContent = "";
-    const res = await callAPI("serverAction", { name, action: action.toLowerCase() });
+    const payload = { name, action: action.toLowerCase() };
+    if (action === BUTTON_STOP) {
+        const shouldBackup = confirm("Do you want to backup server?");
+        payload.shouldBackup = shouldBackup;
+    }
+    const res = await callAPI("serverAction", payload);
     const data = await res.json();
     if (res.ok) {
         document.getElementById("serverMessage").textContent = data.message;
