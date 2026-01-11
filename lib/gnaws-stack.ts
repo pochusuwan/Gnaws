@@ -135,7 +135,7 @@ export class GnawsStack extends cdk.Stack {
 
     private deployFrontendConfig() {
         const configs = {
-            apiUrl: this.apiUrl,
+            API_BASE: this.apiUrl,
         };
         const constants = Object.entries(configs)
             .map(([k, v]) => `const ${k} = '${v}';`)
