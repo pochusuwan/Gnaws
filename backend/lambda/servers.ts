@@ -11,6 +11,7 @@ import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCom
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
 const EC2_PROFILE_ARN = process.env.EC2_PROFILE_ARN!;
+const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
@@ -33,11 +34,19 @@ export type Server = {
         instanceId?: string;
         instanceType?: string;
         securityGroupId?: string;
+        status?: string;
+        message?: string;
     };
     status?: {
+        instanceStatus?: string;
+        serverStatus?: string;
+        totalStorage?: string;
+        usedStorage?: string;
+        lastBackup?: string;
         status?: string;
         message?: string;
         lastUpdated?: string;
+        lastRequest?: string;
     };
     workflow?: {
         currentTask?: string;
@@ -62,18 +71,19 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     const now = new Date();
     const promises: Promise<any>[] = [];
     servers.forEach((server) => {
-        const lastUpdated = server?.status?.lastUpdated;
-        const lastChecked = lastUpdated ? new Date(lastUpdated) : undefined;
+        const lastRequest = server?.status?.lastRequest;
+        const lastChecked = lastRequest ? new Date(lastRequest) : undefined;
         const instanceId = server.ec2?.instanceId;
         if (instanceId && (!lastChecked || now.getTime() - lastChecked.getTime() > GET_STATUS_TIMEOUT)) {
-            promises.push(getServerStatusWorkflow(server.name, instanceId));
             promises.push(
                 updateServerAttributes(server.name, {
                     status: {
-                        lastUpdated: now.toISOString(),
+                        ...server.status,
+                        lastRequest: now.toISOString(),
                     },
                 })
             );
+            promises.push(getServerStatusWorkflow(server.name, instanceId));
         }
     });
 
@@ -148,10 +158,10 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN);
     }
     if (action === ACTION_STOP) {
-        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, { shouldBackup });
+        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, { backupBucketName: BACKUP_BUCKET_NAME, shouldBackup });
     }
     if (action === ACTION_BACKUP) {
-        result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN);
+        result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN, { backupBucketName: BACKUP_BUCKET_NAME });
     }
     if (!result) {
         // Failed to start workflow. Remove lock and return error
@@ -280,9 +290,8 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     // Add server to DDB with conditional check
     const server: Server = {
         name: serverName,
-        status: {
+        ec2: {
             status: "creating",
-            lastUpdated: new Date().toISOString(),
         },
     };
     try {
@@ -307,18 +316,14 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     const res = await createEc2(serverName, ports, instanceType, storage);
     if (res.instanceId && res.securityGroupId && !res.errorMessage) {
         // Successfully create EC2. Update server item in DDB and start initialize workflow
+        server.ec2 = {
+            instanceType,
+            instanceId: res.instanceId,
+            securityGroupId: res.securityGroupId,
+            status: "initializing",
+        };
         try {
-            await updateServerAttributes(serverName, {
-                ec2: {
-                    instanceType,
-                    instanceId: res.instanceId,
-                    securityGroupId: res.securityGroupId,
-                },
-                status: {
-                    status: "initializing",
-                    lastUpdated: new Date().toISOString(),
-                },
-            });
+            await updateServerAttributes(serverName, server);
             // TODO initialize
             return success({ message: "Server created. Initializing." });
         } catch (e: any) {
@@ -328,7 +333,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     // If create EC2 fail, clean up created resources.
     // NOT TESTED
     try {
-        await cleanupResources(serverName, res.instanceId, res.securityGroupId, res.errorMessage);
+        await cleanupResources(server, res.instanceId, res.securityGroupId, res.errorMessage);
         return serverError(`Failed to create server: ${res.errorMessage}. Successfully cleaned up resources.`);
     } catch (e) {
         return serverError(`Failed to create server: ${res.errorMessage}. Resource clean up needed!`);
@@ -423,19 +428,17 @@ const createEc2 = async (
     }
 };
 
-async function cleanupResources(serverName: string, instanceId?: string, sgId?: string, errorMessage?: string) {
+async function cleanupResources(server: Server, instanceId?: string, sgId?: string, errorMessage?: string) {
     if (instanceId) {
         await ec2Client.send(new TerminateInstancesCommand({ InstanceIds: [instanceId] }));
     }
     if (sgId) {
         await ec2Client.send(new DeleteSecurityGroupCommand({ GroupId: sgId }));
     }
-
-    await updateServerAttributes(serverName, {
-        status: {
-            status: "create_failed",
-            message: errorMessage,
-            lastUpdated: new Date().toISOString(),
-        },
-    });
+    server.ec2 = {
+        ...server.ec2,
+        status: "create_failed",
+        message: errorMessage,
+    }
+    await updateServerAttributes(server.name, server);
 }

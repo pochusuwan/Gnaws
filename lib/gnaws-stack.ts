@@ -61,6 +61,7 @@ export class GnawsStack extends cdk.Stack {
                 STOP_SERVER_FUNCTION_ARN: this.stopServerFunction.stateMachineArn,
                 BACKUP_SERVER_FUNCTION_ARN: this.backupServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
+                BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
                 EC2_PROFILE_ARN: this.ec2Profile.attrArn,

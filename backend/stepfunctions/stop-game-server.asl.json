@@ -1,5 +1,5 @@
 {
-  "Comment": "Stop game server with /opt/stop_server.sh then stop EC2 instance",
+  "Comment": "Stop game server with /opt/stop_server.sh, backup server if requested, then stop EC2 instance",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -385,9 +385,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": [
-            "sudo -u game /opt/backup_server.sh"
-          ]
+          "commands.$": "States.Array(States.Format('sudo -u game /opt/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",
@@ -420,8 +418,13 @@
       "Type": "Choice",
       "Choices": [
         {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Failed",
+          "Next": "StopInstance"
+        },
+        {
           "Variable": "$.commandResult.StandardOutputContent",
-          "StringMatches": "success*",
+          "StringMatches": "*Success\n",
           "Next": "StopInstance"
         },
         {

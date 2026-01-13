@@ -1,5 +1,5 @@
 {
-  "Comment": "Check EC2 instance online, backup save with /opt/backup_server.sh and upload to S3",
+  "Comment": "Check EC2 instance online, backup save with /opt/backup_server.sh and upload to S3 with backupBucketName parameter",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -95,6 +95,28 @@
         },
         "message": {
           "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "BackupFailed": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Failed to backup server"
         }
       },
       "ResultPath": "$.workflowObj.val",
@@ -266,9 +288,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": [
-            "sudo -u game /opt/backup_server.sh"
-          ]
+          "commands.$": "States.Array(States.Format('sudo -u game /opt/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",
@@ -301,8 +321,13 @@
       "Type": "Choice",
       "Choices": [
         {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Failed",
+          "Next": "BackupFailed"
+        },
+        {
           "Variable": "$.commandResult.StandardOutputContent",
-          "StringMatches": "success*",
+          "StringMatches": "*Success\n",
           "Next": "Success"
         },
         {

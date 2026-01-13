@@ -73,14 +73,14 @@ function renderServers() {
         if (currentTask) {
             currentTask += ": " + server.workflow.status;
         }
-        serversList.appendChild(buildRow(server.name, server.game?.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask));
+        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask));
     });
 }
 
-function buildRow(name, game, instanceType, status, currentTask) {
+function buildRow(name, instanceType, status, currentTask) {
     const canManage = auth_role === ROLE_ADMIN || auth_role === ROLE_MANAGER;
 
-    const attributes = [name, game, instanceType, status, currentTask];
+    const attributes = [name, instanceType, status, currentTask];
     if (!canManage) {
         attributes.push("No permission");
     }
