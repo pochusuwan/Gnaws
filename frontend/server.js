@@ -10,6 +10,7 @@ const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
 const BUTTON_BACKUP = "Backup";
 const BUTTONS = [BUTTON_START, BUTTON_STOP, BUTTON_BACKUP];
+const HOUR_IN_MS = 60 * 60 * 1000;
 
 function resetServers() {
     server_servers = null;
@@ -73,14 +74,19 @@ function renderServers() {
         if (currentTask) {
             currentTask += ": " + server.workflow.status;
         }
-        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask));
+        let timeSinceBackup;
+        if (server.status.lastBackup) {
+            const timeSince = (Date.now() - (new Date(server.status.lastBackup)).getTime()) / HOUR_IN_MS;
+            timeSinceBackup = Math.round(timeSince * 100) / 100 + "hr";
+        }
+        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask, timeSinceBackup));
     });
 }
 
-function buildRow(name, instanceType, status, currentTask) {
+function buildRow(name, instanceType, status, currentTask, timeSinceBackup) {
     const canManage = auth_role === ROLE_ADMIN || auth_role === ROLE_MANAGER;
 
-    const attributes = [name, instanceType, status, currentTask];
+    const attributes = [name, instanceType, status, currentTask, timeSinceBackup];
     if (!canManage) {
         attributes.push("No permission");
     }

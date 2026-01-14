@@ -9,6 +9,7 @@ const GET_SERVER_STATUS_FUNCTION_ARN = process.env.GET_SERVER_STATUS_FUNCTION_AR
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
+const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
 export const getServerStatusWorkflow = async (serverName: string, instanceId: string) => {
     const cmd = new StartExecutionCommand({
@@ -16,7 +17,8 @@ export const getServerStatusWorkflow = async (serverName: string, instanceId: st
         input: JSON.stringify({
             instanceId,
             serverName,
-            serverTable: SERVER_TABLE
+            serverTable: SERVER_TABLE,
+            backupBucketName: BACKUP_BUCKET_NAME
         }),
     });
     try {

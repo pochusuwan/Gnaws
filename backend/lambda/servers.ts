@@ -38,12 +38,10 @@ export type Server = {
         message?: string;
     };
     status?: {
-        instanceStatus?: string;
-        serverStatus?: string;
+        status?: string;
         totalStorage?: string;
         usedStorage?: string;
         lastBackup?: string;
-        status?: string;
         message?: string;
         lastUpdated?: string;
         lastRequest?: string;

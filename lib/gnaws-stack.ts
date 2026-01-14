@@ -250,6 +250,7 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["*"], // TODO: to managed EC2 only
             })
         );
+        this.backupBucket.grantRead(this.getServerStatusFunction);
         this.serverTable.grantWriteData(this.getServerStatusFunction);
         new cdk.CfnOutput(this, "GnawsGetServerStatusFunctionArn", { value: this.getServerStatusFunction.stateMachineArn });
     }
