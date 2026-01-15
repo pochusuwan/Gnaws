@@ -1,1 +1,1 @@
-const API_BASE = "PLACE_HOLDER";
+const API_BASE = "http://localhost:8080/";
