@@ -1,5 +1,5 @@
 {
-  "Comment": "Get various statuses: get game server status with /opt/is_online.sh, get last backup date, and update server status in DDB",
+  "Comment": "Get various statuses: get game server status with is_online.sh, get last backup date, and update server status in DDB",
   "StartAt": "ListBackups",
   "States": {
     "ListBackups": {
@@ -181,7 +181,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/is_online.sh"
+            "/opt/gnaws/scripts/is_online.sh"
           ]
         }
       },

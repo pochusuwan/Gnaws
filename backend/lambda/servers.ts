@@ -70,15 +70,22 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     const promises: Promise<any>[] = [];
     servers.forEach((server) => {
         const lastRequest = server?.status?.lastRequest;
-        const lastChecked = lastRequest ? new Date(lastRequest) : undefined;
+        const lastUpdate = server?.status?.lastUpdated;
+        const lastRequested = lastRequest ? new Date(lastRequest) : undefined;
+        const lastUpdated = lastUpdate ? new Date(lastUpdate) : undefined;
         const instanceId = server.ec2?.instanceId;
-        if (instanceId && (!lastChecked || now.getTime() - lastChecked.getTime() > GET_STATUS_TIMEOUT)) {
+        if (
+            instanceId &&
+            (!lastRequested || (now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT)) && 
+            (!lastUpdated || (now.getTime() - lastUpdated.getTime() > GET_STATUS_TIMEOUT))
+        ) {
+            server.status = {
+                ...server.status,
+                lastRequest: now.toISOString(),
+            }
             promises.push(
                 updateServerAttributes(server.name, {
-                    status: {
-                        ...server.status,
-                        lastRequest: now.toISOString(),
-                    },
+                    status: server.status,
                 })
             );
             promises.push(getServerStatusWorkflow(server.name, instanceId));

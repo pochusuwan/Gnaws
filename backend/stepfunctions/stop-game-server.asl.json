@@ -1,5 +1,5 @@
 {
-  "Comment": "Stop game server with /opt/stop_server.sh, backup server if requested, then stop EC2 instance",
+  "Comment": "Stop game server with stop_server.sh, backup server if requested, then stop EC2 instance",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -274,7 +274,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/is_online.sh"
+            "/opt/gnaws/scripts/is_online.sh"
           ]
         }
       },
@@ -363,7 +363,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "sudo -u game /opt/stop_server.sh"
+            "sudo -u gnaws-user /opt/gnaws/scripts/stop_server.sh"
           ]
         }
       },

@@ -32,14 +32,22 @@ async function loadServersPage() {
 }
 
 function scheduleRefreshServers() {
-    const shouldSchedule = server_servers?.some((server) => !server.status?.status || server.workflow?.status === "running");
-    if (shouldSchedule && !server_blockRefresh && !server_refreshScheduled && server_autoRefreshCount < 10) {
+    const shouldSchedule = server_servers?.some((server) => {
+        if (server.workflow?.status === "running") {
+            return true;
+        }
+        if (server.status?.lastRequest && (!server.status?.lastUpdated || new Date(server.status.lastRequest) > new Date(server.status?.lastUpdated))) {
+            return true;
+        }
+        return false;
+    });
+    if (shouldSchedule && !server_blockRefresh && !server_refreshScheduled && server_autoRefreshCount < 20) {
         server_refreshScheduled = true;
         server_autoRefreshCount += 1;
         setTimeout(() => {
             server_refreshScheduled = false;
             refreshServers();
-        }, 3500);
+        }, 20000);
     }
 }
 
@@ -70,16 +78,17 @@ function renderServers() {
     serversList.replaceChildren();
 
     server_servers.forEach((server) => {
+        const loadingStatus = server.status?.lastRequest && (!server.status?.lastUpdated || new Date(server.status.lastRequest) > new Date(server.status?.lastUpdated));
         let currentTask = server.workflow?.currentTask;
         if (currentTask) {
             currentTask += ": " + server.workflow.status;
         }
         let timeSinceBackup;
         if (server.status.lastBackup) {
-            const timeSince = (Date.now() - (new Date(server.status.lastBackup)).getTime()) / HOUR_IN_MS;
+            const timeSince = (Date.now() - new Date(server.status.lastBackup).getTime()) / HOUR_IN_MS;
             timeSinceBackup = Math.round(timeSince * 100) / 100 + "hr";
         }
-        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, server.status?.status ?? "Loading", currentTask, timeSinceBackup));
+        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, loadingStatus ? "Loading" : server.status?.status, currentTask, timeSinceBackup));
     });
 }
 
@@ -112,10 +121,12 @@ function buildRow(name, instanceType, status, currentTask, timeSinceBackup) {
 }
 
 async function onActionClick(name, action) {
-    document.getElementById("serverMessage").textContent = "";
     const payload = { name, action: action.toLowerCase() };
     if (action === BUTTON_STOP) {
-        const shouldBackup = confirm("Do you want to backup server?");
+        const shouldBackup = await askBackupDialob();
+        if (shouldBackup === null) {
+            return;
+        }
         payload.shouldBackup = shouldBackup;
     }
     const res = await callAPI("serverAction", payload);
@@ -128,6 +139,27 @@ async function onActionClick(name, action) {
     } else {
         document.getElementById("serverMessage").textContent = "Error: " + data.error;
     }
+}
+
+function askBackupDialob() {
+    const dialog = document.getElementById("backupDialog");
+    const content = document.getElementById("backupDialogContent");
+    dialog.showModal();
+    return new Promise((resolve) => {
+        const cleanup = (value) => {
+            dialog.close();
+            dialog.removeEventListener("click", onBackdrop);
+            resolve(value);
+        };
+
+        document.getElementById("yes").onclick = () => cleanup(true);
+        document.getElementById("no").onclick = () => cleanup(false);
+
+        const onBackdrop = (e) => {
+            if (!content.contains(e.target)) cleanup(null);
+        };
+        dialog.addEventListener("click", onBackdrop);
+    });
 }
 
 function openCreateServer() {
@@ -158,10 +190,10 @@ function createServerAddPortClick() {
     protocolLabel.textContent = "Protocol: ";
 
     const portInput = document.createElement("input");
-    portInput.id = "portNumber"+server_portCount;
+    portInput.id = "portNumber" + server_portCount;
 
     const protocolSelect = document.createElement("select");
-    protocolSelect.id = "protocolSelect"+server_portCount;
+    protocolSelect.id = "protocolSelect" + server_portCount;
     const tcpOption = document.createElement("option");
     tcpOption.value = "tcp";
     tcpOption.textContent = "TCP";
@@ -169,8 +201,8 @@ function createServerAddPortClick() {
     const udpOption = document.createElement("option");
     udpOption.value = "udp";
     udpOption.textContent = "UDP";
-    protocolSelect.appendChild(tcpOption)
-    protocolSelect.appendChild(udpOption)
+    protocolSelect.appendChild(tcpOption);
+    protocolSelect.appendChild(udpOption);
 
     grid.appendChild(portLabel);
     grid.appendChild(portInput);
@@ -206,8 +238,8 @@ async function createServerClick() {
 
     const ports = [];
     for (let i = 0; i < server_portCount; i++) {
-        const portString = document.getElementById("portNumber"+i).value;
-        const protocol = document.getElementById("protocolSelect"+i).value;
+        const portString = document.getElementById("portNumber" + i).value;
+        const protocol = document.getElementById("protocolSelect" + i).value;
 
         if (!/^\d+$/.test(portString)) {
             message.textContent = "Invalid port";
@@ -224,11 +256,11 @@ async function createServerClick() {
     }
     message.textContent = "";
 
-    const res = await callAPI("createServer", { serverName , instanceType, ports, template, storage });
+    const res = await callAPI("createServer", { serverName, instanceType, ports, template, storage });
     const data = await res.json();
     if (res.ok) {
         message.textContent = "Created";
-        document.getElementById("createServerName").value="";
+        document.getElementById("createServerName").value = "";
         document.getElementById("createServerPortGrid").replaceChildren();
         server_portCount = 0;
         refreshServers();

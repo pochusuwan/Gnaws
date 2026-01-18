@@ -1,5 +1,5 @@
 {
-  "Comment": "Check EC2 instance online, backup save with /opt/backup_server.sh and upload to S3 with backupBucketName parameter",
+  "Comment": "Check EC2 instance online, backup save with backup_server.sh and upload to S3 with backupBucketName parameter",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -288,7 +288,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('sudo -u game /opt/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+          "commands.$": "States.Array(States.Format('sudo -u gnaws-user /opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
     <head>
         <title>Game Server Control</title>
@@ -76,7 +76,12 @@
         <div id="login_input" style="display: none; margin-top: 20px">
             <div class="row right">
                 <div>
-                    <form onsubmit="login(true); return false;">
+                    <form
+                        onsubmit="
+                            login(true);
+                            return false;
+                        "
+                    >
                         <input type="text" id="username" name="username" placeholder="Username" autocomplete="username" />
                         <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" />
                         <button type="submit">Login</button>
@@ -160,6 +165,13 @@
                 <p>Server logs coming soon...</p>
             </div>
         </div>
+        <dialog id="backupDialog" style="padding: 0px">
+            <div id="backupDialogContent" style="padding: 16px">
+                <p>Do you want to back up the server?</p>
+                <button id="yes">Yes</button>
+                <button id="no">No</button>
+            </div>
+        </dialog>
         <script src="config.js"></script>
         <script src="app.js"></script>
         <script src="auth.js"></script>

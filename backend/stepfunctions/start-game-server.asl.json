@@ -1,5 +1,5 @@
 {
-  "Comment": "Start EC2 instance, check game server is not online with /opt/is_online.sh, then start game server with /opt/start_server.sh",
+  "Comment": "Start EC2 instance, check game server is not online with is_online.sh, then start game server with start_server.sh",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -331,7 +331,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/is_online.sh"
+            "/opt/gnaws/scripts/is_online.sh"
           ]
         }
       },
@@ -398,7 +398,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "sudo -u game /opt/start_server.sh"
+            "sudo -u gnaws-user /opt/gnaws/scripts/start_server.sh"
           ]
         }
       },
