@@ -19,4 +19,5 @@ zip -q -r "gnaws-$BACKUP_NAME.zip" "$SAVE_LOCATION"
 aws s3 cp "gnaws-$BACKUP_NAME.zip" "s3://$BUCKET_PATH/$BACKUP_NAME.zip" --quiet
 rm "gnaws-$BACKUP_NAME.zip"
 
+# output end with "Success\n" exactly to signal success
 echo "Backed up $BACKUP_NAME to S3. Success"
