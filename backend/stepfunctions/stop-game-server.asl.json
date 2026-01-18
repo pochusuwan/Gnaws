@@ -385,7 +385,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('sudo -u game /opt/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+          "commands.$": "States.Array(States.Format('sudo -u gnaws-user /opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",
