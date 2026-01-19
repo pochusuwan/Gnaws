@@ -27,6 +27,12 @@ id -u "$GAME_USER" >/dev/null 2>&1 || \
 . "$GAME_CONF"
 GAME_SERVER_DIR=/opt/$SERVER_FOLDER_NAME
 
+# Setup network activity tracking rule named GNAWS in GNAWS_RULES chain
+iptables -N GNAWS_RULES 2>/dev/null || true
+iptables -F GNAWS_RULES
+iptables -I INPUT -p $SERVER_PORT_PROTOCOL --dport $SERVER_PORT_NUMBER -m recent --name GNAWS --set
+iptables -C INPUT -j GNAWS_RULES 2>/dev/null || iptables -A INPUT -j GNAWS_RULES
+
 # Create server folder and give ownership to gnaws-user
 mkdir -p "$GAME_SERVER_DIR"
 chown -R "$GAME_USER":"$GAME_USER" "$GAME_SERVER_DIR"
@@ -36,10 +42,7 @@ ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$SCRIPT_DIR/scripts/gnaws-script.c
 
 # Copy install script to server folder
 cp "$GAME_INSTALL" "$GAME_SERVER_DIR/install.sh"
-
 rm -rf games
-echo $GAME_SERVER_DIR
-
 # Install game as gnaws-user
 cd "$GAME_SERVER_DIR"
 sudo -u "$GAME_USER" "./install.sh"

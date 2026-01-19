@@ -18,9 +18,20 @@ if ss -ln$PROTOCOL | grep -q "[.:]$SERVER_PORT_NUMBER\b"; then
     IS_ONLINE="true"
 fi
 
-ACTIVE_PLAYERS=$(iptables -L INPUT -n -v -m recent --name GNAWS --rcheck --seconds 300 | grep GNAWS | wc -l)
 CURRENT_STORAGE_GIB=$(df --output=used -h -B1 . | tail -n1)
 MAX_STORAGE_GIB=$(df --output=size -h -B1 . | tail -n1)
+
+# Use GNAWS rule setup during bootstrap. Player is connected if there's a packet within last 5 minutes
+NOW_JIFFIES=$(grep -m 1 "jiffies:" /proc/timer_list | awk '{print $2}')
+ACTIVE_PLAYERS=0
+while read -r line; do
+    [ -z "$line" ] && continue
+    LAST_SEEN=$(echo $line | grep -o "last_seen: [0-9]*" | cut -d" " -f2)
+    SINCE_LAST_SEEN_SEC=$(((NOW_JIFFIES-LAST_SEEN)/1000))
+    if ((SINCE_LAST_SEEN_SEC <= 300)); then
+        ACTIVE_PLAYERS=$((ACTIVE_PLAYERS + 1))
+    fi
+done < "/proc/net/xt_recent/GNAWS"
 
 cat <<EOF
 {
