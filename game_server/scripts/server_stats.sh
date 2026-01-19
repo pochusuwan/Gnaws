@@ -15,7 +15,6 @@ fi
 
 IS_ONLINE="false"
 if ss -ln$PROTOCOL | grep -q "[.:]$SERVER_PORT_NUMBER\b"; then
-    # output "online\n" exactly to signal online
     IS_ONLINE="true"
 fi
 
