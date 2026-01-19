@@ -5,12 +5,53 @@ let server_refreshScheduled = false;
 let server_autoRefreshCount = 0;
 let server_createServerInitialized = false;
 let server_portCount = 0;
+let server_createServerData = null;
+let server_initialGame = null;
 
 const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
 const BUTTON_BACKUP = "Backup";
 const BUTTONS = [BUTTON_START, BUTTON_STOP, BUTTON_BACKUP];
 const HOUR_IN_MS = 60 * 60 * 1000;
+
+const games = {
+    _blank_server: {
+        gameId: "_blank_server",
+        displayName: "Blank Instance",
+        instanceType: "t3.micro",
+        storage: 8,
+        ports: [
+            {
+                port: 25565,
+                protocol: "tcp",
+            },
+        ],
+    },
+    Minecraft: {
+        gameId: "Minecraft",
+        displayName: "Minecraft",
+        instanceType: "t3.small",
+        storage: 9,
+        ports: [
+            {
+                port: 25565,
+                protocol: "tcp",
+            },
+        ],
+    },
+    Palworld: {
+        gameId: "Palworld",
+        displayName: "Palworld",
+        instanceType: "t3.medium",
+        storage: 16,
+        ports: [
+            {
+                port: 8211,
+                protocol: "udp",
+            },
+        ],
+    },
+};
 
 function resetServers() {
     server_servers = null;
@@ -28,6 +69,11 @@ async function loadServersPage() {
         }
         scheduleRefreshServers();
         server_loadingServers = false;
+    }
+    if (auth_role === ROLE_ADMIN) {
+        document.getElementById("openCreateServer").style.display = "block";
+    } else {
+        document.getElementById("openCreateServer").style.display = "none";
     }
 }
 
@@ -84,7 +130,7 @@ function renderServers() {
             currentTask += ": " + server.workflow.status;
         }
         let timeSinceBackup;
-        if (server.status.lastBackup) {
+        if (server.status?.lastBackup) {
             const timeSince = (Date.now() - new Date(server.status.lastBackup).getTime()) / HOUR_IN_MS;
             timeSinceBackup = Math.round(timeSince * 100) / 100 + "hr";
         }
@@ -163,17 +209,103 @@ function askBackupDialob() {
 }
 
 function openCreateServer() {
+    if (server_createServerData == null) {
+        // TODO: load from server
+        server_initialGame = "_blank_server"
+        const initialGame = games[server_initialGame];
+        server_createServerData = {
+            serverName: "",
+            gameId: initialGame.gameId,
+            instanceType: initialGame.instanceType,
+            storage: 8,
+            ports: initialGame.ports.map(p => ({
+                port: p.port,
+                protocol: p.protocol
+            }))
+        };
+        initializeCreateTable();
+    }
+    refreshCreateServerUI();
     document.getElementById("createServerPanel").style.display = "block";
     document.getElementById("openCreateServer").style.display = "none";
+}
 
-    if (!server_createServerInitialized) {
-        server_createServerInitialized = true;
-        const templateSelect = document.getElementById("createServerTemplate");
-        const blankOption = document.createElement("option");
-        blankOption.value = "Blank Instance";
-        blankOption.textContent = "Blank Instance";
-        templateSelect.appendChild(blankOption);
-    }
+function initializeCreateTable() {
+    document.getElementById("createServerName").addEventListener("input", (event) => {
+        server_createServerData.serverName = event.target.value;
+    });
+    document.getElementById("createServerInstanceType").addEventListener("input", (event) => {
+        server_createServerData.instanceType = event.target.value;
+    });
+    document.getElementById("createServerStorage").addEventListener("input", (event) => {
+        server_createServerData.storage = event.target.value;
+    });
+
+    const templateSelect = document.getElementById("createServerTemplate");
+    Object.values(games).forEach((game) => {
+        const option = document.createElement("option");
+        option.value = game.gameId;
+        option.textContent = game.displayName;
+        option.selected = game.gameId === server_createServerData.gameId;
+        templateSelect.appendChild(option);
+    });
+    templateSelect.addEventListener("change", (event) => {
+        const selectedGame = games[event.target.value];
+        if (selectedGame) {
+            server_createServerData.gameId = selectedGame.gameId;
+            server_createServerData.instanceType = selectedGame.instanceType;
+            server_createServerData.storage = selectedGame.storage;
+            server_createServerData.ports = selectedGame.ports.map(p => ({
+                port: p.port,
+                protocol: p.protocol
+            }));
+            refreshCreateServerUI();
+        }
+    });
+}
+
+function refreshCreateServerUI() {
+    const serverName = document.getElementById("createServerName");
+    serverName.value = server_createServerData.serverName;
+    const instanceType = document.getElementById("createServerInstanceType");
+    instanceType.value = server_createServerData.instanceType;
+    const storage = document.getElementById("createServerStorage");
+    storage.value = server_createServerData.storage;
+
+    const portGrid = document.getElementById("createServerPortGrid");
+    portGrid.replaceChildren();
+    server_createServerData.ports.forEach((port, index) => {
+        const portLabel = document.createElement("div");
+        portLabel.textContent = "Port: ";
+        const protocolLabel = document.createElement("div");
+        protocolLabel.textContent = "Protocol: ";
+
+        const portInput = document.createElement("input");
+        portInput.id = "portNumber" + index;
+        portInput.value = port.port;
+        portInput.addEventListener("input", (event) => {
+            server_createServerData.ports[index].port = event.target.value;
+        });
+
+        const protocolSelect = document.createElement("select");
+        protocolSelect.id = "protocolSelect" + index;
+        ["tcp", "udp"].forEach((protocol) => {
+            const option = document.createElement("option");
+            option.value = protocol;
+            option.selected = port.protocol === protocol;
+            option.textContent = protocol.toUpperCase();
+            protocolSelect.appendChild(option);
+        });
+        protocolSelect.addEventListener("change", (event) => {
+            const selectedProtocol = event.target.value;
+            server_createServerData.ports[index].protocol = selectedProtocol;
+        });
+        
+        portGrid.appendChild(portLabel);
+        portGrid.appendChild(portInput);
+        portGrid.appendChild(protocolLabel);
+        portGrid.appendChild(protocolSelect);
+    });
 }
 
 function cancelCreateServer() {
@@ -182,40 +314,19 @@ function cancelCreateServer() {
 }
 
 function createServerAddPortClick() {
-    const grid = document.getElementById("createServerPortGrid");
-
-    const portLabel = document.createElement("div");
-    portLabel.textContent = "Port: ";
-    const protocolLabel = document.createElement("div");
-    protocolLabel.textContent = "Protocol: ";
-
-    const portInput = document.createElement("input");
-    portInput.id = "portNumber" + server_portCount;
-
-    const protocolSelect = document.createElement("select");
-    protocolSelect.id = "protocolSelect" + server_portCount;
-    const tcpOption = document.createElement("option");
-    tcpOption.value = "tcp";
-    tcpOption.textContent = "TCP";
-    tcpOption.selected = true;
-    const udpOption = document.createElement("option");
-    udpOption.value = "udp";
-    udpOption.textContent = "UDP";
-    protocolSelect.appendChild(tcpOption);
-    protocolSelect.appendChild(udpOption);
-
-    grid.appendChild(portLabel);
-    grid.appendChild(portInput);
-    grid.appendChild(protocolLabel);
-    grid.appendChild(protocolSelect);
-    server_portCount += 1;
+    server_createServerData.ports.push({
+        port: 80,
+        protocol: "tcp",
+    });
+    refreshCreateServerUI();
 }
 
 async function createServerClick() {
-    const serverName = document.getElementById("createServerName").value;
-    const template = document.getElementById("createServerTemplate").value;
-    const instanceType = document.getElementById("createServerInstanceType").value;
-    const storageString = document.getElementById("createServerStorage").value;
+    const serverName = server_createServerData.serverName;
+    const gameId = server_createServerData.gameId;
+    const instanceType = server_createServerData.instanceType;
+    const storageString = server_createServerData.storage;
+    const portsInput = server_createServerData.ports;
     const message = document.getElementById("createServerMessage");
 
     if (serverName.length === 0) {
@@ -237,9 +348,9 @@ async function createServerClick() {
     }
 
     const ports = [];
-    for (let i = 0; i < server_portCount; i++) {
-        const portString = document.getElementById("portNumber" + i).value;
-        const protocol = document.getElementById("protocolSelect" + i).value;
+    for (let i = 0; i < portsInput.length; i++) {
+        const portString = portsInput[i].port;
+        const protocol = portsInput[i].protocol;
 
         if (!/^\d+$/.test(portString)) {
             message.textContent = "Invalid port";
@@ -256,7 +367,7 @@ async function createServerClick() {
     }
     message.textContent = "";
 
-    const res = await callAPI("createServer", { serverName, instanceType, ports, template, storage });
+    const res = await callAPI("createServer", { serverName, instanceType, ports, gameId, storage });
     const data = await res.json();
     if (res.ok) {
         message.textContent = "Created";

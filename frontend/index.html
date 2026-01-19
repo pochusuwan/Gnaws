@@ -119,7 +119,7 @@
                     </thead>
                     <tbody id="serversListBody"></tbody>
                 </table>
-                <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px">Add server</button>
+                <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px; display: none">Add server</button>
                 <div id="createServerPanel" style="display: none; margin-top: 20px">
                     <div id="createServerGrid" class="create-server-grid">
                         <div>Server Name:</div>
@@ -136,7 +136,7 @@
 
                         <div>Storage:</div>
                         <input type="text" id="createServerStorage" value="8" />
-                        <div>GiB</div>
+                        <div>>= 4 GiB</div>
                     </div>
 
                     <div id="createServerPortGrid" class="create-server-port-grid" style="margin-top: 5px"></div>

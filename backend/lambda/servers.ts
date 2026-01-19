@@ -3,7 +3,7 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
+import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startSetupWorkflow, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType, DeleteSecurityGroupCommand, DescribeInstanceTypesCommand, RunInstancesCommand, TerminateInstancesCommand } from "@aws-sdk/client-ec2";
 import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
@@ -260,6 +260,11 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName) || serverName.length === 0) {
         return clientError("Invalid serverName");
     }
+    const gameId = params?.gameId;
+    if (typeof gameId !== "string") {
+        return clientError("Invalid gameId");
+    }
+    // TODO: validate game id against available games
     const instanceType = params?.instanceType;
     if (typeof instanceType !== "string") {
         return clientError("Invalid instanceType");
@@ -327,12 +332,42 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             securityGroupId: res.securityGroupId,
             status: "initializing",
         };
+        // Update server table
         try {
             await updateServerAttributes(serverName, server);
-            // TODO initialize
-            return success({ message: "Server created. Initializing." });
         } catch (e: any) {
             res.errorMessage = `Failed to update server state: ${e.message}`;
+        }
+        // Acquire lock
+        if (!res.errorMessage) {
+            try {
+                await aquireWorkflowLock(res.instanceId, "setup");
+            } catch (err: any) {
+                res.errorMessage = "Failed to get workflow lock";
+            }
+        }
+        if (!res.errorMessage) {
+            const result = await startSetupWorkflow(server.name, res.instanceId, gameId);
+            if (result) {
+                // Workflow started. Update server table
+                try {
+                    await updateServerAttributes(server.name, {
+                        workflow: {
+                            currentTask: "setup",
+                            executionId: result.executionId,
+                            status: "running",
+                            lastUpdated: result.startedAt.toISOString(),
+                        },
+                    });
+                    return success({ message: "Server created. Initializing." });
+                } catch (e) {
+                    // Workflow already started but failed to update server table is ok.
+                    return success({ message: "Server created. Initializing." });
+                }
+            } else {
+                // Failed to start setup workflow
+                res.errorMessage = "Failed to start setup workflow";
+            }
         }
     }
     // If create EC2 fail, clean up created resources.
