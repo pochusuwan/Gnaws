@@ -13,6 +13,7 @@ const BUTTON_STOP = "Stop";
 const BUTTON_BACKUP = "Backup";
 const BUTTONS = [BUTTON_START, BUTTON_STOP, BUTTON_BACKUP];
 const HOUR_IN_MS = 60 * 60 * 1000;
+const GIB = 1024 * 1024 * 1024;
 
 const games = {
     _blank_server: {
@@ -134,14 +135,27 @@ function renderServers() {
             const timeSince = (Date.now() - new Date(server.status.lastBackup).getTime()) / HOUR_IN_MS;
             timeSinceBackup = Math.round(timeSince * 100) / 100 + "hr";
         }
-        serversList.appendChild(buildRow(server.name, server.ec2?.instanceType, loadingStatus ? "Loading" : server.status?.status, currentTask, timeSinceBackup));
+        let storageString;
+        if (server.status?.usedStorage && server.status?.totalStorage) {
+            storageString = "" + Math.round((server.status?.usedStorage / GIB) * 100) / 100 + "/" + Math.ceil(server.status?.totalStorage / GIB) + "GiB";
+        }
+        serversList.appendChild(
+            buildRow(server.name, [
+                server.name,
+                server.ec2?.instanceType,
+                loadingStatus ? "Loading" : server.status?.status,
+                currentTask,
+                server.status?.ipAddress,
+                server.status?.playerCount,
+                storageString,
+                timeSinceBackup,
+            ]),
+        );
     });
 }
 
-function buildRow(name, instanceType, status, currentTask, timeSinceBackup) {
+function buildRow(name, attributes) {
     const canManage = auth_role === ROLE_ADMIN || auth_role === ROLE_MANAGER;
-
-    const attributes = [name, instanceType, status, currentTask, timeSinceBackup];
     if (!canManage) {
         attributes.push("No permission");
     }
@@ -211,17 +225,17 @@ function askBackupDialob() {
 function openCreateServer() {
     if (server_createServerData == null) {
         // TODO: load from server
-        server_initialGame = "_blank_server"
+        server_initialGame = "_blank_server";
         const initialGame = games[server_initialGame];
         server_createServerData = {
             serverName: "",
             gameId: initialGame.gameId,
             instanceType: initialGame.instanceType,
             storage: 8,
-            ports: initialGame.ports.map(p => ({
+            ports: initialGame.ports.map((p) => ({
                 port: p.port,
-                protocol: p.protocol
-            }))
+                protocol: p.protocol,
+            })),
         };
         initializeCreateTable();
     }
@@ -255,9 +269,9 @@ function initializeCreateTable() {
             server_createServerData.gameId = selectedGame.gameId;
             server_createServerData.instanceType = selectedGame.instanceType;
             server_createServerData.storage = selectedGame.storage;
-            server_createServerData.ports = selectedGame.ports.map(p => ({
+            server_createServerData.ports = selectedGame.ports.map((p) => ({
                 port: p.port,
-                protocol: p.protocol
+                protocol: p.protocol,
             }));
             refreshCreateServerUI();
         }
@@ -300,7 +314,7 @@ function refreshCreateServerUI() {
             const selectedProtocol = event.target.value;
             server_createServerData.ports[index].protocol = selectedProtocol;
         });
-        
+
         portGrid.appendChild(portLabel);
         portGrid.appendChild(portInput);
         portGrid.appendChild(protocolLabel);

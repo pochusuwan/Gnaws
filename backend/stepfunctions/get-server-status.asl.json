@@ -1,5 +1,5 @@
 {
-  "Comment": "Get various statuses: get game server status with is_online.sh, get last backup date, and update server status in DDB",
+  "Comment": "Get various statuses: get game server status with server_stats.sh, get last backup date, and update server status in DDB",
   "StartAt": "ListBackups",
   "States": {
     "ListBackups": {
@@ -48,17 +48,11 @@
       },
       "Next": "WriteToDDB"
     },
-    "SetOnline": {
+    "SetOfflineOnline": {
+      "QueryLanguage": "JSONata",
       "Type": "Pass",
       "Assign": {
-        "status": "server online"
-      },
-      "Next": "WriteToDDB"
-    },
-    "SetOffline": {
-      "Type": "Pass",
-      "Assign": {
-        "status": "server offline"
+        "status": "{% $serverStats.is_online ? 'server online' : 'server offline' %}"
       },
       "Next": "WriteToDDB"
     },
@@ -80,14 +74,18 @@
         "ExpressionAttributeValues": {
           ":statusObj": {
             "M": {
-              "lastUpdated": {
-                "S": "{% $states.context.State.EnteredTime %}"
-              },
               "status": {
                 "S": "{% $status %}"
               },
               "message": "{% $message ? { 'S': $message } : null %}",
-              "lastBackup": "{% $lastBackup ? { 'S': $lastBackup.LastModified } : null %}"
+              "ipAddress": "{% $states.input.ec2.Reservations[0].Instances[0].PublicIpAddress ? {'S': $states.input.ec2.Reservations[0].Instances[0].PublicIpAddress } : null %}",
+              "totalStorage": "{% $serverStats.max_storage != null ? { 'N': $serverStats.max_storage & '' } : null %}",
+              "usedStorage": "{% $serverStats.current_storage != null ? { 'N': $serverStats.current_storage & '' } : null %}",
+              "playerCount": "{% $serverStats.players_count != null ? { 'N': $serverStats.players_count & '' } : null %}",
+              "lastBackup": "{% $lastBackup ? { 'S': $lastBackup.LastModified } : null %}",
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
             }
           }
         }
@@ -181,7 +179,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/is_online.sh"
+            "/opt/gnaws/scripts/server_stats.sh"
           ]
         }
       },
@@ -200,19 +198,11 @@
         "CommandId.$": "$.command.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
+      "Assign": {
+        "serverStats.$": "States.StringToJson($.StandardOutputContent)"
+      },
       "ResultPath": "$.commandResult",
-      "Next": "CheckSSMOutput"
-    },
-    "CheckSSMOutput": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "online\n",
-          "Next": "SetOnline"
-        }
-      ],
-      "Default": "SetOffline"
+      "Next": "SetOfflineOnline"
     }
   }
 }

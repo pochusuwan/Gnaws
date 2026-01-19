@@ -39,10 +39,12 @@ export type Server = {
     };
     status?: {
         status?: string;
+        message?: string;
+        ipAddress?: string;
         totalStorage?: string;
         usedStorage?: string;
+        playerCount?: number;
         lastBackup?: string;
-        message?: string;
         lastUpdated?: string;
         lastRequest?: string;
     };
