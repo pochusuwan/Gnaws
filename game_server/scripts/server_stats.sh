@@ -22,7 +22,11 @@ ACTIVE_PLAYERS=$(iptables -L INPUT -n -v -m recent --name GNAWS --rcheck --secon
 CURRENT_STORAGE_GIB=$(df --output=used -h -B1 . | tail -n1)
 MAX_STORAGE_GIB=$(df --output=size -h -B1 . | tail -n1)
 
-echo "is_online=$IS_ONLINE"
-echo "players_count=$ACTIVE_PLAYERS"
-echo "current_storage=$CURRENT_STORAGE_GIB"
-echo "max_storage=$MAX_STORAGE_GIB"
+cat <<EOF
+{
+  "is_online": $IS_ONLINE,
+  "players_count": $ACTIVE_PLAYERS,
+  "current_storage": $CURRENT_STORAGE_GIB,
+  "max_storage": $MAX_STORAGE_GIB
+}
+EOF
