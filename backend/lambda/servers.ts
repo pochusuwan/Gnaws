@@ -56,6 +56,10 @@ export type Server = {
         message?: string;
     };
 };
+export type Port = {
+    port: number;
+    protocol: string;
+};
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
@@ -382,10 +386,6 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     }
 };
 
-type Port = {
-    port: number;
-    protocol: string;
-};
 const createEc2 = async (
     serverName: string,
     ports: Port[],
