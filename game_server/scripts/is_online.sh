@@ -1,13 +1,19 @@
 #!/bin/bash
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Read configurable values
-# SERVER_PORT_PROTOCOL "t" = TCP, "u" = UDP
+# SERVER_PORT_PROTOCOL "tcp" or "udp"
 # SERVER_PORT_NUMBER
 . "$SCRIPT_DIR/gnaws-script.conf"
 
-if ss -lpn$SERVER_PORT_PROTOCOL | grep -q "[.:]$SERVER_PORT_NUMBER\b"; then
+PROTOCOL="t"
+if [ "$SERVER_PORT_PROTOCOL" = "udp" ]; then
+    PROTOCOL="u"
+fi
+
+if ss -ln$PROTOCOL | grep -q "[.:]$SERVER_PORT_NUMBER\b"; then
     # output "online\n" exactly to signal online
     echo "online"
 else

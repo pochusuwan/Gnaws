@@ -1,0 +1,47 @@
+name: Release game server bundle
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'game_server/**'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Create tag
+        id: tag
+        run: |
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+          PATCH=$((PATCH + 1))
+          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Package game_server folder
+        run: |
+          tar -czf game_server.tar.gz game_server
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Games bundle ${{ steps.tag.outputs.tag }}
+          files: game_server.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
