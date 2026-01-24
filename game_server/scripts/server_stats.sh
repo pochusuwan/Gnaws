@@ -28,7 +28,7 @@ while read -r line; do
     [ -z "$line" ] && continue
     LAST_SEEN=$(echo $line | grep -o "last_seen: [0-9]*" | cut -d" " -f2)
     SINCE_LAST_SEEN_SEC=$(((NOW_JIFFIES-LAST_SEEN)/1000))
-    if ((SINCE_LAST_SEEN_SEC <= 300)); then
+    if ((SINCE_LAST_SEEN_SEC <= 60)); then
         ACTIVE_PLAYERS=$((ACTIVE_PLAYERS + 1))
     fi
 done < "/proc/net/xt_recent/GNAWS"
