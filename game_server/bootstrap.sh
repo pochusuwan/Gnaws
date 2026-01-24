@@ -19,6 +19,16 @@ GAME_INSTALL="$SCRIPT_DIR/games/$GAME_ID/gnaws-install.sh"
     exit 1
 }
 
+# Install dependencies
+apt update
+apt install -y zip unzip
+if ! command -v aws >/dev/null; then
+    curl -s https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
+    unzip -q /tmp/awscliv2.zip -d /tmp
+    /tmp/aws/install
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
 # Create user which will be used with screen to run game server
 USER="gnaws-user"
 id -u "$USER" >/dev/null 2>&1 || \

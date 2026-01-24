@@ -1,4 +1,15 @@
 {
     "id": "minecraft",
-    "displayName": "Minecraft"
+    "displayName": "Minecraft",
+    "ec2": {
+        "instanceType": "t3.medium",
+        "minimumInstanceType": "t3.small",
+        "storage": 8,
+        "ports": [
+            {
+                "port": 25565,
+                "protocol": "tcp"
+            }
+        ]
+    }
 }

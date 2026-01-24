@@ -17,9 +17,10 @@ type Game = {
     displayName: string;
     ec2?: {
         instanceType: string;
+        minimumInstanceType: string;
         storage: number;
-        ports: Port[]
-    },
+        ports: Port[];
+    };
 };
 
 async function getLatestReleaseTag(url: string): Promise<string> {
@@ -51,10 +52,10 @@ async function processJsonFiles(): Promise<Game[]> {
             const parsed = JSON.parse(content);
             const id = parsed.id;
             const displayName = parsed.displayName;
-            if (typeof id !== 'string' || typeof displayName !== 'string') {
+            if (typeof id !== "string" || typeof displayName !== "string") {
                 continue;
             }
-            games.push({id, displayName });
+            games.push({ id, displayName });
             console.debug("display", parsed.displayName);
         } catch (e) {
             console.debug(`Failed to read game: ${file} ${e}`);
