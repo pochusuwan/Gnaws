@@ -363,7 +363,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "sudo -u gnaws-user /opt/gnaws/scripts/stop_server.sh"
+            "/opt/gnaws/scripts/stop_server.sh"
           ]
         }
       },
@@ -385,7 +385,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('sudo -u gnaws-user /opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+          "commands.$": "States.Array(States.Format('/opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",

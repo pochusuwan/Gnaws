@@ -398,7 +398,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "sudo -u gnaws-user /opt/gnaws/scripts/start_server.sh"
+            "/opt/gnaws/scripts/start_server.sh"
           ]
         }
       },
