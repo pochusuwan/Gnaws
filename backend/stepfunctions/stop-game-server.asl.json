@@ -1,0 +1,448 @@
+{
+  "Comment": "Stop game server with stop_server.sh, backup server if requested, then stop EC2 instance",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "stopGameServerCommandSent": {
+          "val": false
+        },
+        "gameServerChecks": {
+          "val": 0
+        },
+        "backupCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2Fail": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Could not get EC2 state"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidEC2State": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "DescribeSSMFail": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Could not get ssm status"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidSSMStatus": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "FailGameServerTimeout": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Timeout waiting for game server to stop"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "Success": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "stop"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "success"
+        },
+        "message": {
+          "S": "Stopped game server"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "WriteToServerDDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Parameters": {
+        "TableName.$": "$.serverTable",
+        "Key": {
+          "name": {
+            "S.$": "$.serverName"
+          }
+        },
+        "UpdateExpression": "SET #w = :workflowObj",
+        "ExpressionAttributeNames": {
+          "#w": "workflow"
+        },
+        "ExpressionAttributeValues": {
+          ":workflowObj": {
+            "M.$": "$.workflowObj.val"
+          }
+        }
+      },
+      "ResultPath": "$.updateServer",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.workflowTable",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceId"
+          }
+        }
+      },
+      "ResultPath": "$.removeLock",
+      "End": true
+    },
+    "DescribeEC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "IsInstanceRunning"
+    },
+    "IsInstanceRunning": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ec2.Reservations",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0]",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeEC2Fail"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "running",
+          "Next": "DescribeSSM"
+        }
+      ],
+      "Default": "InvalidEC2State"
+    },
+    "DescribeSSM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
+      "Parameters": {
+        "Filters": [
+          {
+            "Key": "InstanceIds",
+            "Values.$": "States.Array($.instanceId)"
+          }
+        ]
+      },
+      "ResultPath": "$.ssm",
+      "Next": "IsSSMOnline"
+    },
+    "IsSSMOnline": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ssm.InstanceInformationList",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeSSMFail"
+        },
+        {
+          "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+          "StringEquals": "Online",
+          "Next": "CheckGameServerStatus"
+        }
+      ],
+      "Default": "InvalidSSMStatus"
+    },
+    "CheckGameServerStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "/opt/gnaws/scripts/is_online.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForCommand"
+    },
+    "WaitForCommand": {
+      "Type": "Wait",
+      "Seconds": 2,
+      "Next": "GetCommandResult"
+    },
+    "GetCommandResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementGameServerCheck"
+    },
+    "IncrementGameServerCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.gameServerChecks.val, 1)"
+      },
+      "ResultPath": "$.meta.gameServerChecks",
+      "Next": "CheckGameServerOutput"
+    },
+    "CheckGameServerOutput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.commandResult.StandardOutputContent",
+              "StringEquals": "offline\n"
+            },
+            {
+              "Variable": "$.shouldBackup",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.shouldBackup",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "BackupServer"
+        },
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringEquals": "offline\n",
+          "Next": "StopInstance"
+        },
+        {
+          "And": [
+            {
+              "Variable": "$.commandResult.StandardOutputContent",
+              "StringEquals": "online\n"
+            },
+            {
+              "Variable": "$.meta.stopGameServerCommandSent.val",
+              "BooleanEquals": false
+            }
+          ],
+          "Next": "StopGameServer"
+        },
+        {
+          "Variable": "$.meta.gameServerChecks.val",
+          "NumericGreaterThanEquals": 20,
+          "Next": "FailGameServerTimeout"
+        }
+      ],
+      "Default": "WaitGameServerOffline"
+    },
+    "WaitGameServerOffline": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckGameServerStatus"
+    },
+    "StopGameServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "sudo -u gnaws-user /opt/gnaws/scripts/stop_server.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "SetGameServerStopSent"
+    },
+    "SetGameServerStopSent": {
+      "Type": "Pass",
+      "Parameters": {
+        "val": true
+      },
+      "ResultPath": "$.meta.stopGameServerCommandSent",
+      "Next": "WaitGameServerOffline"
+    },
+    "BackupServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands.$": "States.Array(States.Format('sudo -u gnaws-user /opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForBackup"
+    },
+    "WaitForBackup": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "GetBackupResult"
+    },
+    "GetBackupResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementBackupCheck"
+    },
+    "IncrementBackupCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.backupCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.backupCheck",
+      "Next": "CheckBackupStatus"
+    },
+    "CheckBackupStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Failed",
+          "Next": "StopInstance"
+        },
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringMatches": "*Success\n",
+          "Next": "StopInstance"
+        },
+        {
+          "Variable": "$.meta.backupCheck.val",
+          "NumericGreaterThanEquals": 60,
+          "Next": "StopInstance"
+        }
+      ],
+      "Default": "WaitForBackup"
+    },
+    "StopInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:stopInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "Success"
+    }
+  }
+}

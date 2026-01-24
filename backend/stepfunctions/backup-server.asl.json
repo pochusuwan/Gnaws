@@ -1,0 +1,342 @@
+{
+  "Comment": "Check EC2 instance online, backup save with backup_server.sh and upload to S3 with backupBucketName parameter",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "backupCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2Fail": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Could not get EC2 state"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidEC2State": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "DescribeSSMFail": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Could not get ssm status"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidSSMStatus": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "BackupFailed": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Failed to backup server"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "FailBackupTimeout": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "failed"
+        },
+        "message": {
+          "S": "Timeout waiting for backup to complete"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "Success": {
+      "Type": "Pass",
+      "Parameters": {
+        "currentTask": {
+          "S": "backup"
+        },
+        "executionId": {
+          "S.$": "$$.Execution.Id"
+        },
+        "lastUpdated": {
+          "S.$": "$$.State.EnteredTime"
+        },
+        "status": {
+          "S": "success"
+        },
+        "message": {
+          "S": "Backup server"
+        }
+      },
+      "ResultPath": "$.workflowObj.val",
+      "Next": "WriteToServerDDB"
+    },
+    "WriteToServerDDB": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Parameters": {
+        "TableName.$": "$.serverTable",
+        "Key": {
+          "name": {
+            "S.$": "$.serverName"
+          }
+        },
+        "UpdateExpression": "SET #w = :workflowObj",
+        "ExpressionAttributeNames": {
+          "#w": "workflow"
+        },
+        "ExpressionAttributeValues": {
+          ":workflowObj": {
+            "M.$": "$.workflowObj.val"
+          }
+        }
+      },
+      "ResultPath": "$.updateServer",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.workflowTable",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceId"
+          }
+        }
+      },
+      "End": true
+    },
+    "DescribeEC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "IsInstanceRunning"
+    },
+    "IsInstanceRunning": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ec2.Reservations",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0]",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeEC2Fail"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "running",
+          "Next": "DescribeEC2SSM"
+        }
+      ],
+      "Default": "InvalidEC2State"
+    },
+    "DescribeEC2SSM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
+      "Parameters": {
+        "Filters": [
+          {
+            "Key": "InstanceIds",
+            "Values.$": "States.Array($.instanceId)"
+          }
+        ]
+      },
+      "ResultPath": "$.ssm",
+      "Next": "IsSSMOnline"
+    },
+    "IsSSMOnline": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ssm.InstanceInformationList",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeSSMFail"
+        },
+        {
+          "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+          "StringEquals": "Online",
+          "Next": "CreateBackup"
+        }
+      ],
+      "Default": "InvalidSSMStatus"
+    },
+    "CreateBackup": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands.$": "States.Array(States.Format('sudo -u gnaws-user /opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForCommand"
+    },
+    "WaitForCommand": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "GetCommandResult"
+    },
+    "GetCommandResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementBackupCheck"
+    },
+    "IncrementBackupCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.backupCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.backupCheck",
+      "Next": "CheckBackupStatus"
+    },
+    "CheckBackupStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Failed",
+          "Next": "BackupFailed"
+        },
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringMatches": "*Success\n",
+          "Next": "Success"
+        },
+        {
+          "Variable": "$.meta.backupCheck.val",
+          "NumericGreaterThanEquals": 60,
+          "Next": "FailBackupTimeout"
+        }
+      ],
+      "Default": "WaitForCommand"
+    }
+  }
+}
