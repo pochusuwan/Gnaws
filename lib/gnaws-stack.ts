@@ -19,6 +19,7 @@ export class GnawsStack extends cdk.Stack {
     private userTable: dynamodb.Table;
     private serverTable: dynamodb.Table;
     private workflowTable: dynamodb.Table;
+    private gameTable: dynamodb.Table;
     private backupBucket: s3.Bucket;
     // Frontend
     private websiteBucket: s3.Bucket;
@@ -49,6 +50,7 @@ export class GnawsStack extends cdk.Stack {
     private buildBackend() {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
+            functionName: "GnawsLambdaBackend",
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: "index.handler",
             code: lambda.Code.fromAsset("backend/lambda"),
@@ -56,6 +58,7 @@ export class GnawsStack extends cdk.Stack {
                 USER_TABLE_NAME: this.userTable.tableName,
                 SERVER_TABLE_NAME: this.serverTable.tableName,
                 WORKFLOW_TABLE_NAME: this.workflowTable.tableName,
+                GAME_TABLE_NAME: this.gameTable.tableName,
                 SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
                 JWT_SECRET: this.jwtSecret.secretArn,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
@@ -87,6 +90,7 @@ export class GnawsStack extends cdk.Stack {
         this.userTable.grantFullAccess(backend);
         this.serverTable.grantFullAccess(backend);
         this.workflowTable.grantFullAccess(backend);
+        this.gameTable.grantFullAccess(backend);
         this.startServerFunction.grantStartExecution(backend);
         this.stopServerFunction.grantStartExecution(backend);
         this.backupServerFunction.grantStartExecution(backend);
@@ -118,6 +122,7 @@ export class GnawsStack extends cdk.Stack {
     private buildFrontend() {
         // S3 bucket for website resources
         this.websiteBucket = new s3.Bucket(this, "GnawsWebsiteBucket", {
+            bucketName: "gnaws-website-bucket",
             publicReadAccess: true,
             websiteIndexDocument: "index.html",
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
@@ -162,15 +167,19 @@ export class GnawsStack extends cdk.Stack {
         });
         this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
-            removalPolicy: cdk.RemovalPolicy.DESTROY
+            tableName: "GnawsUsersTable",
         });
         this.serverTable = new dynamodb.Table(this, "GnawsGameServersTable", {
             partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
-            removalPolicy: cdk.RemovalPolicy.DESTROY
+            tableName: "GnawsGameServersTable",
         });
         this.workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
             partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
-            removalPolicy: cdk.RemovalPolicy.DESTROY
+            tableName: "GnawsWorkflowTable",
+        });
+        this.gameTable = new dynamodb.Table(this, "GnawsGameTable", {
+            partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+            tableName: "GnawsGameTable",
         });
 
         // Create initial admin user
@@ -193,6 +202,7 @@ export class GnawsStack extends cdk.Stack {
         });
         // Create backup S3 bucket
         this.backupBucket = new s3.Bucket(this, "GnawsBackupBucket", {
+            bucketName: "gnaws-backup-bucket",
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY
         });
     }

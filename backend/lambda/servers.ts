@@ -23,7 +23,7 @@ const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
 const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP];
 
-const ec2Client = new EC2Client({ region: "us-east-1" });
+const ec2Client = new EC2Client();
 
 export type Server = {
     name: string;
