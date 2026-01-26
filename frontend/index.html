@@ -122,33 +122,36 @@
                     </thead>
                     <tbody id="serversListBody"></tbody>
                 </table>
-                <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px; display: none">Add server</button>
-                <div id="createServerPanel" style="display: none; margin-top: 20px">
-                    <div id="createServerGrid" class="create-server-grid">
-                        <div>Server Name:</div>
-                        <input type="text" id="createServerName" />
-                        <div>Valid characters: a-z, A-Z, 0-9, _-</div>
 
-                        <div>Template:</div>
-                        <select type="text" id="createServerTemplate"></select>
-                        <div>Server template</div>
+                <div id="serverAdminPanel" style="display: none; margin-top: 20px;">
+                    <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px">Add server</button>
+                    <div id="createServerMessage"></div>
+                    <div id="createServerPanel" style="display: none; margin-top: 20px">
+                        <div id="createServerGrid" class="create-server-grid">
+                            <div>Server Name:</div>
+                            <input type="text" id="createServerName" />
+                            <div>Valid characters: a-z, A-Z, 0-9, _-</div>
 
-                        <div>Instance Type:</div>
-                        <input type="text" id="createServerInstanceType" value="t3.small" />
-                        <div>EC2 instance type</div>
+                            <div>Template:</div>
+                            <select type="text" id="createServerTemplate"></select>
+                            <div>Server template</div>
 
-                        <div>Storage:</div>
-                        <input type="text" id="createServerStorage" value="8" />
-                        <div>>= 4 GiB</div>
-                    </div>
+                            <div>Instance Type:</div>
+                            <input type="text" id="createServerInstanceType" value="t3.small" />
+                            <div>EC2 instance type</div>
 
-                    <div id="createServerPortGrid" class="create-server-port-grid" style="margin-top: 5px"></div>
-                    <button onclick="createServerAddPortClick()">Add Port</button>
+                            <div>Storage:</div>
+                            <input type="text" id="createServerStorage" value="8" />
+                            <div>>= 4 GiB</div>
+                        </div>
 
-                    <div class="row" style="margin-top: 5px">
-                        <button onclick="createServerClick()">Create</button>
-                        <button onclick="cancelCreateServer()" style="margin-left: 10px">Cancel</button>
-                        <div id="createServerMessage" style="margin-left: 10px"></div>
+                        <div id="createServerPortGrid" class="create-server-port-grid" style="margin-top: 5px"></div>
+                        <button onclick="createServerAddPortClick()">Add Port</button>
+
+                        <div class="row" style="margin-top: 5px">
+                            <button onclick="createServerClick()">Create</button>
+                            <button onclick="cancelCreateServer()" style="margin-left: 10px">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -63,7 +63,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         return await createServer(user, params);
     }
     if (requestType === GET_GAMES_TYPE) {
-        return await getGames();
+        return await getGames(user, params);
     }
 
     return {

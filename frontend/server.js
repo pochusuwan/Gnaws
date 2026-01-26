@@ -3,10 +3,8 @@ let server_loadingServers = false;
 let server_blockRefresh = false;
 let server_refreshScheduled = false;
 let server_autoRefreshCount = 0;
-let server_createServerInitialized = false;
-let server_portCount = 0;
 let server_createServerData = null;
-let server_initialGame = null;
+let server_games = null;
 
 const BUTTON_START = "Start";
 const BUTTON_STOP = "Stop";
@@ -15,48 +13,14 @@ const BUTTONS = [BUTTON_START, BUTTON_STOP, BUTTON_BACKUP];
 const HOUR_IN_MS = 60 * 60 * 1000;
 const GIB = 1024 * 1024 * 1024;
 
-const games = {
-    _blank_server: {
-        gameId: "_blank_server",
-        displayName: "Blank Instance",
-        instanceType: "t3.micro",
-        storage: 8,
-        ports: [
-            {
-                port: 25565,
-                protocol: "tcp",
-            },
-        ],
-    },
-    Minecraft: {
-        gameId: "Minecraft",
-        displayName: "Minecraft",
-        instanceType: "t3.small",
-        storage: 9,
-        ports: [
-            {
-                port: 25565,
-                protocol: "tcp",
-            },
-        ],
-    },
-    Palworld: {
-        gameId: "Palworld",
-        displayName: "Palworld",
-        instanceType: "t3.medium",
-        storage: 16,
-        ports: [
-            {
-                port: 8211,
-                protocol: "udp",
-            },
-        ],
-    },
-};
-
 function resetServers() {
     server_servers = null;
     server_loadingServers = false;
+    server_blockRefresh = false;
+    server_refreshScheduled = false;
+    server_autoRefreshCount = 0;
+    server_createServerData = null;
+    server_games = null;
     document.getElementById("serversListBody").replaceChildren();
 }
 
@@ -72,9 +36,9 @@ async function loadServersPage() {
         server_loadingServers = false;
     }
     if (auth_role === ROLE_ADMIN) {
-        document.getElementById("openCreateServer").style.display = "block";
+        document.getElementById("serverAdminPanel").style.display = "block";
     } else {
-        document.getElementById("openCreateServer").style.display = "none";
+        document.getElementById("serverAdminPanel").style.display = "none";
     }
 }
 
@@ -222,26 +186,45 @@ function askBackupDialob() {
     });
 }
 
-function openCreateServer() {
-    if (server_createServerData == null) {
-        // TODO: load from server
-        server_initialGame = "_blank_server";
-        const initialGame = games[server_initialGame];
-        server_createServerData = {
-            serverName: "",
-            gameId: initialGame.gameId,
-            instanceType: initialGame.instanceType,
-            storage: 8,
-            ports: initialGame.ports.map((p) => ({
-                port: p.port,
-                protocol: p.protocol,
-            })),
-        };
-        initializeCreateTable();
-    }
-    refreshCreateServerUI();
-    document.getElementById("createServerPanel").style.display = "block";
+async function openCreateServer() {
     document.getElementById("openCreateServer").style.display = "none";
+    if (await initializeCreateServerData()) {
+        initializeCreateTable();
+        refreshCreateServerUI();
+        document.getElementById("createServerMessage").textContent = "";
+        document.getElementById("createServerPanel").style.display = "block";
+    }
+}
+
+async function initializeCreateServerData() {
+    if (server_createServerData !== null) {
+        return true;
+    }
+    document.getElementById("createServerMessage").textContent = "Loading games...";
+    const res = await callAPI("getGames", {});
+    const games = (await res.json()).games;
+    if (games && games.length > 1) {
+        document.getElementById("createServerMessage").textContent = "";
+    } else {
+        document.getElementById("createServerMessage").textContent = "Failed to load games";
+        return false;
+    }
+    server_games = {};
+    games.sort((a, b) => a.id > b.id ? 1 : -1).forEach(game => {
+        server_games[game.id] = game;
+    })
+    const initialGame = games[0];
+    server_createServerData = {
+        serverName: "",
+        id: initialGame.id,
+        instanceType: initialGame.ec2.instanceType,
+        storage: initialGame.ec2.storage,
+        ports: initialGame.ec2.ports.map((p) => ({
+            port: p.port,
+            protocol: p.protocol,
+        })),
+    };
+    return true;
 }
 
 function initializeCreateTable() {
@@ -256,20 +239,20 @@ function initializeCreateTable() {
     });
 
     const templateSelect = document.getElementById("createServerTemplate");
-    Object.values(games).forEach((game) => {
+    Object.values(server_games).forEach((game) => {
         const option = document.createElement("option");
-        option.value = game.gameId;
+        option.value = game.id;
         option.textContent = game.displayName;
-        option.selected = game.gameId === server_createServerData.gameId;
+        option.selected = game.id === server_createServerData.id;
         templateSelect.appendChild(option);
     });
     templateSelect.addEventListener("change", (event) => {
-        const selectedGame = games[event.target.value];
+        const selectedGame = server_games[event.target.value];
         if (selectedGame) {
-            server_createServerData.gameId = selectedGame.gameId;
-            server_createServerData.instanceType = selectedGame.instanceType;
-            server_createServerData.storage = selectedGame.storage;
-            server_createServerData.ports = selectedGame.ports.map((p) => ({
+            server_createServerData.id = selectedGame.id;
+            server_createServerData.instanceType = selectedGame.ec2.instanceType;
+            server_createServerData.storage = selectedGame.ec2.storage;
+            server_createServerData.ports = selectedGame.ec2.ports.map((p) => ({
                 port: p.port,
                 protocol: p.protocol,
             }));
@@ -325,6 +308,7 @@ function refreshCreateServerUI() {
 function cancelCreateServer() {
     document.getElementById("createServerPanel").style.display = "none";
     document.getElementById("openCreateServer").style.display = "block";
+    document.getElementById("createServerMessage").textContent = "";
 }
 
 function createServerAddPortClick() {
@@ -337,7 +321,7 @@ function createServerAddPortClick() {
 
 async function createServerClick() {
     const serverName = server_createServerData.serverName;
-    const gameId = server_createServerData.gameId;
+    const gameId = server_createServerData.id;
     const instanceType = server_createServerData.instanceType;
     const storageString = server_createServerData.storage;
     const portsInput = server_createServerData.ports;
@@ -387,7 +371,6 @@ async function createServerClick() {
         message.textContent = "Created";
         document.getElementById("createServerName").value = "";
         document.getElementById("createServerPortGrid").replaceChildren();
-        server_portCount = 0;
         refreshServers();
     } else {
         message.textContent = data.error;
