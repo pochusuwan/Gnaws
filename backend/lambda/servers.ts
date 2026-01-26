@@ -7,6 +7,7 @@ import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCT
 import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType, DeleteSecurityGroupCommand, DescribeInstanceTypesCommand, RunInstancesCommand, TerminateInstancesCommand } from "@aws-sdk/client-ec2";
 import { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
+import { randomUUID } from "crypto";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -402,7 +403,7 @@ const createEc2 = async (
     try {
         const sgResponse = await ec2Client.send(
             new CreateSecurityGroupCommand({
-                GroupName: `gnaws-${serverName}-sg`,
+                GroupName: `gnaws-${serverName}-sg-${randomUUID().slice(0, 8)}`,
                 Description: `Security Group for ${serverName}`,
                 VpcId: VPC_ID,
             })
