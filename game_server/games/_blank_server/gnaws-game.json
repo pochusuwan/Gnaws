@@ -5,9 +5,11 @@
         "instanceType": "t3.medium",
         "minimumInstanceType": "t3.small",
         "storage": 8,
-        "ports": [{
-            "port": 25565,
-            "protocol": "tcp"
-        }]
+        "ports": [
+            {
+                "port": 25565,
+                "protocol": "tcp"
+            }
+        ]
     }
 }

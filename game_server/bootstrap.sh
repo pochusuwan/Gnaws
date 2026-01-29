@@ -20,6 +20,7 @@ GAME_INSTALL="$SCRIPT_DIR/games/$GAME_ID/gnaws-install.sh"
 }
 
 # Install dependencies
+export DEBIAN_FRONTEND=noninteractive
 apt update
 apt install -y zip unzip
 if ! command -v aws >/dev/null; then
@@ -40,12 +41,22 @@ GAME_SERVER_DIR=/opt/$SERVER_FOLDER_NAME
 
 # Install game dependencies
 APT_PACKAGES="${APT_PACKAGES:-}"
+if echo " $APT_PACKAGES " | grep -qw "steamcmd"; then
+    add-apt-repository -y multiverse
+    dpkg --add-architecture i386
+    apt update
+    echo steam steam/license note '' | debconf-set-selections
+    echo steam steam/question select "I AGREE" | debconf-set-selections
+fi
+
 if [[ -n "$APT_PACKAGES" ]]; then
-  apt install -y $APT_PACKAGES
+    echo "Installing APT packages $APT_PACKAGES"
+    apt install -y $APT_PACKAGES
 fi
 
 # Copy game server folder and give ownership to gnaws-user
-cp -r "$SCRIPT_DIR/games/$GAME_ID" "$GAME_SERVER_DIR"
+mkdir -p "$GAME_SERVER_DIR"
+cp -a "$SCRIPT_DIR/games/$GAME_ID/." "$GAME_SERVER_DIR"
 rm -rf "$SCRIPT_DIR/games"
 chown -R "$USER":"$USER" "$GAME_SERVER_DIR"
 
@@ -54,4 +65,5 @@ ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$SCRIPT_DIR/scripts/gnaws-script.c
 
 # Install game as gnaws-user
 cd "$GAME_SERVER_DIR"
+echo "Installing game"
 sudo -u "$USER" "./gnaws-install.sh"
