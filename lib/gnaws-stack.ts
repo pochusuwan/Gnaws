@@ -162,38 +162,6 @@ export class GnawsStack extends cdk.Stack {
             autoDeleteObjects: true,
         });
 
-        // ACM certificate for cloudfront
-        this.cert = this.cloudFrontCertArn ?
-            acm.Certificate.fromCertificateArn(this, "GnawsCloudFrontCert", this.cloudFrontCertArn): undefined;
-
-        // Cloundfront distribution 
-        this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
-            defaultBehavior: {
-                allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-                compress: true,
-                origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
-                viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-            },
-            defaultRootObject: "index.html",
-            domainNames: this.cloudFrontDomainName ? [this.cloudFrontDomainName] : undefined,
-            certificate: this.cert,
-            errorResponses: [
-                {
-                    httpStatus: 403,
-                    responseHttpStatus: 403,
-                    responsePagePath: "/index.html",
-                    ttl: cdk.Duration.minutes(30),
-                },
-            ],
-            minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-        });
-
-        // injecting custom domain name for cloudfront
-        this.cloudFrontUrl = this.cloudFrontUrlOverride ?? `https://${this.cfnDistribution.domainName}`;
-        new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: this.cloudFrontUrl,
-        });
-
         // cloudFront distribution for custom domains
         if (isCustomDomain) {
 
