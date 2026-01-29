@@ -14,7 +14,6 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
-import { randomUUID } from "crypto";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
@@ -110,7 +109,6 @@ export class GnawsStack extends cdk.Stack {
         this.getServerStatusFunction.grantStartExecution(backend);
         this.setupServerFunction.grantStartExecution(backend);
 
-        const cloudFrontDomainName = props?.cloudFrontDomainName || undefined;
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
             corsPreflight: {
@@ -118,7 +116,6 @@ export class GnawsStack extends cdk.Stack {
                 allowOrigins:[
                     "http://localhost:5174",
                     ...(this.cloudFrontUrl ? [this.cloudFrontUrl] : []),
-                    this.websiteBucket.bucketWebsiteUrl
                 ].filter((u)=> !!u),
                 allowMethods: [apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
                 allowHeaders: ["Content-Type", "Authorization"],
@@ -162,50 +159,38 @@ export class GnawsStack extends cdk.Stack {
             autoDeleteObjects: true,
         });
 
-        // cloudFront distribution for custom domains
-        if (isCustomDomain) {
+        // ACM certificate for cloudfront
+        const cert = isCustomDomain && cloudFrontCertArn ?
+            acm.Certificate.fromCertificateArn(this, "GnawsCloudFrontCert", cloudFrontCertArn): undefined;
 
-            // ACM certificate for cloudfront
-            const cert = isCustomDomain && cloudFrontCertArn ?
-                acm.Certificate.fromCertificateArn(this, "GnawsCloudFrontCert", cloudFrontCertArn): undefined;
-
-            // Cloundfront distribution 
-            this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
-                defaultBehavior: {
-                    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-                    compress: true,
-                    origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
-                    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        // Cloundfront distribution 
+        this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
+            defaultBehavior: {
+                allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                compress: true,
+                origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
+                viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            },
+            defaultRootObject: "index.html",
+            domainNames: domainName ? [domainName] : undefined,
+            certificate: cert ? cert : undefined,
+            errorResponses: [
+                {
+                    httpStatus: 403,
+                    responseHttpStatus: 403,
+                    responsePagePath: "/index.html",
+                    ttl: cdk.Duration.minutes(30),
                 },
-                defaultRootObject: "index.html",
-                domainNames: domainName ? [domainName] : undefined,
-                certificate: cert,
-                errorResponses: [
-                    {
-                        httpStatus: 403,
-                        responseHttpStatus: 403,
-                        responsePagePath: "/index.html",
-                        ttl: cdk.Duration.minutes(30),
-                    },
-                ],
-                minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-            });
+            ],
+            minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+        });
 
-            // injecting custom domain name for cloudfront and pass this URL into backend
-            this.cloudFrontUrl = cloudFrontUrlOverride ??
-                (
-                    this.cfnDistribution?.domainName ?
-                    `https://${this.cfnDistribution.domainName}` :
-                    "NoDomainAvailable"
-                );
-            new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-                value: this.cloudFrontUrl,
-            });
-        }  else {
-            new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-                value: this.websiteBucket.bucketWebsiteUrl,
-            });
-        }
+        // fallback url if no custom domain provided
+        const cloudFrontDefaultUrl = `https://${this.cfnDistribution.domainName}`;
+
+        // injecting custom domain name for cloudfront and pass this URL into backend
+        this.cloudFrontUrl = cloudFrontUrlOverride ? cloudFrontUrlOverride : cloudFrontDefaultUrl;
+
         // Deploy frontend to S3
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
             sources: [s3deploy.Source.asset("frontend")],
@@ -351,11 +336,10 @@ export class GnawsStack extends cdk.Stack {
 
     private buildNetworkResources() {
         this.vpc = new ec2.Vpc(this, "GnawsGameServerVPC", {
-            vpcName: `gnaws-game-server-vpc-${randomUUID().slice(0, 8)}`,
             maxAzs: 1,
             subnetConfiguration: [
                 {
-                    name: `gnaws-public-game-server-subnet-${randomUUID().slice(0, 8)}`,
+                    name: `gnaws-public-game-server-subnet`,
                     subnetType: ec2.SubnetType.PUBLIC,
                     cidrMask: 24,
                 },
