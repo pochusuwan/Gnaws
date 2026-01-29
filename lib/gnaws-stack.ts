@@ -11,7 +11,6 @@ import * as cr from "aws-cdk-lib/custom-resources";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import { randomUUID } from "crypto";
 
 export class GnawsStack extends cdk.Stack {
     // Storage
@@ -279,11 +278,10 @@ export class GnawsStack extends cdk.Stack {
 
     private buildNetworkResources() {
         this.vpc = new ec2.Vpc(this, "GnawsGameServerVPC", {
-            vpcName: `gnaws-game-server-vpc-${randomUUID().slice(0, 8)}`,
             maxAzs: 1,
             subnetConfiguration: [
                 {
-                    name: `gnaws-public-game-server-subnet-${randomUUID().slice(0, 8)}`,
+                    name: `gnaws-public-game-server-subnet`,
                     subnetType: ec2.SubnetType.PUBLIC,
                     cidrMask: 24,
                 },
