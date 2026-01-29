@@ -48,10 +48,12 @@ export class GnawsStack extends cdk.Stack {
     private cloudFrontUrl: string;
     private cfnDistribution: cloudfront.Distribution;
 
-    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    constructor(scope: Construct, id: string, props?: GnawsStackProps) {
         super(scope, id, props);
         // custom domain props
+        // custom domain props
         this.buildStorageResources();
+        this.buildFrontend(props);
         this.buildFrontend(props);
         this.buildWorkflows();
         this.buildNetworkResources();
@@ -209,11 +211,6 @@ export class GnawsStack extends cdk.Stack {
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
             sources: [s3deploy.Source.asset("frontend")],
             destinationBucket: this.websiteBucket,
-        });
-
-        // CloudFormation outputs
-        new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: this.websiteBucket.bucketWebsiteUrl,
         });
     }
 
