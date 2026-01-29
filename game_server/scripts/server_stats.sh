@@ -35,13 +35,13 @@ if [[ "$PLAYER_COUNT_UNSUPPORTED" == "false" ]]; then
             ACTIVE_PLAYERS=$((ACTIVE_PLAYERS + 1))
         fi
     done < "/proc/net/xt_recent/GNAWS"
-    PLAYER_FIELD="\"players_count\": $ACTIVE_PLAYERS,"
+    PLAYER_COUNT_FIELD="\"players_count\": $ACTIVE_PLAYERS,"
 fi
 
 cat <<EOF
 {
   "is_online": $IS_ONLINE,
-  $PLAYER_FIELD
+  $PLAYER_COUNT_FIELD
   "current_storage": $CURRENT_STORAGE_GIB,
   "max_storage": $MAX_STORAGE_GIB
 }
