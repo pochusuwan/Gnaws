@@ -1,0 +1,23 @@
+{
+    "id": "valheim",
+    "displayName": "Valheim",
+    "ec2": {
+        "instanceType": "t3.medium",
+        "minimumInstanceType": "t3.small",
+        "storage": 12,
+        "ports": [
+            {
+                "port": 2456,
+                "protocol": "udp"
+            },
+            {
+                "port": 2457,
+                "protocol": "udp"
+            },
+            {
+                "port": 2458,
+                "protocol": "udp"
+            }
+        ]
+    }
+}

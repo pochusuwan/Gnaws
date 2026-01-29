@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - 'game_server/**'
 
@@ -20,13 +21,27 @@ jobs:
       - name: Fetch tags
         run: git fetch --tags
 
+      - name: Decide release type
+        id: release_type
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create tag
         id: tag
         run: |
-          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || echo "v0.0.0")
           IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
           PATCH=$((PATCH + 1))
-          TAG="v${MAJOR}.${MINOR}.${PATCH}"
+
+          if [ "${{ steps.release_type.outputs.prerelease }}" = "true" ]; then
+            TAG="v${MAJOR}.${MINOR}.${PATCH}-rc.${GITHUB_RUN_NUMBER}"
+          else
+            TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
 
           git tag "$TAG"
           git push origin "$TAG"
@@ -42,6 +57,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Games bundle ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ steps.release_type.outputs.prerelease }}
           files: game_server.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
