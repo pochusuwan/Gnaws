@@ -11,6 +11,16 @@ import * as cr from "aws-cdk-lib/custom-resources";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import { randomUUID } from "crypto";
+
+// for injectin custom domain to project
+export interface GnawsStackProps extends cdk.StackProps {
+    cloudFrontDomainName?: string; // e.g. games.casualalfredo.com
+    cloudFrontCertArn?: string;    // ACM cert ARN in us-east-1
+}
 
 export class GnawsStack extends cdk.Stack {
     // Storage
@@ -36,18 +46,22 @@ export class GnawsStack extends cdk.Stack {
     private subnetId: string;
     private ec2Role: iam.Role;
     private ec2Profile: iam.CfnInstanceProfile;
+    private cloudFrontUrl: string;
+    private cfnDistribution: cloudfront.Distribution;
 
-    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    constructor(scope: Construct, id: string, props?: GnawsStackProps) {
         super(scope, id, props);
+        // custom domain props
         this.buildStorageResources();
-        this.buildFrontend();
+        this.buildFrontend(props);
         this.buildWorkflows();
         this.buildNetworkResources();
         this.buildBackend();
         this.deployFrontendConfig();
     }
 
-    private buildBackend() {
+
+    private buildBackend(props?: GnawsStackProps) {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -96,11 +110,16 @@ export class GnawsStack extends cdk.Stack {
         this.getServerStatusFunction.grantStartExecution(backend);
         this.setupServerFunction.grantStartExecution(backend);
 
+        const cloudFrontDomainName = props?.cloudFrontDomainName || undefined;
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
             corsPreflight: {
                 // TODO: change origin
-                allowOrigins: ["http://localhost:5174", this.websiteBucket.bucketWebsiteUrl],
+                allowOrigins:[
+                    "http://localhost:5174",
+                    ...(this.cloudFrontUrl ? [this.cloudFrontUrl] : []),
+                    this.websiteBucket.bucketWebsiteUrl
+                ].filter((u)=> !!u),
                 allowMethods: [apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
                 allowHeaders: ["Content-Type", "Authorization"],
                 allowCredentials: true,
@@ -118,25 +137,79 @@ export class GnawsStack extends cdk.Stack {
         new cdk.CfnOutput(this, "GnawsApiUrl", { value: apiUrl });
     }
 
-    private buildFrontend() {
+    private buildFrontend(props?: GnawsStackProps) {
+        const domainName = props?.cloudFrontDomainName;
+        const cloudFrontUrlOverride = domainName ? `https://${domainName}` : undefined;
+        const cloudFrontCertArn = props?.cloudFrontCertArn;
+        const hasDomain = !!domainName
+        const hasCert = !!cloudFrontCertArn;
+
+        // Flag to indicate cloudfront usage. Fails fast without certificate if using custom domain
+        const isCustomDomain =  hasDomain && hasCert;
+
+        if (hasDomain !== hasCert){
+            throw new Error(
+                "Custom Domain misconfigured. Set BOTH cloudFrontDomainName and cloudFrontCertArn props."
+            )
+        }
+
         // S3 bucket for website resources
         this.websiteBucket = new s3.Bucket(this, "GnawsWebsiteBucket", {
-            publicReadAccess: true,
+            publicReadAccess: isCustomDomain ? false : true,
             websiteIndexDocument: "index.html",
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             autoDeleteObjects: true,
         });
 
+        // cloudFront distribution for custom domains
+        if (isCustomDomain) {
+
+            // ACM certificate for cloudfront
+            const cert = isCustomDomain && cloudFrontCertArn ?
+                acm.Certificate.fromCertificateArn(this, "GnawsCloudFrontCert", cloudFrontCertArn): undefined;
+
+            // Cloundfront distribution 
+            this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
+                defaultBehavior: {
+                    allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                    compress: true,
+                    origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
+                    viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                },
+                defaultRootObject: "index.html",
+                domainNames: domainName ? [domainName] : undefined,
+                certificate: cert,
+                errorResponses: [
+                    {
+                        httpStatus: 403,
+                        responseHttpStatus: 403,
+                        responsePagePath: "/index.html",
+                        ttl: cdk.Duration.minutes(30),
+                    },
+                ],
+                minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+            });
+
+            // injecting custom domain name for cloudfront and pass this URL into backend
+            this.cloudFrontUrl = cloudFrontUrlOverride ??
+                (
+                    this.cfnDistribution?.domainName ?
+                    `https://${this.cfnDistribution.domainName}` :
+                    "NoDomainAvailable"
+                );
+            new cdk.CfnOutput(this, "GnawsWebsiteURL", {
+                value: this.cloudFrontUrl,
+            });
+        }  else {
+            new cdk.CfnOutput(this, "GnawsWebsiteURL", {
+                value: this.websiteBucket.bucketWebsiteUrl,
+            });
+        }
         // Deploy frontend to S3
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
             sources: [s3deploy.Source.asset("frontend")],
             destinationBucket: this.websiteBucket,
-        });
-
-        // CloudFormation outputs
-        new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: this.websiteBucket.bucketWebsiteUrl,
         });
     }
 
@@ -278,10 +351,11 @@ export class GnawsStack extends cdk.Stack {
 
     private buildNetworkResources() {
         this.vpc = new ec2.Vpc(this, "GnawsGameServerVPC", {
+            vpcName: `gnaws-game-server-vpc-${randomUUID().slice(0, 8)}`,
             maxAzs: 1,
             subnetConfiguration: [
                 {
-                    name: `gnaws-public-game-server-subnet`,
+                    name: `gnaws-public-game-server-subnet-${randomUUID().slice(0, 8)}`,
                     subnetType: ec2.SubnetType.PUBLIC,
                     cidrMask: 24,
                 },
