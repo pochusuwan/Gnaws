@@ -33,7 +33,7 @@ jobs:
       - name: Create tag
         id: tag
         run: |
-          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || echo "v0.0.0")
           IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
           PATCH=$((PATCH + 1))
 
