@@ -8,10 +8,10 @@
       "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
       "Arguments": {
         "Bucket": "{% $states.input.backupBucketName %}",
-        "Prefix": "{% $states.input.serverName %}"
+        "Prefix": "{% $states.input.serverName & '/' %}"
       },
       "Assign": {
-        "lastBackup": "{% $states.result.Contents ? ($count($states.result.Contents[Size > 0]) > 1 ? $sort($states.result.Contents[Size > 0], function($a, $b) { $a.LastModified < $b.LastModified })[0] : null) : null %}"
+        "lastBackup": "{% $states.result.Contents ? ($count($states.result.Contents[Size > 0]) > 0 ? $sort($states.result.Contents[Size > 0], function($a, $b) { $a.LastModified < $b.LastModified })[0] : null) : null %}"
       },
       "Output": "{% $states.input %}",
       "Next": "DescribeEC2"
