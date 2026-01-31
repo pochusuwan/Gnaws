@@ -1,22 +1,28 @@
 import { useState } from "react";
 import "./App.css";
-
-const config = await fetch("/config.json").then((r) => r.json());
-export const API_URL: string = config.apiUrl;
+import type { User } from "./types";
+import { UserContext, useUser } from "./hooks/useUser";
+import LoginForm from "./components/Login/Login.tsx";
 
 function App() {
-    const [count, setCount] = useState(0);
-    console.log("api", API_URL);
+    const [user, setUser] = useState<User | null>(null);
+    if (!user) {
+        return <LoginForm setUser={setUser} />;
+    }
     return (
-        <>
-            <h1>Vite + React</h1>
-            <div className="card">
-                <button onClick={() => setCount((count) => count + 1)}>count is {count}</button>
-                <p>
-                    Edit <code>src/App.tsx</code> and save to test HMR
-                </p>
-            </div>
-        </>
+        <UserContext.Provider value={user}>
+            <Content />
+        </UserContext.Provider>
+    );
+}
+
+function Content() {
+    const user = useUser();
+
+    return (
+        <div>
+            {user?.username} {user?.role}
+        </div>
     );
 }
 
