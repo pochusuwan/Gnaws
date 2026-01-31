@@ -63,7 +63,7 @@ export function LoggedIn(props: LoggedInProps) {
         if (await call()) props.clearUser();
     }, [call]);
     return (
-        <div className="loggedin">
+        <div className="loggedIn">
             <div>{user.username}</div>
             <button onClick={logout} disabled={loading}>
                 Log out
