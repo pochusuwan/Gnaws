@@ -50,15 +50,15 @@ export class GnawsStack extends cdk.Stack {
 
     constructor(scope: Construct, id: string, props?: GnawsStackProps) {
         super(scope, id, props);
-        this.buildStorageResources();
+        this.buildStorage();
         this.buildFrontend(props);
         this.buildWorkflows();
-        this.buildNetworkResources();
+        this.buildNetwork();
         this.buildBackend();
-        this.deployFrontendConfig();
+        this.deployFrontend();
     }
 
-    private buildBackend(props?: GnawsStackProps) {
+    private buildBackend() {
         // Create Lambda function for handling all requests
         const backend = new lambda.Function(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
@@ -144,6 +144,8 @@ export class GnawsStack extends cdk.Stack {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             autoDeleteObjects: true,
+            websiteIndexDocument: "index.html",
+            websiteErrorDocument: "index.html",
         });
 
         // Cloundfront distribution
@@ -183,32 +185,44 @@ export class GnawsStack extends cdk.Stack {
             }),
         );
 
-        // Deploy frontend to S3
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
-            sources: [s3deploy.Source.asset("frontend")],
-            destinationBucket: this.websiteBucket,
-        });
-
         // Cloundfront distribution url
         new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: this.cfnDistribution.domainName,
+            value: `https://${this.cfnDistribution.domainName}`,
         });
     }
 
-    private deployFrontendConfig() {
+    private deployFrontend() {
+        new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
+            sources: [
+                s3deploy.Source.asset("frontend/dist"),
+                s3deploy.Source.data(
+                    "config.json",
+                    JSON.stringify({
+                        apiUrl: this.apiUrl,
+                    }),
+                ),
+            ],
+            destinationBucket: this.websiteBucket,
+            distribution: this.cfnDistribution,
+            distributionPaths: ["/*"],
+        });
+        // TODO: Remove legacy page
         const configs = {
             API_BASE: this.apiUrl,
         };
         const constants = Object.entries(configs)
             .map(([k, v]) => `const ${k} = '${v}';`)
             .join("\n");
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteConfig", {
+        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteLegacy", {
             destinationBucket: this.websiteBucket,
-            sources: [s3deploy.Source.asset("frontend"), s3deploy.Source.data("config.js", constants)],
+            sources: [s3deploy.Source.asset("frontend/legacy"), s3deploy.Source.data("config.js", constants)],
+            distribution: this.cfnDistribution,
+            distributionPaths: ["/*"],
+            destinationKeyPrefix: "legacy/",
         });
     }
 
-    private buildStorageResources() {
+    private buildStorage() {
         this.serverManagerPassword = new secretsmanager.Secret(this, "GnawsServerManagerPassword", {
             secretStringValue: cdk.SecretValue.unsafePlainText("pass121"),
         });
@@ -331,7 +345,7 @@ export class GnawsStack extends cdk.Stack {
         new cdk.CfnOutput(this, "GnawsSetupServerFunctionArn", { value: this.setupServerFunction.stateMachineArn });
     }
 
-    private buildNetworkResources() {
+    private buildNetwork() {
         this.vpc = new ec2.Vpc(this, "GnawsGameServerVPC", {
             maxAzs: 1,
             subnetConfiguration: [
