@@ -1,9 +1,12 @@
 import { useState } from "react";
 import "./App.css";
 
+const config = await fetch("/config.json").then((r) => r.json());
+export const API_URL: string = config.apiUrl;
+
 function App() {
     const [count, setCount] = useState(0);
-    console.debug("api", import.meta.env.VITE_API_ENDPOINT);
+    console.log("api", API_URL);
     return (
         <>
             <h1>Vite + React</h1>
