@@ -144,6 +144,8 @@ export class GnawsStack extends cdk.Stack {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
             autoDeleteObjects: true,
+            websiteIndexDocument: "index.html",
+            websiteErrorDocument: "index.html",
         });
 
         // Cloundfront distribution
@@ -183,28 +185,26 @@ export class GnawsStack extends cdk.Stack {
             }),
         );
 
-        // Deploy frontend to S3
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
-            sources: [s3deploy.Source.asset("frontend")],
-            destinationBucket: this.websiteBucket,
-        });
-
         // Cloundfront distribution url
         new cdk.CfnOutput(this, "GnawsWebsiteURL", {
-            value: this.cfnDistribution.domainName,
+            value: `https://${this.cfnDistribution.domainName}`,
         });
     }
 
     private deployFrontendConfig() {
-        const configs = {
-            API_BASE: this.apiUrl,
-        };
-        const constants = Object.entries(configs)
-            .map(([k, v]) => `const ${k} = '${v}';`)
-            .join("\n");
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteConfig", {
+        new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
+            sources: [s3deploy.Source.asset("frontend/dist")],
             destinationBucket: this.websiteBucket,
-            sources: [s3deploy.Source.asset("frontend"), s3deploy.Source.data("config.js", constants)],
+            distribution: this.cfnDistribution,
+            distributionPaths: ["/*"],
+        });
+        // TODO: Remove non react
+        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteLegacy", {
+            sources: [s3deploy.Source.asset("frontend/legacy", )],
+            destinationBucket: this.websiteBucket,
+            distribution: this.cfnDistribution,
+            distributionPaths: ["/*"],
+            destinationKeyPrefix: "legacy/"
         });
     }
 

@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Game Server Control</title>
+        <style>
+            body {
+                color: #333;
+                font-family: Sans-serif;
+                font-size: 20;
+                max-width: 1000px;
+                margin: auto;
+            }
+            .row {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+            }
+            .right {
+                justify-content: flex-end;
+            }
+            .user {
+                display: flex;
+                flex-direction: row;
+                margin: 5px 0;
+                padding: 5px;
+            }
+            .tableList {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .tableList th {
+                border: 1px solid #ccc;
+                padding: 4px;
+                width: 1px;
+                white-space: nowrap;
+            }
+            .tableList td {
+                border: 1px solid #ccc;
+                padding: 4px;
+                width: 1px;
+                white-space: nowrap;
+            }
+            .tableList td:last-child {
+                width: 100%;
+            }
+            nav button {
+                padding: 5px 5px;
+                margin: 5px;
+                border: 1px solid #ccc;
+                background: #f9f9f9;
+                cursor: pointer;
+            }
+            nav button:hover {
+                background: #e9e9e9;
+            }
+            nav button.active {
+                background: #007cba;
+                color: white;
+                border-color: #005a87;
+            }
+            .create-server-grid {
+                display: grid !important;
+                grid-template-columns: 150px 200px 1fr;
+                gap: 8px 12px;
+                align-items: center;
+            }
+            .create-server-port-grid {
+                display: grid !important;
+                grid-template-columns: 150px 200px 50px 100px;
+                gap: 8px 12px;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="login_input" style="display: none; margin-top: 20px">
+            <div class="row right">
+                <div>
+                    <form
+                        onsubmit="
+                            login(true);
+                            return false;
+                        "
+                    >
+                        <input type="text" id="username" name="username" placeholder="Username" autocomplete="username" />
+                        <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" />
+                        <button type="submit">Login</button>
+                    </form>
+                    <div id="login_message"></div>
+                </div>
+            </div>
+        </div>
+        <div id="logged_in_input" style="display: none; text-align: right; margin-top: 20px">
+            <div class="row right">
+                <div id="username_logged_in" style="margin-right: 20px"></div>
+                <button onclick="logout()">Log out</button>
+            </div>
+        </div>
+        <div id="content" style="display: none">
+            <nav>
+                <button onclick="showPage(this, 'servers')" class="active">Servers</button>
+                <button onclick="showPage(this, 'users')">Users</button>
+                <button onclick="showPage(this, 'logs')">Logs</button>
+            </nav>
+
+            <div id="servers" class="page">
+                <h2>Servers</h2>
+                <div id="serverMessage" style="padding-bottom: 4px; height: 20px"></div>
+                <table id="serversList" class="tableList">
+                    <thead style="width: 100%">
+                        <tr style="background: #f0f0f0; width: 100%">
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Task</th>
+                            <th>IP Address</th>
+                            <th>Player Count</th>
+                            <th>Storage</th>
+                            <th>Last Backup</th>
+                            <th style="width: 99%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serversListBody"></tbody>
+                </table>
+
+                <div id="serverAdminPanel" style="display: none; margin-top: 20px;">
+                    <button id="openCreateServer" onclick="openCreateServer()" style="margin-top: 20px">Add server</button>
+                    <div id="createServerMessage"></div>
+                    <div id="createServerPanel" style="display: none; margin-top: 20px">
+                        <div id="createServerGrid" class="create-server-grid">
+                            <div>Server Name:</div>
+                            <input type="text" id="createServerName" />
+                            <div>Valid characters: a-z, A-Z, 0-9, _-</div>
+
+                            <div>Template:</div>
+                            <select type="text" id="createServerTemplate"></select>
+                            <div>Server template</div>
+
+                            <div>Instance Type:</div>
+                            <input type="text" id="createServerInstanceType" value="t3.small" />
+                            <div>EC2 instance type</div>
+
+                            <div>Storage:</div>
+                            <input type="text" id="createServerStorage" value="8" />
+                            <div>>= 4 GiB</div>
+                        </div>
+
+                        <div id="createServerPortGrid" class="create-server-port-grid" style="margin-top: 5px"></div>
+                        <button onclick="createServerAddPortClick()">Add Port</button>
+
+                        <div class="row" style="margin-top: 5px">
+                            <button onclick="createServerClick()">Create</button>
+                            <button onclick="cancelCreateServer()" style="margin-left: 10px">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="users" class="page" style="display: none">
+                <div class="row">
+                    <h2>Users</h2>
+                    <button id="updateUsers" onclick="updateUsers()" style="display: none; height: 20px; margin-left: 20px">Save</button>
+                    <div id="updateUsersMessage" style="height: 20px; margin-left: 20px"></div>
+                </div>
+                <div id="usersListNoPermission" style="display: none">No permission</div>
+                <div id="usersList"></div>
+            </div>
+
+            <div id="logs" class="page" style="display: none">
+                <h2>Logs</h2>
+                <p>Server logs coming soon...</p>
+            </div>
+        </div>
+        <dialog id="backupDialog" style="padding: 0px">
+            <div id="backupDialogContent" style="padding: 16px">
+                <p>Do you want to back up the server?</p>
+                <button id="yes">Yes</button>
+                <button id="no">No</button>
+            </div>
+        </dialog>
+        <script src="config.js"></script>
+        <script src="app.js"></script>
+        <script src="auth.js"></script>
+        <script src="user.js"></script>
+        <script src="server.js"></script>
+        <script src="shared.js"></script>
+        <script>
+            login(false);
+        </script>
+    </body>
+</html>

@@ -26,6 +26,7 @@
     ]
   },
   "exclude": [
+    "frontend",
     "node_modules",
     "cdk.out"
   ]
