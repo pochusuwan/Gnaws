@@ -1,0 +1,10 @@
+.jsonView {
+    text-align: left;
+    background: #0f172a;
+    color: #e5e7eb;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}

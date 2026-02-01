@@ -8,6 +8,7 @@ import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 type ServerTableProps = {
     servers: Server[];
     loadServers: (refreshStatus: boolean) => void;
+    onServerRowClick: (server: Server) => void;
 };
 
 enum ServerAction {
@@ -69,7 +70,7 @@ export default function ServerTable(props: ServerTableProps) {
                 </thead>
                 <tbody>
                     {props.servers.map((server) => (
-                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={loading} />
+                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={loading} onClick={props.onServerRowClick} />
                     ))}
                 </tbody>
             </table>
@@ -82,6 +83,7 @@ type ServerRowProps = {
     server: Server;
     serverAction: (serverName: string, action: ServerAction) => void;
     actionInProgress: boolean;
+    onClick: (server: Server) => void;
 };
 function ServerRow(props: ServerRowProps) {
     const { server, serverAction, actionInProgress } = props;
@@ -111,7 +113,7 @@ function ServerRow(props: ServerRowProps) {
     }
 
     return (
-        <tr>
+        <tr onClick={() => props.onClick(server)}>
             <Cell value={server.name} />
             <Cell value={server.ec2?.instanceType} />
             <Cell value={server.status?.status} loading={loadingStatus} />
