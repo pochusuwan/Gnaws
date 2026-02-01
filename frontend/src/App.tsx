@@ -14,7 +14,7 @@ enum Page {
 function App() {
     const [page, setPage] = useState<Page>(Page.Servers);
     const [user, setUser] = useState<User | null>(null);
-    const { initialized, servers } = useServers(user);
+    const { initialized, servers, loadServers } = useServers(user);
 
     if (!user) {
         return <LoginForm setUser={setUser} />;
@@ -23,7 +23,7 @@ function App() {
         <div className="app">
             <LoggedIn user={user} clearUser={() => setUser(null)} />
             <PageSelector current={page} onSelect={setPage} />
-            {page === Page.Servers && <ServerPage servers={servers} loading={!initialized} />}
+            {page === Page.Servers && <ServerPage servers={servers} loading={!initialized} loadServers={loadServers} />}
             {page === Page.Users && <UserPage />}
         </div>
     );

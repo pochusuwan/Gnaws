@@ -5,6 +5,7 @@ import "./ServerPage.css";
 type Props = {
     servers: Server[];
     loading: boolean;
+    loadServers: (refreshStatus: boolean) => void;
 };
 
 export default function ServerPage(props: Props) {
@@ -14,7 +15,7 @@ export default function ServerPage(props: Props) {
 
     return (
         <div className="serverPage">
-            <ServerTable servers={props.servers} />
+            <ServerTable servers={props.servers} loadServers={props.loadServers} />
         </div>
     );
 }
