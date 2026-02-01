@@ -1,0 +1,31 @@
+.serverTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+.serverTable th {
+    border: 1px solid #acacac;
+    width: 1px;
+    white-space: nowrap;
+    background-color: #cccccc;
+}
+.serverTable td {
+    border: 1px solid #acacac;
+    width: 1px;
+    white-space: nowrap;
+}
+.serverTable td:last-child {
+    width: 1%;
+}
+
+.cell {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.actionRow {
+    padding: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
