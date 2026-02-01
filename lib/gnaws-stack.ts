@@ -205,6 +205,8 @@ export class GnawsStack extends cdk.Stack {
             destinationBucket: this.websiteBucket,
             distribution: this.cfnDistribution,
             distributionPaths: ["/*"],
+            // TODO: enable prune
+            prune: false,
         });
         // TODO: Remove legacy page
         const configs = {
@@ -219,6 +221,7 @@ export class GnawsStack extends cdk.Stack {
             distribution: this.cfnDistribution,
             distributionPaths: ["/*"],
             destinationKeyPrefix: "legacy/",
+            prune: false,
         });
     }
 

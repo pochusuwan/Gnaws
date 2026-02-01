@@ -40,7 +40,7 @@ export const useServers = (user: User | null) => {
         }
     }, [user]);
 
-    return { initialized, servers, loadServers: () => {} };
+    return { initialized, servers, loadServers };
 };
 
 function shouldRefresh(servers: Server[]) {

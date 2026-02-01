@@ -1,41 +1,97 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import useApiCall from "../../hooks/useApiCall";
 import { GIB, HOUR_IN_MS, type Server } from "../../types";
-import Spinner from "../Spinner/Spinner";
 import "./ServerTable.css";
+import Spinner from "../Spinner/Spinner";
+import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 
 type ServerTableProps = {
     servers: Server[];
+    loadServers: (refreshStatus: boolean) => void;
 };
 
+enum ServerAction {
+    Start = "Start",
+    Stop = "Stop",
+    Backup = "Backup",
+}
+
 export default function ServerTable(props: ServerTableProps) {
+    const loadServers = props.loadServers;
+
+    const [message, setMessage] = useState<string>("");
+    const lastAction = useRef<ServerAction | null>(null);
+    const { call: callServerAction, loading, data, error } = useApiCall<{ message: string }>("serverAction");
+
+    const { open, onResult, confirm } = useConfirm();
+
+    const serverAction = useCallback(
+        async (serverName: string, action: ServerAction) => {
+            const payload: { name: string; action: string; shouldBackup?: boolean } = { name: serverName, action: action.toLowerCase() };
+            if (action === ServerAction.Stop) {
+                const shouldBackup = await confirm();
+                if (shouldBackup === null) {
+                    return;
+                }
+                payload.shouldBackup = shouldBackup;
+            }
+            setMessage("");
+            lastAction.current = action;
+            callServerAction(payload);
+        },
+        [callServerAction, loadServers],
+    );
+    useEffect(() => {
+        if (data) {
+            setMessage(`${lastAction?.current} action: ${data?.message}`);
+            loadServers(true);
+        } else if (error) {
+            setMessage(`${lastAction?.current} action failed: ${error?.error}`);
+        }
+    }, [data, error, loadServers]);
+
     return (
-        <table className="serverTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Task</th>
-                    <th>IP Address</th>
-                    <th>Player Count</th>
-                    <th>Storage</th>
-                    <th>Last Backup</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {props.servers.map((server) => (
-                    <ServerRow server={server} key={server.name} />
-                ))}
-            </tbody>
-        </table>
+        <div>
+            <div className="serverTableMessage">{message}</div>
+            <table className="serverTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Task</th>
+                        <th>IP Address</th>
+                        <th>Player Count</th>
+                        <th>Storage</th>
+                        <th>Last Backup</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {props.servers.map((server) => (
+                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={loading} />
+                    ))}
+                </tbody>
+            </table>
+            {open && <ConfirmDialog message={"Do you want to back up the server?"} onResult={onResult} />}
+        </div>
     );
 }
 
 type ServerRowProps = {
     server: Server;
+    serverAction: (serverName: string, action: ServerAction) => void;
+    actionInProgress: boolean;
 };
 function ServerRow(props: ServerRowProps) {
-    const server = props.server;
+    const { server, serverAction, actionInProgress } = props;
+
+    const onActionClick = useCallback(
+        (action: ServerAction) => {
+            props.serverAction(server.name, action);
+        },
+        [serverAction, server.name],
+    );
 
     const loadingStatus = server.status?.lastRequest !== undefined && (server.status?.lastUpdated === undefined || new Date(server.status.lastRequest) > new Date(server.status?.lastUpdated));
     let currentTask = server.workflow?.currentTask;
@@ -66,9 +122,11 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={timeSinceBackup} loading={loadingStatus} />
             <td>
                 <div className="actionRow">
-                    <button>Start</button>
-                    <button>Stop</button>
-                    <button>Backup</button>
+                    {Object.values(ServerAction).map((action) => (
+                        <button disabled={actionInProgress} onClick={() => onActionClick(action)}>
+                            {action}
+                        </button>
+                    ))}
                 </div>
             </td>
         </tr>
