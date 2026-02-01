@@ -1,10 +1,10 @@
 import { useState } from "react";
 import "./App.css";
 import type { User } from "./types";
-import { UserContext } from "./hooks/useUser";
 import LoginForm, { LoggedIn } from "./components/Login/Login.tsx";
 import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
+import { useServers } from "./hooks/useServers.ts";
 
 enum Page {
     Servers = "Servers",
@@ -12,20 +12,20 @@ enum Page {
 }
 
 function App() {
-    const [user, setUser] = useState<User | null>(null);
     const [page, setPage] = useState<Page>(Page.Servers);
+    const [user, setUser] = useState<User | null>(null);
+    const { initialized, servers } = useServers(user);
+
     if (!user) {
         return <LoginForm setUser={setUser} />;
     }
     return (
-        <UserContext.Provider value={user}>
-            <div className="app">
-                <LoggedIn clearUser={() => setUser(null)} />
-                <PageSelector current={page} onSelect={setPage} />
-                {page === Page.Servers && <ServerPage />}
-                {page === Page.Users && <UserPage />}
-            </div>
-        </UserContext.Provider>
+        <div className="app">
+            <LoggedIn user={user} clearUser={() => setUser(null)} />
+            <PageSelector current={page} onSelect={setPage} />
+            {page === Page.Servers && <ServerPage servers={servers} loading={!initialized} />}
+            {page === Page.Users && <UserPage />}
+        </div>
     );
 }
 

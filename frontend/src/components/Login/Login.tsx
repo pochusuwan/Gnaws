@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import useApiCall from "../../hooks/useApiCall";
 import type { User } from "../../types";
-import { useUser } from "../../hooks/useUser";
 import "./Login.css";
 
 type Props = {
@@ -53,10 +52,10 @@ export default function LoginForm(props: Props) {
 }
 
 type LoggedInProps = {
+    user: User;
     clearUser: () => void;
 };
 export function LoggedIn(props: LoggedInProps) {
-    const user = useUser();
     const { call, loading } = useApiCall("logout");
 
     const logout = useCallback(async () => {
@@ -64,7 +63,7 @@ export function LoggedIn(props: LoggedInProps) {
     }, [call]);
     return (
         <div className="loggedIn">
-            <div>{user.username}</div>
+            <div>{props.user.username}</div>
             <button onClick={logout} disabled={loading}>
                 Log out
             </button>
