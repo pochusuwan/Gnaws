@@ -123,7 +123,7 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
             }
             return null;
         })
-        .filter((u: User | null) => u != null) as User[];
+        .filter((u: User | null) => u !== null && u.username !== "admin") as User[];
     if (users.length === 0) {
         return {
             statusCode: 400,
@@ -155,7 +155,7 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
         if (success) {
             return {
                 statusCode: 200,
-                body: JSON.stringify({ result: "success" }),
+                body: JSON.stringify({ success: true }),
             };
         } else {
             return {
