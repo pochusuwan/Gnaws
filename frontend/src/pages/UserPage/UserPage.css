@@ -1,0 +1,13 @@
+.userTable {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    gap: 8px;
+}
+
+.userRow {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 4px;
+}

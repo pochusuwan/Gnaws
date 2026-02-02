@@ -5,6 +5,7 @@ import LoginForm, { LoggedIn } from "./components/Login/Login.tsx";
 import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
 import { useServers } from "./hooks/useServers.ts";
+import { useUsers } from "./hooks/useUsers.ts";
 
 enum Page {
     Servers = "Servers",
@@ -14,7 +15,8 @@ enum Page {
 function App() {
     const [page, setPage] = useState<Page>(Page.Servers);
     const [user, setUser] = useState<User | null>(null);
-    const { initialized, servers, loadServers } = useServers(user);
+    const { initialized: serverInitialized, servers, loadServers } = useServers(user);
+    const { initialized: userInitialized, users, loadUsers, updateUsers } = useUsers(user);
 
     if (!user) {
         return <LoginForm setUser={setUser} />;
@@ -23,8 +25,8 @@ function App() {
         <div className="app">
             <LoggedIn user={user} clearUser={() => setUser(null)} />
             <PageSelector current={page} onSelect={setPage} />
-            {page === Page.Servers && <ServerPage servers={servers} loading={!initialized} loadServers={loadServers} />}
-            {page === Page.Users && <UserPage />}
+            {page === Page.Servers && <ServerPage servers={servers} loading={!serverInitialized} loadServers={loadServers} />}
+            {page === Page.Users && <UserPage user={user} users={users} loading={!userInitialized} loadUsers={loadUsers} updateUsers={updateUsers} />}
         </div>
     );
 }

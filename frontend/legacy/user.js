@@ -98,7 +98,7 @@ function updateUserRole(username, newRole) {
 async function updateUsers() {
     const usersToUpdate = Object.entries(user_editingUsers).map(([username, role]) => ({ username, role }));
     const res = await callAPI("updateUsers", { users: usersToUpdate });
-    if (res.ok && (await res.json()).result === "success") {
+    if (res.ok && (await res.json()).success) {
         usersToUpdate.forEach((user) => {
             user_users[user.username].role = user.role;
             document.getElementById("user_" + user.username).style.backgroundColor = "";

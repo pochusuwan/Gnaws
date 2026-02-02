@@ -125,7 +125,7 @@ function ServerRow(props: ServerRowProps) {
             <td>
                 <div className="actionRow">
                     {Object.values(ServerAction).map((action) => (
-                        <button disabled={actionInProgress} onClick={() => onActionClick(action)}>
+                        <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>
                             {action}
                         </button>
                     ))}

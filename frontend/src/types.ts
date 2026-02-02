@@ -1,9 +1,15 @@
 export const HOUR_IN_MS = 60 * 60 * 1000;
 export const GIB = 1024 * 1024 * 1024;
 
+export enum Role {
+    Admin = "admin",
+    Manager = "manager",
+    New = "new",
+}
+
 export type User = {
     username: string;
-    role: string;
+    role: Role;
 };
 
 export type Server = {
