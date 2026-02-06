@@ -1,46 +1,43 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { Server, User } from "../types";
+import { errorState, loadedState, loadingState, type NetworkDataState, type Server, type User } from "../types";
 import useApiCall from "./useApiCall";
 
 const AUTO_REFRESH_LIMIT = 10;
 
 export const useServers = (user: User | null) => {
-    const [initialized, setInitialized] = useState(false);
-    const [servers, setServers] = useState<Server[]>([]);
-    const { call } = useApiCall<{ servers: Server[] }>("getServers");
+    const [servers, setServers] = useState<NetworkDataState<Server[]>>(loadingState());
+    const { call, state } = useApiCall<{ servers: Server[] }>("getServers");
     const autoRefreshCount = useRef(0);
 
-    const loadServers = useCallback(
-        async (refreshStatus: boolean) => {
-            const data = await call({ refreshStatus });
-            const servers = data?.servers;
-            if (servers) {
-                setInitialized(true);
-                setServers(servers);
-                if (refreshStatus) {
-                    autoRefreshCount.current = 0;
-                }
+    const refreshServers = useCallback(() => {
+        autoRefreshCount.current = 0;
+        call({ refreshStatus: true })
+    }, [call]);
 
-                if (shouldRefresh(servers) && autoRefreshCount.current <= AUTO_REFRESH_LIMIT) {
-                    autoRefreshCount.current += 1;
-                    setTimeout(() => {
-                        loadServers(false);
-                    }, 5000);
-                }
+    useEffect(() => {
+        if (state.state === "Loaded") {
+            const serversResponse = state.data.servers;
+            setServers(loadedState(serversResponse));
+            if (shouldRefresh(serversResponse) && autoRefreshCount.current <= AUTO_REFRESH_LIMIT) {
+                autoRefreshCount.current += 1;
+                setTimeout(() => {
+                    call({ refreshStatus: false });
+                }, 5000);
             }
-        },
-        [call],
-    );
+        } else if (state.state === "Error") {
+            setServers(state);
+        }
+    }, [state, call]);
 
     useEffect(() => {
         if (user) {
-            loadServers(true);
+            refreshServers();
         } else {
-            setServers([]);
+            setServers(loadingState());
         }
-    }, [user]);
+    }, [user, refreshServers]);
 
-    return { initialized, servers, loadServers };
+    return { servers, refreshServers };
 };
 
 function shouldRefresh(servers: Server[]) {

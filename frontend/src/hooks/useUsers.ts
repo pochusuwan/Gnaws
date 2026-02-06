@@ -1,28 +1,34 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Role, User } from "../types";
+import { loadedState, loadingState, type NetworkDataState, type Role, type User } from "../types";
 import useApiCall from "./useApiCall";
 
 export const useUsers = (user: User | null) => {
-    const [initialized, setInitialized] = useState(false);
-    const [users, setUsers] = useState<User[]>([]);
-    const { call: callLoadUsers } = useApiCall<{ users: User[] }>("getUsers");
+    const [users, setUsers] = useState<NetworkDataState<User[]>>(loadingState());
+    const { call: callLoadUsers, state } = useApiCall<{ users: User[] }>("getUsers");
     const { call: callUpdateUsers } = useApiCall<{ success: boolean }>("updateUsers");
 
     const loadUsers = useCallback(async () => {
-        if (initialized) return;
-        const data = await callLoadUsers();
-        if (data?.users) {
-            setInitialized(true);
-            setUsers(data.users);
+        if (users.state !== "Loaded") {
+            callLoadUsers();
         }
-    }, [callLoadUsers, initialized]);
+    }, [callLoadUsers, users]);
+
+    useEffect(() => {
+        if (state.state === "Error") {
+            setUsers(state);
+        } else if (state.state === "Loaded") {
+            setUsers(loadedState(state.data.users));
+        } else {
+            setUsers(loadingState());
+        }
+    }, [state]);
 
     const updateUsers = useCallback(
         async (usersToUpdate: { [username: string]: Role }) => {
             const toUpdate = Object.entries(usersToUpdate).map(([username, role]) => ({ username, role }));
             const res = await callUpdateUsers({ users: toUpdate });
-            if (res?.success) {
-                const newUsers = users.map((u) => {
+            if (res?.success && users.state === "Loaded") {
+                const newUsers = users.data.map((u) => {
                     const user = { ...u };
                     const updatedRole = usersToUpdate[user.username];
                     if (updatedRole !== undefined) {
@@ -30,7 +36,7 @@ export const useUsers = (user: User | null) => {
                     }
                     return user;
                 });
-                setUsers(newUsers);
+                setUsers(loadedState(newUsers));
                 return true;
             }
             return false;
@@ -40,10 +46,9 @@ export const useUsers = (user: User | null) => {
 
     useEffect(() => {
         if (user === null) {
-            setUsers([]);
-            setInitialized(false);
+            setUsers(loadingState());
         }
     }, [user]);
 
-    return { initialized, users, loadUsers, updateUsers };
+    return { users, loadUsers, updateUsers };
 };
