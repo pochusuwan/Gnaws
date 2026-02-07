@@ -44,9 +44,13 @@ export type Server = {
     };
 };
 
+export enum Protocol {
+    TCP = "tcp",
+    UDP = "udp",
+}
 export type Port = {
     port: number;
-    protocol: string;
+    protocol: Protocol;
 };
 export type Game = {
     id: string;
