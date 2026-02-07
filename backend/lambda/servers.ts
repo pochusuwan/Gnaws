@@ -81,19 +81,15 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
         const lastRequested = lastRequest ? new Date(lastRequest) : undefined;
         const lastUpdated = lastUpdate ? new Date(lastUpdate) : undefined;
         const instanceId = server.ec2?.instanceId;
-        if (
-            instanceId &&
-            (!lastRequested || (now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT)) && 
-            (!lastUpdated || (now.getTime() - lastUpdated.getTime() > GET_STATUS_TIMEOUT))
-        ) {
+        if (instanceId && (!lastRequested || now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT) && (!lastUpdated || now.getTime() - lastUpdated.getTime() > GET_STATUS_TIMEOUT)) {
             server.status = {
                 ...server.status,
                 lastRequest: now.toISOString(),
-            }
+            };
             promises.push(
                 updateServerAttributes(server.name, {
                     status: server.status,
-                })
+                }),
             );
             promises.push(getServerStatusWorkflow(server.name, instanceId));
         }
@@ -122,7 +118,7 @@ const getServerFromDB = async (name: string): Promise<Server | null> => {
             new GetItemCommand({
                 TableName: SERVER_TABLE,
                 Key: { name: { S: name } },
-            })
+            }),
         );
 
         if (!result.Item) {
@@ -184,7 +180,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                     Key: {
                         resourceId: { S: instanceId },
                     },
-                })
+                }),
             );
             return serverError("Failed to start action");
         } catch (e) {
@@ -223,7 +219,7 @@ const aquireWorkflowLock = async (resourceId: string, action: string) => {
             // ExpressionAttributeValues: {
             // ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
             // },
-        })
+        }),
     );
 };
 
@@ -254,7 +250,7 @@ const updateServerAttributes = async (name: string, server: Partial<Server>) => 
             UpdateExpression: `SET ${updates.join(", ")}`,
             ExpressionAttributeNames: names,
             ExpressionAttributeValues: marshall(values),
-        })
+        }),
     );
 };
 
@@ -280,7 +276,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         await ec2Client.send(
             new DescribeInstanceTypesCommand({
                 InstanceTypes: [instanceType as _InstanceType],
-            })
+            }),
         );
     } catch (e) {
         return clientError("Invalid instanceType");
@@ -295,8 +291,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     }
     const ports = params.ports
         .map((p: any) => {
-            if (typeof p.port === "number" && 1 <= p.port && p.port <= 65535 && typeof p.protocol === "string" && ["tcp", "udp"].includes(p.protocol)) {
-                return { port: p.port, protocol: p.protocol };
+            const port = p.port;
+            const protocol = typeof p.protocol === "string" ? p.protocol.toLowerCase() : undefined;
+            if (typeof port === "number" && 1 <= port && port <= 65535 && ["tcp", "udp"].includes(protocol)) {
+                return { port, protocol };
             }
             return null;
         })
@@ -320,7 +318,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
                 ExpressionAttributeNames: {
                     "#name": "name",
                 },
-            })
+            }),
         );
     } catch (e: any) {
         if (e.name === "ConditionalCheckFailedException") {
@@ -391,7 +389,7 @@ const createEc2 = async (
     serverName: string,
     ports: Port[],
     instanceType: string,
-    storage: number
+    storage: number,
 ): Promise<{
     instanceId?: string;
     securityGroupId?: string;
@@ -406,7 +404,7 @@ const createEc2 = async (
                 GroupName: `gnaws-${serverName}-sg-${randomUUID().slice(0, 8)}`,
                 Description: `Security Group for ${serverName}`,
                 VpcId: VPC_ID,
-            })
+            }),
         );
 
         securityGroupId = sgResponse.GroupId;
@@ -424,7 +422,7 @@ const createEc2 = async (
                         ToPort: port,
                         IpRanges: [{ CidrIp: "0.0.0.0/0" }],
                     })),
-                })
+                }),
             );
         }
         const runCmd = new RunInstancesCommand({
@@ -482,6 +480,6 @@ async function cleanupResources(server: Server, instanceId?: string, sgId?: stri
         ...server.ec2,
         status: "create_failed",
         message: errorMessage,
-    }
+    };
     await updateServerAttributes(server.name, server);
 }

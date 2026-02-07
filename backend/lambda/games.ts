@@ -27,7 +27,7 @@ const HEADERS = {
 type Game = {
     id: string;
     displayName: string;
-    ec2?: {
+    ec2: {
         instanceType: string;
         minimumInstanceType: string;
         storage: number;
