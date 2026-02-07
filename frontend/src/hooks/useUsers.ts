@@ -1,17 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { loadedState, loadingState, type NetworkDataState, type Role, type User } from "../types";
 import useApiCall from "./useApiCall";
 
 export const useUsers = (user: User | null) => {
+    const initialized = useRef(false);
     const [users, setUsers] = useState<NetworkDataState<User[]>>(loadingState());
     const { call: callLoadUsers, state } = useApiCall<{ users: User[] }>("getUsers");
     const { call: callUpdateUsers } = useApiCall<{ success: boolean }>("updateUsers");
 
     const loadUsers = useCallback(async () => {
-        if (users.state !== "Loaded") {
+        if (!initialized.current) {
+            initialized.current = true;
             callLoadUsers();
         }
-    }, [callLoadUsers, users]);
+    }, [callLoadUsers]);
 
     useEffect(() => {
         if (state.state === "Error") {

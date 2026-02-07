@@ -3,6 +3,7 @@
     flex-direction: column;
     justify-content: flex-start;
     text-align: left;
+    gap: 12px;
 }
 
 .createServerGrid {
@@ -10,4 +11,8 @@
     grid-template-columns: 150px 200px 1fr;
     gap: 8px 12px;
     align-items: center;
+}
+
+.createServerPageButton {
+    width: 150px;
 }

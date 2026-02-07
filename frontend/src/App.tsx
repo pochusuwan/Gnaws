@@ -39,7 +39,7 @@ function App() {
                 {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
                 {page === Page.Servers && <ServerPage servers={servers} refreshServers={refreshServers} />}
                 {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
-                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} />}
+                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} refreshServers={refreshServers}/>}
             </div>
         </UserContext.Provider>
     );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { errorState, loadedState, loadingState, type Game, type NetworkDataState, type User } from "../types";
 import useApiCall from "./useApiCall";
 
@@ -8,14 +8,16 @@ export type GamesData = {
 };
 
 export const useGames = (user: User | null) => {
+    const initialized = useRef(false);
     const [games, setGames] = useState<NetworkDataState<GamesData>>(loadingState());
     const { call, state } = useApiCall<{ games: Game[] }>("getGames");
 
     const loadGames = useCallback(() => {
-        if (state.state !== "Loaded") {
+        if (!initialized.current) {
+            initialized.current = true;
             call();
         }
-    }, [call, state]);
+    }, [call]);
 
     useEffect(() => {
         if (state.state === "Error") {
