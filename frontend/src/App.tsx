@@ -8,7 +8,6 @@ import { useServers } from "./hooks/useServers.ts";
 import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
-import CreateServerPage from "./pages/CreateServerPage/CreateServerPage.tsx";
 
 enum Page {
     Servers = "Servers",
@@ -39,7 +38,6 @@ function App() {
                 {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
                 {page === Page.Servers && <ServerPage servers={servers} refreshServers={refreshServers} />}
                 {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
-                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} />}
             </div>
         </UserContext.Provider>
     );
