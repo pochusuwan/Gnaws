@@ -4,6 +4,7 @@ import { Role, type User } from "./types";
 import LoginForm, { LoggedIn } from "./components/Login/Login.tsx";
 import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
+import CreateServerPage from "./pages/CreateServerPage/CreateServerPage.tsx";
 import { useServers } from "./hooks/useServers.ts";
 import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
@@ -38,6 +39,7 @@ function App() {
                 {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
                 {page === Page.Servers && <ServerPage servers={servers} refreshServers={refreshServers} />}
                 {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
+                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} />}
             </div>
         </UserContext.Provider>
     );

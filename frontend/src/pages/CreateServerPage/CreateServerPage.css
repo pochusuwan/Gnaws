@@ -1,0 +1,13 @@
+.createServerPage {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.createServerGrid {
+    display: grid;
+    grid-template-columns: 150px 200px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+}
