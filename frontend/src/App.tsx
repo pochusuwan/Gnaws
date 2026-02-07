@@ -1,33 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
-import type { User } from "./types";
+import { Role, type User } from "./types";
 import LoginForm, { LoggedIn } from "./components/Login/Login.tsx";
 import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
 import { useServers } from "./hooks/useServers.ts";
 import { useUsers } from "./hooks/useUsers.ts";
+import { UserContext } from "./hooks/useUser.ts";
+import { useGames } from "./hooks/useGames.ts";
 
 enum Page {
     Servers = "Servers",
     Users = "Users",
+    CreateServer = "CreateServer",
 }
 
 function App() {
     const [page, setPage] = useState<Page>(Page.Servers);
     const [user, setUser] = useState<User | null>(null);
-    const { initialized: serverInitialized, servers, loadServers } = useServers(user);
-    const { initialized: userInitialized, users, loadUsers, updateUsers } = useUsers(user);
+    const { servers, refreshServers } = useServers(user);
+    const { users, loadUsers, updateUsers } = useUsers(user);
+    const { games, loadGames } = useGames(user);
+
+    useEffect(() => {
+        if (user !== null) {
+            setPage(Page.Servers);
+        }
+    }, [user]);
 
     if (!user) {
         return <LoginForm setUser={setUser} />;
     }
     return (
-        <div className="app">
-            <LoggedIn user={user} clearUser={() => setUser(null)} />
-            <PageSelector current={page} onSelect={setPage} />
-            {page === Page.Servers && <ServerPage servers={servers} loading={!serverInitialized} loadServers={loadServers} />}
-            {page === Page.Users && <UserPage user={user} users={users} loading={!userInitialized} loadUsers={loadUsers} updateUsers={updateUsers} />}
-        </div>
+        <UserContext.Provider value={user}>
+            <div className="app">
+                <LoggedIn clearUser={() => setUser(null)} />
+                {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
+                {page === Page.Servers && <ServerPage servers={servers} refreshServers={refreshServers} />}
+                {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
+            </div>
+        </UserContext.Provider>
     );
 }
 

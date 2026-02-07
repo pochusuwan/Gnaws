@@ -1,30 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
-import { Role, type User } from "../../types";
+import { Role, type NetworkDataState, type User } from "../../types";
 import "./UserPage.css";
+import { useUser } from "../../hooks/useUser";
 
 const ADMIN_USER = "admin";
 
 type UserPageProps = {
-    user: User;
-    users: User[];
-    loading: boolean;
+    users: NetworkDataState<User[]>;
     loadUsers: () => void;
     updateUsers: (users: { [username: string]: Role }) => Promise<boolean>;
 };
 
 export default function UserPage(props: UserPageProps) {
+    const userRole = useUser().role;
     const [editingUsers, setEditingUsers] = useState<{ [username: string]: Role }>({});
     const [adminUser, setAdminUser] = useState<User | undefined>(undefined);
     const [updateUsersMessage, setUpdateUsersMessage] = useState("");
     useEffect(() => {
-        if (props.user.role === Role.Admin) {
+        if (userRole === Role.Admin) {
             props.loadUsers();
         }
-    }, [props.user, props.loadUsers]);
+    }, [userRole, props.loadUsers]);
 
     useEffect(() => {
-        const admin = props.users.find((user) => user.username === ADMIN_USER);
-        setAdminUser(admin);
+        if (props.users.state === "Loaded") {
+            const admin = props.users.data.find((user) => user.username === ADMIN_USER);
+            setAdminUser(admin);
+        }
     }, [props.users]);
 
     const onUpdate = useCallback(
@@ -50,16 +52,22 @@ export default function UserPage(props: UserPageProps) {
         }
     }, [props.updateUsers, editingUsers]);
 
-    if (props.user.role !== Role.Admin) {
+    if (userRole !== Role.Admin) {
         return <div>No permission</div>;
     }
 
-    if (props.loading) return <div>Loading users...</div>;
+    if (props.users.state === "Error") {
+        return <div>Failed to load users: {props.users.error}</div>;
+    }
+
+    if (props.users.state !== "Loaded") {
+        return <div>Loading users...</div>;
+    }
 
     return (
         <div className="userTable">
             {adminUser && <UserRow user={adminUser} disabled />}
-            {props.users
+            {props.users.data
                 .filter((user) => user.username !== ADMIN_USER)
                 .map((user) => (
                     <UserRow key={user.username} user={user} onUpdate={onUpdate} editting={editingUsers[user.username] !== undefined} />

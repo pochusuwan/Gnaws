@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useApiCall from "../../hooks/useApiCall";
-import { GIB, HOUR_IN_MS, type Server } from "../../types";
+import { GIB, HOUR_IN_MS, Role, type Server } from "../../types";
 import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
+import { useUser } from "../../hooks/useUser";
 
 type ServerTableProps = {
     servers: Server[];
-    loadServers: (refreshStatus: boolean) => void;
+    refreshServers: () => void;
     onServerRowClick: (server: Server) => void;
 };
 
@@ -18,12 +19,11 @@ enum ServerAction {
 }
 
 export default function ServerTable(props: ServerTableProps) {
-    const loadServers = props.loadServers;
-
     const [message, setMessage] = useState<string>("");
     const lastAction = useRef<ServerAction | null>(null);
-    const { call: callServerAction, loading, data, error } = useApiCall<{ message: string }>("serverAction");
+    const { call: callServerAction, state: serverActionState } = useApiCall<{ message: string }>("serverAction");
 
+    // Stop server action backup dialog
     const { open, onResult, confirm } = useConfirm();
 
     const serverAction = useCallback(
@@ -40,16 +40,17 @@ export default function ServerTable(props: ServerTableProps) {
             lastAction.current = action;
             callServerAction(payload);
         },
-        [callServerAction, loadServers],
+        [callServerAction],
     );
+
     useEffect(() => {
-        if (data) {
-            setMessage(`${lastAction?.current} action: ${data?.message}`);
-            loadServers(true);
-        } else if (error) {
-            setMessage(`${lastAction?.current} action failed: ${error?.error}`);
+        if (serverActionState.state === "Loaded") {
+            setMessage(`${lastAction?.current} action: ${serverActionState.data.message}`);
+            props.refreshServers();
+        } else if (serverActionState.state === "Error") {
+            setMessage(`${lastAction?.current} action failed: ${serverActionState.error}`);
         }
-    }, [data, error, loadServers]);
+    }, [serverActionState, props.refreshServers]);
 
     return (
         <div>
@@ -70,7 +71,7 @@ export default function ServerTable(props: ServerTableProps) {
                 </thead>
                 <tbody>
                     {props.servers.map((server) => (
-                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={loading} onClick={props.onServerRowClick} />
+                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={serverActionState.state === "Loading"} onClick={props.onServerRowClick} />
                     ))}
                 </tbody>
             </table>
@@ -88,6 +89,7 @@ type ServerRowProps = {
 function ServerRow(props: ServerRowProps) {
     const { server, serverAction, actionInProgress } = props;
 
+    const userRole = useUser().role;
     const onActionClick = useCallback(
         (action: ServerAction) => {
             props.serverAction(server.name, action);
@@ -123,13 +125,17 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={storageString} loading={loadingStatus} />
             <Cell value={timeSinceBackup} loading={loadingStatus} />
             <td>
-                <div className="actionRow">
-                    {Object.values(ServerAction).map((action) => (
-                        <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>
-                            {action}
-                        </button>
-                    ))}
-                </div>
+                {userRole === Role.Admin || userRole === Role.Manager ? (
+                    <div className="actionRow">
+                        {Object.values(ServerAction).map((action) => (
+                            <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>
+                                {action}
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <div>No permission</div>
+                )}
             </td>
         </tr>
     );

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { API_URL } from "../config";
+import { emptyState, errorState, loadedState, loadingState, type NetworkDataState } from "../types";
 
 function callApi(requestType: string, params: Record<string, any>): Promise<any> {
     return fetch(`${API_URL}call`, {
@@ -15,42 +16,32 @@ function callApi(requestType: string, params: Record<string, any>): Promise<any>
     });
 }
 
-type ApiState<R> = {
-    loading: boolean;
-    data: R | null;
-    error: any;
-};
-
-export default function useApiCall<R>(requestType: string) {
+export default function useApiCall<T>(requestType: string) {
     const inFlight = useRef(false);
-    const [state, setState] = useState<ApiState<R>>({
-        loading: false,
-        data: null,
-        error: null,
-    });
+    const [state, setState] = useState<NetworkDataState<T>>(emptyState());
 
-    const call = useCallback(async (params: Record<string, any> = {}): Promise<R | undefined> => {
+    const call = useCallback(async (params: Record<string, any> = {}): Promise<T | undefined> => {
         if (inFlight.current) return;
         inFlight.current = true;
-        setState({ loading: true, data: null, error: null });
+        setState(loadingState());
 
         try {
             const res = await callApi(requestType, params);
             const data = await res.json();
             if (res.ok) {
-                setState({ loading: false, error: null, data });
+                setState(loadedState(data));
                 return data;
             } else {
-                console.log("Request failed", res.status, data);
-                setState({ loading: false, error: data, data: null });
-                return;
+                console.log("Request failed:", res.status, data);
+                const error = typeof data?.error === "string" ? data?.error : "Unknown";
+                setState(errorState(error));
             }
         } catch (e) {
-            setState({ loading: false, error: "Unknown", data: null });
+            setState(errorState("Unknown"));
         } finally {
             inFlight.current = false;
         }
     }, []);
 
-    return { call, ...state };
+    return { call, state };
 }

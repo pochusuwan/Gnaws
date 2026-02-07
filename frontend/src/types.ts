@@ -43,3 +43,43 @@ export type Server = {
         message?: string;
     };
 };
+
+export type Port = {
+    port: number;
+    protocol: string;
+};
+export type Game = {
+    id: string;
+    displayName: string;
+    ec2: {
+        instanceType: string;
+        minimumInstanceType: string;
+        storage: number;
+        ports: Port[];
+    };
+};
+
+export type EmptyState = {
+    state: "Empty";
+}
+
+export type LoadingState = {
+    state: "Loading";
+}
+
+export type LoadedState<T> = {
+    state: "Loaded";
+    data: T;
+};
+
+export type ErrorState = {
+    state: "Error";
+    error: string;
+}
+
+export const emptyState = (): EmptyState => ({ state: "Empty" });
+export const loadingState = (): LoadingState => ({ state: "Loading" });
+export const loadedState = <T>(data: T): LoadedState<T> => ({ state: "Loaded", data });
+export const errorState = (error: string): ErrorState => ({ state: "Error", error });
+
+export type NetworkDataState<T> = EmptyState | LoadingState | LoadedState<T> | ErrorState;
