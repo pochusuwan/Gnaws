@@ -56,7 +56,13 @@ export default function UserPage(props: UserPageProps) {
         return <div>No permission</div>;
     }
 
-    if (props.users.state !== "Loaded") return <div>Loading users...</div>;
+    if (props.users.state === "Error") {
+        return <div>Failed to load users: {props.users.error}</div>;
+    }
+
+    if (props.users.state !== "Loaded") {
+        return <div>Loading users...</div>;
+    }
 
     return (
         <div className="userTable">
