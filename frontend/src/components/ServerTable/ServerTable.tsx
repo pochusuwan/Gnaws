@@ -42,6 +42,7 @@ export default function ServerTable(props: ServerTableProps) {
         },
         [callServerAction],
     );
+
     useEffect(() => {
         if (serverActionState.state === "Loaded") {
             setMessage(`${lastAction?.current} action: ${serverActionState.data.message}`);

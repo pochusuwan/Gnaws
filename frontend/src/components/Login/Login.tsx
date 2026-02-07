@@ -28,27 +28,28 @@ export default function LoginForm(props: Props) {
         })();
     }, [autoLogin, props.setUser]);
 
-    // If auto login has not failed, render spinner
-    if (autoLoginState.state !== "Error") {
-        return <Spinner />;
+    // If auto login failed, render login form
+    if (autoLoginState.state === "Error") {
+        return (
+            <div>
+                <form>
+                    <div>
+                        <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                    </div>
+                    <div>
+                        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    </div>
+                    <button type="submit" onClick={login} disabled={state.state === "Loading"}>
+                        Login / Create Account
+                    </button>
+                </form>
+                <div>{state.state === "Error" && `Login failed: ${state.error}`}</div>
+            </div>
+        );
     }
 
-    return (
-        <div>
-            <form>
-                <div>
-                    <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
-                </div>
-                <div>
-                    <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                <button type="submit" onClick={login} disabled={state.state === "Loading"}>
-                    Login / Create Account
-                </button>
-            </form>
-            <div>{state.state === "Error" && `Login failed: ${state.error}`}</div>
-        </div>
-    );
+    // Otherwise, wait for auto login
+    return <Spinner />;
 }
 
 type LoggedInProps = {

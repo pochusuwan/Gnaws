@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { errorState, loadedState, loadingState, type NetworkDataState, type Server, type User } from "../types";
+import { loadedState, loadingState, type NetworkDataState, type Server, type User } from "../types";
 import useApiCall from "./useApiCall";
 
 const AUTO_REFRESH_LIMIT = 10;
