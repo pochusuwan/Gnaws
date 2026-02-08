@@ -4,7 +4,7 @@
     "ec2": {
         "instanceType": "t3a.xlarge",
         "minimumInstanceType": "t3a.large",
-        "storage": 8,
+        "storage": 10,
         "ports": [
             {
                 "port": 8211,

@@ -66,7 +66,7 @@ ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$SCRIPT_DIR/scripts/gnaws-script.c
 # Install game as gnaws-user
 echo "Installing game"
 
-# Install sometimes fail. Install with retries
+# Install with SteamCMD sometimes fail. Install with retries
 MAX_INSTALL_ATTEMPT="${MAX_INSTALL_ATTEMPT:-1}"
 INSTALL_SLEEP=5
 for i in $(seq 1 $MAX_INSTALL_ATTEMPT); do
