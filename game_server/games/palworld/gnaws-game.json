@@ -11,5 +11,16 @@
                 "protocol": "udp"
             }
         ]
-    }
+    },
+    "termsOfService": [{
+        "name": "SteamCMD License Agreement",
+        "url": "https://store.steampowered.com/subscriber_agreement/",
+        "type": "checkbox"
+    }],
+    "messages": [
+        {
+            "type": "info",
+            "text": "Palworld progress is saved periodically, not on exit. Wait a few minutes for autosave or manually save before stopping the server."
+        }
+    ]
 }

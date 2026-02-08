@@ -19,5 +19,16 @@
                 "protocol": "udp"
             }
         ]
-    }
+    },
+    "termsOfService": [{
+        "name": "SteamCMD License Agreement",
+        "url": "https://store.steampowered.com/subscriber_agreement/",
+        "type": "checkbox"
+    }],
+    "messages": [
+        {
+            "type": "info",
+            "text": "First-time server startup may take up to 10 minutes to generate the world."
+        }
+    ]
 }
