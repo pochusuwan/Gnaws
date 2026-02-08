@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/gnaws-script.conf"
 
 GAME_SERVER_DIR=/opt/$SERVER_FOLDER_NAME
-cd "$GAME_SERVER_DIR"
 echo "Updating game"
 
 # Update sometimes fail. Update with retries
@@ -14,6 +13,7 @@ MAX_INSTALL_ATTEMPT="${MAX_INSTALL_ATTEMPT:-1}"
 INSTALL_SLEEP=5
 for i in $(seq 1 $MAX_INSTALL_ATTEMPT); do
     echo "Update attempt $i/$MAX_INSTALL_ATTEMPT"
+    cd "$GAME_SERVER_DIR"
     if sudo -u "$USER" "./gnaws-update.sh"; then
         echo "Update succeeded"
         exit 0
