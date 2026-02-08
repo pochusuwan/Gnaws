@@ -1,0 +1,15 @@
+{
+    "id": "palworld",
+    "displayName": "Palworld",
+    "ec2": {
+        "instanceType": "t3a.xlarge",
+        "minimumInstanceType": "t3a.large",
+        "storage": 8,
+        "ports": [
+            {
+                "port": 8211,
+                "protocol": "udp"
+            }
+        ]
+    }
+}
