@@ -64,6 +64,21 @@ chown -R "$USER":"$USER" "$GAME_SERVER_DIR"
 ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$SCRIPT_DIR/scripts/gnaws-script.conf"
 
 # Install game as gnaws-user
-cd "$GAME_SERVER_DIR"
 echo "Installing game"
-sudo -u "$USER" "./gnaws-install.sh"
+
+# Install with SteamCMD sometimes fail. Install with retries
+MAX_INSTALL_ATTEMPT="${MAX_INSTALL_ATTEMPT:-1}"
+INSTALL_SLEEP=5
+for i in $(seq 1 $MAX_INSTALL_ATTEMPT); do
+    echo "Install attempt $i/$MAX_INSTALL_ATTEMPT"
+    cd "$GAME_SERVER_DIR"
+    if sudo -u "$USER" "./gnaws-install.sh"; then
+        echo "Install succeeded"
+        exit 0
+    fi
+    echo "Install failed, retrying in ${INSTALL_SLEEP}s..."
+    sleep "$INSTALL_SLEEP"
+done
+
+echo "Install failed after $MAX_INSTALL_ATTEMPT attempts"
+exit 1
