@@ -263,11 +263,11 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName) || serverName.length === 0) {
         return clientError("Invalid serverName");
     }
+    // TODO: validate game id against available games
     const gameId = params?.gameId;
     if (typeof gameId !== "string") {
         return clientError("Invalid gameId");
     }
-    // TODO: validate game id against available games
     const instanceType = params?.instanceType;
     if (typeof instanceType !== "string") {
         return clientError("Invalid instanceType");
@@ -282,7 +282,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         return clientError("Invalid instanceType");
     }
     const storage = params?.storage;
-    if (typeof storage !== "number" && storage >= 8) {
+    if (typeof storage !== "number" || storage < 4 || storage > 128) {
         return clientError("Invalid storage");
     }
 

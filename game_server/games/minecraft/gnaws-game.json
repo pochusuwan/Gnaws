@@ -11,5 +11,10 @@
                 "protocol": "tcp"
             }
         ]
-    }
+    },
+    "termsOfService": [{
+        "name": "Minecraft EULA",
+        "url": "https://aka.ms/MinecraftEULA",
+        "type": "checkbox"
+    }]
 }
