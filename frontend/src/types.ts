@@ -52,6 +52,15 @@ export type Port = {
     port: number;
     protocol: Protocol;
 };
+export type TermsOfService = {
+    name: string;
+    url: string;
+    type: string;
+};
+export type Message = {
+    type: string;
+    text: string;
+};
 export type Game = {
     id: string;
     displayName: string;
@@ -61,6 +70,8 @@ export type Game = {
         storage: number;
         ports: Port[];
     };
+    termsOfService?: TermsOfService[];
+    messages?: Message[];
 };
 
 export type EmptyState = {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "../../hooks/useUser";
-import { Protocol, Role, type Game, type NetworkDataState, type Port } from "../../types";
+import { Protocol, Role, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
 import type { GamesData } from "../../hooks/useGames";
 import "./CreateServerPage.css";
 import useApiCall from "../../hooks/useApiCall";
@@ -11,6 +11,11 @@ type CreateServerPageProps = {
     refreshServers: () => void;
 };
 
+type Terms = {
+    term: TermsOfService;
+    accepted: boolean;
+};
+
 export default function CreateServerPage(props: CreateServerPageProps) {
     const userRole = useUser().role;
     const [serverName, setServerName] = useState("");
@@ -19,6 +24,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     const [storage, setStorage] = useState(4);
     const [ports, setPorts] = useState<Port[]>([]);
     const [message, setMessage] = useState("");
+    const [instanceTypeRec, setInstanceTypeRec] = useState("");
+    const [instanceTypeMinRec, setInstanceTypeMinRec] = useState("");
+    const [terms, setTerms] = useState<Terms[]>([]);
     const { call: createServerCall, state: createServerResponse } = useApiCall("createServer");
 
     // Load games on page load
@@ -39,6 +47,10 @@ export default function CreateServerPage(props: CreateServerPageProps) {
         setInstanceType(game.ec2.instanceType);
         setStorage(game.ec2.storage);
         setPorts(game.ec2.ports.map((p) => ({ ...p })));
+        setInstanceTypeRec(game.ec2.instanceType);
+        setInstanceTypeMinRec(game.ec2.minimumInstanceType);
+        const terms = game.termsOfService ?? [];
+        setTerms(terms.map((term) => ({ term, accepted: false })));
     }, []);
 
     // On game select change, set data
@@ -78,6 +90,14 @@ export default function CreateServerPage(props: CreateServerPageProps) {
         },
         [ports],
     );
+    const onTermCheckboxChange = useCallback(
+        (checked: boolean, index: number) => {
+            const newTerms = [...terms];
+            newTerms[index].accepted = checked;
+            setTerms(newTerms);
+        },
+        [terms],
+    );
 
     // Validate and call create server
     const createServerClick = useCallback(() => {
@@ -89,8 +109,8 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             setMessage("Instance type is required");
             return;
         }
-        if (storage < 4) {
-            setMessage("Invalid storage");
+        if (storage < 4 || storage > 128) {
+            setMessage("Invalid storage. Storage must be between 4 and 128 GiB");
             return;
         }
 
@@ -133,6 +153,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
     if (props.games.state !== "Loaded") return <div>Loading games...</div>;
 
+    const selectedGame = props.games.data.games[game];
+    const allTermsAccepted = terms.every((t) => t.accepted);
+
     return (
         <div className="createServerPage">
             <div className="createServerGrid">
@@ -152,14 +175,16 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
                 <div>Instance Type:</div>
                 <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
-                <div>EC2 instance type</div>
+                <div>
+                    {instanceTypeMinRec} (2-4 players) {instanceTypeRec} (5-8 players) recommended. This can be changed later.
+                </div>
 
                 <div>Storage:</div>
                 <input type="number" value={storage} onChange={(e) => setStorage(parseInt(e.target.value))} />
-                <div>{">= 4 GiB"}</div>
+                <div>GiB. This can be changed later.</div>
             </div>
             {ports.map((port, i) => (
-                <div className="createServerGrid" key={i}>
+                <div className="createServerPortGrid" key={i} style={{ backgroundColor: i < selectedGame.ec2.ports.length ? "#bebebe63" : undefined }}>
                     <div>Port {i + 1}:</div>
                     <input type="number" value={port.port} onChange={(e) => onPortNumberChange(e.target.value, i)} />
                     <select value={port.protocol} onChange={(e) => onPortProtocolChange(e.target.value, i)}>
@@ -171,11 +196,43 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     </select>
                 </div>
             ))}
+            <div>Modify pre-configured ports will require manual server modification.</div>
             <button className="createServerPageButton" onClick={addPortClick}>
                 Add Port
             </button>
-            <button className="createServerPageButton" onClick={createServerClick} disabled={createServerResponse.state === "Loading"}>
-                Create
+            <div className="createServerPageDivider"></div>
+            {selectedGame?.messages !== undefined && selectedGame.messages.length > 0 && (
+                <div>
+                    <div>Additional Infomation:</div>
+                    <ul className="createServerPageList">
+                        {selectedGame.messages.map((m) => (
+                            <li>{m.text}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {terms.length > 0 && (
+                <div>
+                    <div>Accept Terms and Conditions:</div>
+                    <ul className="createServerPageList">
+                        {terms
+                            .filter((t) => t.term.type === "checkbox")
+                            .map((t, i) => (
+                                <div>
+                                    <a href={t.term.url} target="_blank" rel="noopener noreferrer">
+                                        {t.term.name}
+                                    </a>
+                                    <div className="createServerRow">
+                                        <input type="checkbox" checked={t.accepted} onChange={(e) => onTermCheckboxChange(e.target.checked, i)} />
+                                        <div>I AGREE</div>
+                                    </div>
+                                </div>
+                            ))}
+                    </ul>
+                </div>
+            )}
+            <button className="createServerPageButton" onClick={createServerClick} disabled={createServerResponse.state === "Loading" || !allTermsAccepted}>
+                Create Server
             </button>
             <div>{message}</div>
         </div>

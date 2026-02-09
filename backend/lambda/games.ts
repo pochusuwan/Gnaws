@@ -24,6 +24,15 @@ const HEADERS = {
     "User-Agent": "aws-lambda",
 };
 
+type TermsOfService = {
+    name: string;
+    url: string;
+    type: string;
+};
+type Message = {
+    type: string;
+    text: string;
+};
 type Game = {
     id: string;
     displayName: string;
@@ -33,6 +42,8 @@ type Game = {
         storage: number;
         ports: Port[];
     };
+    termsOfService?: TermsOfService[];
+    messages?: Message[];
 };
 
 export async function getGames(user: User, params: any): Promise<APIGatewayProxyResult> {
@@ -143,6 +154,31 @@ async function parseGameFiles(): Promise<Game[]> {
             if (parsedPort.length < 0) {
                 continue;
             }
+
+            const termsOfService: TermsOfService[] = [];
+            const tos = parsed.termsOfService;
+            if (Array.isArray(tos)) {
+                tos.forEach((t) => {
+                    if (typeof t.name === "string" && typeof t.url === "string" && typeof t.type === "string") {
+                        termsOfService.push({ name: t.name, url: t.url, type: t.type });
+                    }
+                });
+                // All TOS must be valid
+                if (termsOfService.length !== tos.length) {
+                    continue;
+                }
+            }
+
+            const messages: Message[] = [];
+            const msg = parsed.messages;
+            if (Array.isArray(msg)) {
+                msg.forEach((m) => {
+                    if (typeof m.type === "string" && typeof m.text === "string") {
+                        messages.push({ type: m.type, text: m.text });
+                    }
+                });
+            }
+
             games.push({
                 id,
                 displayName,
@@ -152,6 +188,8 @@ async function parseGameFiles(): Promise<Game[]> {
                     storage,
                     ports: parsedPort,
                 },
+                termsOfService,
+                messages
             });
         } catch (e) {
             console.debug(`Failed to read game: ${file} ${e}`);
