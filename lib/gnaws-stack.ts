@@ -14,6 +14,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
@@ -60,10 +61,10 @@ export class GnawsStack extends cdk.Stack {
 
     private buildBackend() {
         // Create Lambda function for handling all requests
-        const backend = new lambda.Function(this, "GnawsLambdaBackend", {
+        const backend = new NodejsFunction(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
-            handler: "index.handler",
-            code: lambda.Code.fromAsset("backend/lambda"),
+            handler: "handler",
+            entry: 'backend/lambda/src/index.ts',
             environment: {
                 USER_TABLE_NAME: this.userTable.tableName,
                 SERVER_TABLE_NAME: this.serverTable.tableName,
@@ -205,23 +206,6 @@ export class GnawsStack extends cdk.Stack {
             destinationBucket: this.websiteBucket,
             distribution: this.cfnDistribution,
             distributionPaths: ["/*"],
-            // TODO: enable prune
-            prune: false,
-        });
-        // TODO: Remove legacy page
-        const configs = {
-            API_BASE: this.apiUrl,
-        };
-        const constants = Object.entries(configs)
-            .map(([k, v]) => `const ${k} = '${v}';`)
-            .join("\n");
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteLegacy", {
-            destinationBucket: this.websiteBucket,
-            sources: [s3deploy.Source.asset("frontend/legacy"), s3deploy.Source.data("config.js", constants)],
-            distribution: this.cfnDistribution,
-            distributionPaths: ["/*"],
-            destinationKeyPrefix: "legacy/",
-            prune: false,
         });
     }
 
