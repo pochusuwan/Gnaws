@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { GnawsStack } from '../lib/gnaws-stack';
+import * as dotenv from "dotenv";
+dotenv.config();
 
 const cloudFrontDomainName = process.env.CLOUDFRONT_DOMAIN_NAME;
 const cloudFrontCertArn = process.env.CLOUDFRONT_CERT_ARN;
