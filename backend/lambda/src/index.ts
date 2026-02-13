@@ -2,8 +2,9 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
 import { getUsers, updateUsers } from "./users";
-import { getServers, serverAction, createServer } from "./servers";
+import { getServers, serverAction } from "./servers";
 import { getGames } from "./games";
+import { createServer } from "./createServer";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
