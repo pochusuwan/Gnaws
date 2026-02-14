@@ -22,3 +22,12 @@
     gap: 8px 12px;
     align-items: center;
 }
+
+.adminPanelMessage {
+    height: 20px;
+    display: flex;
+    flex: row;
+    justify-content: start;
+    text-align: start;
+    margin-bottom: 8px;
+}

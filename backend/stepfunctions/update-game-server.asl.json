@@ -1,0 +1,279 @@
+{
+  "Comment": "Update game server with update_server.sh",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "updateCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "DescribeSSM"
+    },
+    "DescribeSSMFail": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Instance offline. Could not get ssm status."
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidSSMStatus": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message.$": "States.Format('SSM not online. Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidGameServerStatus": {
+      "Type": "Pass",
+        "Assign": {
+          "status": "failed",
+          "message": "Game server is not offline"
+        },
+      "Next": "WriteToServerDDB"
+    },
+    "InvalidUpdateCommandStatus": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message.$": "States.Format('Invalid update status: {}', $.commandResult.Status)"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "UpdateFailed": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Failed to update game server"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "UpdateSuccess": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "success",
+        "message": "Update success"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "UpdateTimeout": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting for update to complete"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "WriteToServerDDB": {
+      "QueryLanguage": "JSONata",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "{% $states.input.serverTable %}",
+        "Key": {
+          "name": {
+            "S": "{% $states.input.serverName %}"
+          }
+        },
+        "UpdateExpression": "SET #w = :workflowObj",
+        "ExpressionAttributeNames": {
+          "#w": "workflow"
+        },
+        "ExpressionAttributeValues": {
+          ":workflowObj": {
+            "M": {
+              "currentTask": {
+                "S": "update"
+              },
+              "executionId": {
+                "S": "{% $states.context.Execution.Id %}"
+              },
+              "status": {
+                "S": "{% $status %}"
+              },
+              "message": "{% $message ? { 'S': $message } : null %}",
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
+            }
+          }
+        }
+      },
+      "Output": "{% $states.input %}",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.workflowTable",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceId"
+          }
+        }
+      },
+      "ResultPath": "$.removeLock",
+      "End": true
+    },
+    "DescribeSSM": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
+      "Parameters": {
+        "Filters": [
+          {
+            "Key": "InstanceIds",
+            "Values.$": "States.Array($.instanceId)"
+          }
+        ]
+      },
+      "ResultPath": "$.ssm",
+      "Next": "IsSSMOnline"
+    },
+    "IsSSMOnline": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ssm.InstanceInformationList",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeSSMFail"
+        },
+        {
+          "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+          "StringEquals": "Online",
+          "Next": "CheckGameServerStatus"
+        }
+      ],
+      "Default": "InvalidSSMStatus"
+    },
+    "CheckGameServerStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "/opt/gnaws/scripts/is_online.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForCommand"
+    },
+    "WaitForCommand": {
+      "Type": "Wait",
+      "Seconds": 2,
+      "Next": "GetCommandResult"
+    },
+    "GetCommandResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "CheckGameServerOutput"
+    },
+    "CheckGameServerOutput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.StandardOutputContent",
+          "StringEquals": "offline\n",
+          "Next": "UpdateGameServer"
+        }
+      ],
+      "Default": "InvalidGameServerStatus"
+    },
+    "UpdateGameServer": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "/opt/gnaws/scripts/update_server.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForUpdate"
+    },
+    "WaitForUpdate": {
+      "Type": "Wait",
+      "Seconds": 20,
+      "Next": "GetUpdateResult"
+    },
+    "GetUpdateResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "IncrementUpdateCheck"
+    },
+    "IncrementUpdateCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.updateCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.updateCheck",
+      "Next": "CheckUpdateStatus"
+    },
+    "CheckUpdateStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Failed",
+          "Next": "UpdateFailed"
+        },
+        {
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Success",
+          "Next": "UpdateSuccess"
+        },
+        {
+          "Variable": "$.meta.updateCheck.val",
+          "NumericGreaterThanEquals": 90,
+          "Next": "UpdateTimeout"
+        },
+        {
+          "Or": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Pending"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "InProgress"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Delayed"
+            }
+          ],
+          "Next": "WaitForUpdate"
+        }
+      ],
+      "Default": "InvalidUpdateCommandStatus"
+    }
+  }
+}

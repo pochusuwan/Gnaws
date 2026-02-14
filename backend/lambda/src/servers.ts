@@ -3,7 +3,7 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
+import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN, UPDATE_SERVER_FUNCTION_ARN } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
@@ -18,7 +18,8 @@ const GET_STATUS_TIMEOUT = 30 * 1000;
 const ACTION_START = "start";
 const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
-const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP];
+const ACTION_UPDATE = "update";
+const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP, ACTION_UPDATE];
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
@@ -129,6 +130,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (action === ACTION_BACKUP) {
         result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN, { backupBucketName: BACKUP_BUCKET_NAME });
     }
+    if (action === ACTION_UPDATE) {
+        result = await startWorkflow(server.name, instanceId, UPDATE_SERVER_FUNCTION_ARN);
+    }
     if (!result) {
         // Failed to start workflow. Remove lock and return error
         try {
@@ -211,3 +215,4 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         }),
     );
 };
+

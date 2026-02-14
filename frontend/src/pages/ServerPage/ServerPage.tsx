@@ -12,7 +12,7 @@ type Props = {
 
 export default function ServerPage(props: Props) {
     const userRole = useUser().role;
-    const [focusedServer, setFocusedServer] = useState<Server | null>(null);
+    const [focusedServer, setFocusedServer] = useState<string | null>(null);
 
     if (props.servers.state === "Error") {
         return <div>Failed to load servers: {props.servers.error}</div>;
@@ -24,8 +24,10 @@ export default function ServerPage(props: Props) {
 
     return (
         <div className="serverPage">
-            <ServerTable servers={props.servers.data} refreshServers={props.refreshServers} onServerRowClick={setFocusedServer} />
-            {userRole === Role.Admin && <ServerAdminPanel server={focusedServer} />}
+            <ServerTable servers={props.servers.data} refreshServers={props.refreshServers} setFocusedServer={setFocusedServer} />
+            {userRole === Role.Admin && (
+                <ServerAdminPanel focusedServer={focusedServer} refreshServers={props.refreshServers} servers={props.servers.data} />
+            )}
         </div>
     );
 }
