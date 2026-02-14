@@ -4,6 +4,10 @@ import { GnawsStack } from '../lib/gnaws-stack';
 import * as dotenv from "dotenv";
 dotenv.config();
 
+// Set your variables in .env file
+// CLOUDFRONT_DOMAIN_NAME=app.example.com
+// CLOUDFRONT_CERT_ARN=arn:aws:acm:us-east-1:123456789012:certificate/xxxx
+
 const cloudFrontDomainName = process.env.CLOUDFRONT_DOMAIN_NAME;
 const cloudFrontCertArn = process.env.CLOUDFRONT_CERT_ARN;
 
