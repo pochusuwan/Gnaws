@@ -41,6 +41,7 @@ export class GnawsStack extends cdk.Stack {
     private backupServerFunction: sfn.StateMachine;
     private getServerStatusFunction: sfn.StateMachine;
     private setupServerFunction: sfn.StateMachine;
+    private updateServerFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
     // Network
@@ -77,6 +78,7 @@ export class GnawsStack extends cdk.Stack {
                 BACKUP_SERVER_FUNCTION_ARN: this.backupServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
                 SETUP_SERVER_FUNCTION_ARN: this.setupServerFunction.stateMachineArn,
+                UPDATE_SERVER_FUNCTION_ARN: this.updateServerFunction.stateMachineArn,
                 BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
@@ -107,6 +109,7 @@ export class GnawsStack extends cdk.Stack {
         this.backupServerFunction.grantStartExecution(backend);
         this.getServerStatusFunction.grantStartExecution(backend);
         this.setupServerFunction.grantStartExecution(backend);
+        this.updateServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -270,7 +273,6 @@ export class GnawsStack extends cdk.Stack {
         );
         this.workflowTable.grantWriteData(this.startServerFunction);
         this.serverTable.grantWriteData(this.startServerFunction);
-        new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
 
         this.stopServerFunction = new sfn.StateMachine(this, "GnawsStopGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/stop-game-server.asl.json"),
@@ -285,7 +287,6 @@ export class GnawsStack extends cdk.Stack {
         );
         this.workflowTable.grantWriteData(this.stopServerFunction);
         this.serverTable.grantWriteData(this.stopServerFunction);
-        new cdk.CfnOutput(this, "GnawsStopServerFunctionArn", { value: this.stopServerFunction.stateMachineArn });
 
         this.backupServerFunction = new sfn.StateMachine(this, "GnawsBackupGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/backup-server.asl.json"),
@@ -300,7 +301,6 @@ export class GnawsStack extends cdk.Stack {
         );
         this.workflowTable.grantWriteData(this.backupServerFunction);
         this.serverTable.grantWriteData(this.backupServerFunction);
-        new cdk.CfnOutput(this, "GnawsBackupServerFunctionArn", { value: this.backupServerFunction.stateMachineArn });
 
         this.getServerStatusFunction = new sfn.StateMachine(this, "GnawsGetServerStatus", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/get-server-status.asl.json"),
@@ -314,7 +314,6 @@ export class GnawsStack extends cdk.Stack {
         );
         this.backupBucket.grantRead(this.getServerStatusFunction);
         this.serverTable.grantWriteData(this.getServerStatusFunction);
-        new cdk.CfnOutput(this, "GnawsGetServerStatusFunctionArn", { value: this.getServerStatusFunction.stateMachineArn });
 
         this.setupServerFunction = new sfn.StateMachine(this, "GnawsSetupGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/setup-game-server.asl.json"),
@@ -329,7 +328,20 @@ export class GnawsStack extends cdk.Stack {
         );
         this.workflowTable.grantWriteData(this.setupServerFunction);
         this.serverTable.grantWriteData(this.setupServerFunction);
-        new cdk.CfnOutput(this, "GnawsSetupServerFunctionArn", { value: this.setupServerFunction.stateMachineArn });
+
+        this.updateServerFunction = new sfn.StateMachine(this, "GnawsUpdateGameServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/update-game-server.asl.json"),
+            timeout: cdk.Duration.minutes(40),
+        });
+
+        this.updateServerFunction.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
+                resources: ["*"], // TODO: to managed EC2 only
+            }),
+        );
+        this.workflowTable.grantWriteData(this.updateServerFunction);
+        this.serverTable.grantWriteData(this.updateServerFunction);
     }
 
     private buildNetwork() {

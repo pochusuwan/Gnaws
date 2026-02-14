@@ -9,7 +9,7 @@ import { useUser } from "../../hooks/useUser";
 type ServerTableProps = {
     servers: Server[];
     refreshServers: () => void;
-    onServerRowClick: (server: Server) => void;
+    setFocusedServer: (server: string) => void;
 };
 
 enum ServerAction {
@@ -71,7 +71,7 @@ export default function ServerTable(props: ServerTableProps) {
                 </thead>
                 <tbody>
                     {props.servers.map((server) => (
-                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={serverActionState.state === "Loading"} onClick={props.onServerRowClick} />
+                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={serverActionState.state === "Loading"} onClick={props.setFocusedServer} />
                     ))}
                 </tbody>
             </table>
@@ -84,7 +84,7 @@ type ServerRowProps = {
     server: Server;
     serverAction: (serverName: string, action: ServerAction) => void;
     actionInProgress: boolean;
-    onClick: (server: Server) => void;
+    onClick: (server: string) => void;
 };
 function ServerRow(props: ServerRowProps) {
     const { server, serverAction, actionInProgress } = props;
@@ -115,7 +115,7 @@ function ServerRow(props: ServerRowProps) {
     }
 
     return (
-        <tr onClick={() => props.onClick(server)}>
+        <tr onClick={() => props.onClick(server.name)}>
             <Cell value={server.name} />
             <Cell value={server.ec2?.instanceType} />
             <Cell value={server.status?.status} loading={loadingStatus} />
