@@ -5,6 +5,7 @@ import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import { useUser } from "../../hooks/useUser";
+import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 
 type ServerTableProps = {
     servers: Server[];
@@ -14,8 +15,7 @@ type ServerTableProps = {
 
 enum ServerAction {
     Start = "Start",
-    Stop = "Stop",
-    Backup = "Backup",
+    Stop = "Stop"
 }
 
 export default function ServerTable(props: ServerTableProps) {
@@ -71,7 +71,13 @@ export default function ServerTable(props: ServerTableProps) {
                 </thead>
                 <tbody>
                     {props.servers.map((server) => (
-                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={serverActionState.state === "Loading"} onClick={props.setFocusedServer} />
+                        <ServerRow
+                            key={server.name}
+                            server={server}
+                            serverAction={serverAction}
+                            actionInProgress={serverActionState.state === "Loading"}
+                            onClick={props.setFocusedServer}
+                        />
                     ))}
                 </tbody>
             </table>
@@ -97,7 +103,7 @@ function ServerRow(props: ServerRowProps) {
         [serverAction, server.name],
     );
 
-    const loadingStatus = server.status?.lastRequest !== undefined && (server.status?.lastUpdated === undefined || new Date(server.status.lastRequest) > new Date(server.status?.lastUpdated));
+    const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
     let currentTask = server.workflow?.currentTask;
     if (currentTask) {
         currentTask += ": " + server.workflow?.status;
@@ -116,14 +122,14 @@ function ServerRow(props: ServerRowProps) {
 
     return (
         <tr onClick={() => props.onClick(server.name)}>
-            <Cell value={server.name} />
+            <Cell value={server.name} loading={showSpinner} />
             <Cell value={server.ec2?.instanceType} />
-            <Cell value={server.status?.status} loading={loadingStatus} />
+            <Cell value={server.status?.status} />
             <Cell value={currentTask} />
-            <Cell value={server.status?.ipAddress} loading={loadingStatus} />
-            <Cell value={server.status?.playerCount} loading={loadingStatus} />
-            <Cell value={storageString} loading={loadingStatus} />
-            <Cell value={timeSinceBackup} loading={loadingStatus} />
+            <Cell value={server.status?.ipAddress} />
+            <Cell value={server.status?.playerCount} />
+            <Cell value={storageString} />
+            <Cell value={timeSinceBackup} />
             <td>
                 {userRole === Role.Admin || userRole === Role.Manager ? (
                     <div className="actionRow">
@@ -148,7 +154,10 @@ type CellProps = {
 function Cell(props: CellProps) {
     return (
         <td>
-            <div className="cell">{props.loading ? <Spinner /> : props.value}</div>
+            <div className="cell">
+                <div>{props.value}</div>
+                {props.loading && <Spinner />}
+            </div>
         </td>
     );
 }
