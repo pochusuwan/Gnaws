@@ -7,7 +7,7 @@ import { useUser } from "../../hooks/useUser";
 
 type Props = {
     servers: NetworkDataState<Server[]>;
-    refreshServers: () => void;
+    refreshServer: (serverName: string) => void;
 };
 
 export default function ServerPage(props: Props) {
@@ -50,13 +50,13 @@ export default function ServerPage(props: Props) {
 
     return (
         <div className="serverPage">
-            <ServerTable servers={props.servers.data} refreshServers={props.refreshServers} setFocusedServer={setFocusedServerName} />
+            <ServerTable servers={props.servers.data} refreshServer={props.refreshServer} setFocusedServer={setFocusedServerName} />
             {userRole === Role.Admin &&
                 focusedServerName !== null &&
                 (focusedServer == null ? (
                     <h2 style={{ marginBottom: "4px" }}>Loading server data...</h2>
                 ) : (
-                    <ServerAdminPanel server={focusedServer} refreshServers={props.refreshServers} servers={props.servers.data} />
+                    <ServerAdminPanel server={focusedServer} refreshServer={props.refreshServer} servers={props.servers.data} />
                 ))}
         </div>
     );

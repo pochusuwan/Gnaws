@@ -7,7 +7,7 @@ import Spinner from "../Spinner/Spinner";
 
 type ServerAdminPanelProps = {
     servers: Server[];
-    refreshServers: () => void;
+    refreshServer: (serverName: string) => void;
     server: Server;
 };
 export default function ServerAdminPanel(props: ServerAdminPanelProps) {
@@ -32,11 +32,11 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             setMessage("Loading");
         } else if (state.state === "Loaded") {
             setMessage(`${lastAction.current} ${state.data.message}`);
-            props.refreshServers();
+            props.refreshServer(server.name);
         } else if (state.state === "Error") {
             setMessage(state.error);
         }
-    }, [state, props.refreshServers]);
+    }, [state, props.refreshServer]);
 
     if (server == null) return null;
 

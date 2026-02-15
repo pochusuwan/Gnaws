@@ -8,7 +8,7 @@ import useApiCall from "../../hooks/useApiCall";
 type CreateServerPageProps = {
     games: NetworkDataState<GamesData>;
     loadGames: () => void;
-    refreshServers: () => void;
+    refreshServer: (serverName: string) => void;
 };
 
 type Terms = {
@@ -27,7 +27,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     const [instanceTypeRec, setInstanceTypeRec] = useState("");
     const [instanceTypeMinRec, setInstanceTypeMinRec] = useState("");
     const [terms, setTerms] = useState<Terms[]>([]);
-    const { call: createServerCall, state: createServerResponse } = useApiCall("createServer");
+    const { call: createServerCall, state: createServerResponse } = useApiCall<{ message: string, serverName: string }>("createServer");
 
     // Load games on page load
     useEffect(() => {
@@ -139,12 +139,12 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                 setServerName("");
                 setGame(props.games.data.initialGame);
                 setDataFromGame(props.games.data.games[props.games.data.initialGame]);
-                props.refreshServers();
+                props.refreshServer(createServerResponse.data.serverName);
             }
         } else if (createServerResponse.state === "Error") {
             setMessage(createServerResponse.error);
         }
-    }, [createServerResponse, props.games, props.refreshServers]);
+    }, [createServerResponse, props.games, props.refreshServer]);
 
     if (userRole !== Role.Admin) {
         return <div>No permission</div>;

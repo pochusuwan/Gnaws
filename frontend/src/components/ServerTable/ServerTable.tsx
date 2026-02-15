@@ -9,7 +9,7 @@ import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 
 type ServerTableProps = {
     servers: Server[];
-    refreshServers: () => void;
+    refreshServer: (serverName: string) => void;
     setFocusedServer: (server: string) => void;
 };
 
@@ -20,7 +20,7 @@ enum ServerAction {
 
 export default function ServerTable(props: ServerTableProps) {
     const [message, setMessage] = useState<string>("");
-    const lastAction = useRef<ServerAction | null>(null);
+    const lastAction = useRef<{ action: ServerAction, serverName: string} | null>(null);
     const { call: callServerAction, state: serverActionState } = useApiCall<{ message: string }>("serverAction");
 
     // Stop server action backup dialog
@@ -37,7 +37,7 @@ export default function ServerTable(props: ServerTableProps) {
                 payload.shouldBackup = shouldBackup;
             }
             setMessage("");
-            lastAction.current = action;
+            lastAction.current = { action, serverName };
             callServerAction(payload);
         },
         [callServerAction],
@@ -45,12 +45,15 @@ export default function ServerTable(props: ServerTableProps) {
 
     useEffect(() => {
         if (serverActionState.state === "Loaded") {
-            setMessage(`${lastAction?.current} action: ${serverActionState.data.message}`);
-            props.refreshServers();
+            setMessage(`${lastAction?.current?.action} action: ${serverActionState.data.message}`);
+            const serverName = lastAction?.current?.serverName;
+            if (serverName) {
+                props.refreshServer(serverName);
+            }
         } else if (serverActionState.state === "Error") {
             setMessage(`${lastAction?.current} action failed: ${serverActionState.error}`);
         }
-    }, [serverActionState, props.refreshServers]);
+    }, [serverActionState, props.refreshServer]);
 
     return (
         <div>
