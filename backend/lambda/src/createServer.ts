@@ -126,10 +126,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
                             lastUpdated: result.startedAt.toISOString(),
                         },
                     });
-                    return success({ message: "Server created. Initializing." });
+                    return success({ message: "Server created. Initializing.", serverName: server.name });
                 } catch (e) {
                     // Workflow already started but failed to update server table is ok.
-                    return success({ message: "Server created. Initializing." });
+                    return success({ message: "Server created. Initializing.", serverName: server.name });
                 }
             } else {
                 // Failed to start setup workflow

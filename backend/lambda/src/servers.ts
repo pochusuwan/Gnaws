@@ -3,7 +3,14 @@ import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { BACKUP_SERVER_FUNCTION_ARN, getServerStatusWorkflow, START_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN, UPDATE_SERVER_FUNCTION_ARN } from "./workflows";
+import {
+    BACKUP_SERVER_FUNCTION_ARN,
+    getServerStatusWorkflow,
+    START_SERVER_FUNCTION_ARN,
+    startWorkflow,
+    STOP_SERVER_FUNCTION_ARN,
+    UPDATE_SERVER_FUNCTION_ARN,
+} from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
@@ -23,15 +30,32 @@ const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP, ACTION_UPDATE]
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
+    const serverNames = params?.serverNames;
+
     let servers;
-    try {
-        servers = await getServersFromDB();
-    } catch (e) {
-        return serverError("Failed to get servers");
+    if (serverNames === undefined) {
+        try {
+            servers = await getAllServersFromDB();
+        } catch (e) {
+            return serverError("Failed to get servers");
+        }
+    } else {
+        if (!Array.isArray(serverNames) || serverNames.length === 0) {
+            return clientError("Invalid request");
+        }
+        if (serverNames.some((name) => typeof name !== "string")) {
+            return clientError("Invalid request");
+        }
+        servers = await getServersFromDB(serverNames);
+        if (servers.length === 0) {
+            return serverError("Failed to get servers");
+        }
     }
+
     if (!refreshStatus) {
         return success({ servers });
     }
+
     const now = new Date();
     const promises: Promise<any>[] = [];
     servers.forEach((server) => {
@@ -40,7 +64,11 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
         const lastRequested = lastRequest ? new Date(lastRequest) : undefined;
         const lastUpdated = lastUpdate ? new Date(lastUpdate) : undefined;
         const instanceId = server.ec2?.instanceId;
-        if (instanceId && (!lastRequested || now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT) && (!lastUpdated || now.getTime() - lastUpdated.getTime() > GET_STATUS_TIMEOUT)) {
+        if (
+            instanceId &&
+            (!lastRequested || now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT) &&
+            (!lastUpdated || now.getTime() - lastUpdated.getTime() > GET_STATUS_TIMEOUT)
+        ) {
             server.status = {
                 ...server.status,
                 lastRequest: now.toISOString(),
@@ -62,12 +90,22 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     return success({ servers });
 };
 
-const getServersFromDB = async (): Promise<Server[]> => {
+const getAllServersFromDB = async (): Promise<Server[]> => {
     const command = new ScanCommand({
         TableName: SERVER_TABLE,
     });
     const result = await dynamoClient.send(command);
     return (result.Items?.map((item) => unmarshall(item)) as Server[]) ?? [];
+};
+
+// Get servers from names. If not valid, return null.
+const getServersFromDB = async (serverNames: string[]): Promise<Server[]> => {
+    const promises = serverNames.map((name: string) => getServerFromDB(name));
+    const results = await Promise.allSettled(promises);
+    return results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value)
+        .filter((server) => server !== null) as Server[];
 };
 
 // Get server from name. If not valid, return null.
@@ -125,7 +163,10 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN);
     }
     if (action === ACTION_STOP) {
-        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, { backupBucketName: BACKUP_BUCKET_NAME, shouldBackup });
+        result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
+            backupBucketName: BACKUP_BUCKET_NAME,
+            shouldBackup,
+        });
     }
     if (action === ACTION_BACKUP) {
         result = await startWorkflow(server.name, instanceId, BACKUP_SERVER_FUNCTION_ARN, { backupBucketName: BACKUP_BUCKET_NAME });
@@ -215,4 +256,3 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         }),
     );
 };
-
