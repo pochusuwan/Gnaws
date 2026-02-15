@@ -10,6 +10,7 @@
 }
 
 .serverAdminPanel {
+    margin-top: 20px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -30,4 +31,16 @@
     justify-content: start;
     text-align: start;
     margin-bottom: 8px;
+}
+
+.adminPanelButton {
+    height: 100%;
+    align-self: stretch;
+}
+
+.adminPanelRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }

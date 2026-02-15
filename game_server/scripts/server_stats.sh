@@ -23,7 +23,7 @@ MAX_STORAGE_GIB=$(df --output=size -h -B1 . | tail -n1)
 
 PLAYER_COUNT_FIELD=""
 PLAYER_COUNT_UNSUPPORTED="${PLAYER_COUNT_UNSUPPORTED:-false}"
-if [[ "$PLAYER_COUNT_UNSUPPORTED" == "false" ]]; then
+if [[ "$PLAYER_COUNT_UNSUPPORTED" == "false" && -f "/proc/net/xt_recent/GNAWS" ]] ; then
     # Use GNAWS rule setup during bootstrap. Player is connected if there's a packet within last 1 minutes
     NOW_JIFFIES=$(grep -m 1 "jiffies:" /proc/timer_list | awk '{print $2}')
     ACTIVE_PLAYERS=0

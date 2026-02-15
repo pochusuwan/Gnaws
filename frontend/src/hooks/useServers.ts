@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadedState, loadingState, type NetworkDataState, type Server, type User } from "../types";
 import useApiCall from "./useApiCall";
+import { serverHasRunningTask, serverRefreshingStatus } from "../utils";
 
 const AUTO_REFRESH_LIMIT = 20;
 
@@ -53,23 +54,10 @@ function shouldRefreshServers(servers: Server[], prevServers: Server[]): { shoul
         return { shouldRefresh: true, refreshStatus: true };
     }
 
-    const shouldRefresh = servers.some((server) => {
-        const statusLastRequest = server.status?.lastRequest;
-        const statusLastUpdated = server.status?.lastUpdated;
-        // If status was not requested
-        if (statusLastRequest === undefined) {
-            return false;
-        }
-        // If requested but not updated
-        if (statusLastUpdated === undefined) {
-            return true;
-        }
-        // Requested after updated
-        return new Date(statusLastRequest) > new Date(statusLastUpdated);
-    });
+    const shouldRefresh = servers.some(serverRefreshingStatus);
     return { shouldRefresh, refreshStatus: false };
 }
 
 function hasRunningTask(servers: Server[]) {
-    return servers.some((server) => server.workflow?.status === "running");
+    return servers.some(serverHasRunningTask);
 }
