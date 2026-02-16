@@ -3,7 +3,7 @@ import { forbidden, serverError, success } from "./util";
 import { createWriteStream, promises as fs } from "fs";
 import { pipeline } from "stream/promises";
 import * as tar from "tar";
-import { Port } from "./servers";
+import { Port } from "./types";
 import { ROLE_ADMIN, User } from "./users";
 import { dynamoClient } from "./clients";
 import { BatchWriteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
@@ -46,11 +46,7 @@ type Game = {
     messages?: Message[];
 };
 
-export async function getGames(user: User, params: any): Promise<APIGatewayProxyResult> {
-    if (user.role !== ROLE_ADMIN) {
-        return forbidden();
-    }
-
+export async function getGames(): Promise<{ games?: Game[]; message?: string }> {
     // Fetch games list and sync to DDB from latest release on github.
     // Checking github latest release has timeout of 1 hour to rate limit.
     // If game sync fail or rate limited, return games list from DDB.
@@ -70,7 +66,7 @@ export async function getGames(user: User, params: any): Promise<APIGatewayProxy
             if (isOutdated) {
                 games = await syncGamesList(latestRelease);
                 await setGameListStatusSuccess(latestRelease);
-                return success({ games });
+                return { games };
             }
         } catch (e) {
             errorMessage = "Failed to update games list.";
@@ -91,12 +87,12 @@ export async function getGames(user: User, params: any): Promise<APIGatewayProxy
             TableName: GAME_TABLE,
         });
         const result = await dynamoClient.send(command);
-        return success({
+        return {
             games: (result.Items?.map((item) => unmarshall(item)) as Game[]) ?? [],
             message: errorMessage,
-        });
+        };
     } catch (e) {
-        return serverError("Failed to get games.");
+        return { message: "Failed to get games." };
     }
 }
 
@@ -189,7 +185,7 @@ async function parseGameFiles(): Promise<Game[]> {
                     ports: parsedPort,
                 },
                 termsOfService,
-                messages
+                messages,
             });
         } catch (e) {
             console.debug(`Failed to read game: ${file} ${e}`);
@@ -231,7 +227,7 @@ async function syncGamesList(releaseTag: string): Promise<Game[]> {
 
 async function shouldCheckForLatestRelease(): Promise<boolean> {
     // Should check for latest release if this is the first run
-    // Or previous run failed or not rate lomited
+    // Or previous run failed or not rate limited
     const now = Date.now();
     try {
         await dynamoClient.send(

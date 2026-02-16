@@ -10,6 +10,7 @@ import { PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
+import { getImageIdFromDB } from "./initCreateServer";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -161,6 +162,11 @@ const createEc2 = async (
     let instanceId;
 
     try {
+        let imageId = await getImageIdFromDB();
+        if (imageId === null) {
+            throw new Error("Failed to get Amazon Image ID");
+        }
+
         const sgResponse = await ec2Client.send(
             new CreateSecurityGroupCommand({
                 GroupName: `gnaws-${serverName}-sg-${randomUUID().slice(0, 8)}`,
@@ -188,7 +194,7 @@ const createEc2 = async (
             );
         }
         const runCmd = new RunInstancesCommand({
-            ImageId: "ami-0ecb62995f68bb549", // Amazon Linux AMI
+            ImageId: imageId,
             InstanceType: instanceType as _InstanceType,
             MaxCount: 1,
             MinCount: 1,
