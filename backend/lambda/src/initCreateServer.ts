@@ -2,9 +2,10 @@ import { APIGatewayProxyResult } from "aws-lambda";
 import { forbidden, serverError, success } from "./util";
 import { ROLE_ADMIN, User } from "./users";
 import { dynamoClient, ec2Client } from "./clients";
-import { UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { DescribeImagesCommand } from "@aws-sdk/client-ec2";
 import { getGames } from "./games";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const AMAZON_IMAGE_RESOURCE_ID = "GET_AMAZON_IMAGE";
@@ -178,4 +179,23 @@ async function shouldUpdateImageId(): Promise<boolean> {
         return false;
     }
     return true;
+}
+
+export async function getImageIdFromDB(): Promise<string | null> {
+    try {
+        const result = await dynamoClient.send(
+            new GetItemCommand({
+                TableName: WORKFLOW_TABLE,
+                Key: { resourceId: { S: AMAZON_IMAGE_RESOURCE_ID } },
+            }),
+        );
+
+        if (!result.Item) {
+            return null;
+        }
+        const imageId = unmarshall(result.Item)?.imageId;
+        return typeof imageId === "string" ? imageId : null;
+    } catch (e) {
+        return null;
+    }
 }
