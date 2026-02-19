@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from "aws-lambda/trigger/api-gateway-proxy";
 import { ROLE_ADMIN, User } from "./users";
-import { _InstanceType, DeleteSecurityGroupCommand, DescribeInstanceTypesCommand, RunInstancesCommand, TerminateInstancesCommand } from "@aws-sdk/client-ec2";
+import {
+    _InstanceType,
+    DeleteSecurityGroupCommand,
+    DescribeInstanceTypesCommand,
+    RunInstancesCommand,
+    TerminateInstancesCommand,
+} from "@aws-sdk/client-ec2";
 import { CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } from "@aws-sdk/client-ec2";
 import { randomUUID } from "crypto";
 import { clientError, forbidden, serverError, success } from "./util";
@@ -172,6 +178,12 @@ const createEc2 = async (
                 GroupName: `gnaws-${serverName}-sg-${randomUUID().slice(0, 8)}`,
                 Description: `Security Group for ${serverName}`,
                 VpcId: VPC_ID,
+                TagSpecifications: [
+                    {
+                        ResourceType: "security-group",
+                        Tags: [{ Key: "OwnedBy", Value: "GnawsStack" }],
+                    },
+                ],
             }),
         );
 
@@ -204,7 +216,7 @@ const createEc2 = async (
                 {
                     DeviceName: "/dev/sda1",
                     Ebs: {
-                        DeleteOnTermination: false,
+                        DeleteOnTermination: true,
                         Iops: 3000,
                         VolumeSize: storage,
                         VolumeType: "gp3",
@@ -217,7 +229,17 @@ const createEc2 = async (
             TagSpecifications: [
                 {
                     ResourceType: "instance",
-                    Tags: [{ Key: "Name", Value: `Gnaws-${serverName}` }],
+                    Tags: [
+                        { Key: "Name", Value: `Gnaws-${serverName}` },
+                        { Key: "OwnedBy", Value: "GnawsStack" },
+                    ],
+                },
+                {
+                    ResourceType: "volume",
+                    Tags: [
+                        { Key: "Name", Value: `Gnaws-${serverName}-root` },
+                        { Key: "OwnedBy", Value: "GnawsStack" },
+                    ],
                 },
             ],
         });

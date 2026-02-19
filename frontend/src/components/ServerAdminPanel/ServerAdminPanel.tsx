@@ -4,6 +4,7 @@ import type { Server } from "../../types";
 import "./ServerAdminPanel.css";
 import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 import Spinner from "../Spinner/Spinner";
+import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 
 type ServerAdminPanelProps = {
     servers: Server[];
@@ -16,6 +17,9 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const [message, setMessage] = useState("");
     const lastAction = useRef<string>(null);
 
+    // Terminate server action dialog
+    const { open, onResult, confirm } = useConfirm();
+
     const callAction = useCallback(
         (action: string) => {
             if (server !== null) {
@@ -26,6 +30,21 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
         },
         [server],
     );
+
+    const callTerminateAction = useCallback(async () => {
+        const shouldBackup = await confirm();
+        if (shouldBackup?.result) {
+            if (shouldBackup?.input === server.name) {
+                lastAction.current = "Terminate";
+                const payload = { name: server.name, action: "terminate" };
+                call(payload);
+            } else {
+                setMessage("Termination failed. Server name did not match.")
+            }
+        } else {
+            setMessage("Termination cancelled")
+        }
+    }, [server])
 
     useEffect(() => {
         if (state.state === "Loading") {
@@ -78,10 +97,12 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                 <Button
                     disabled={inProgress}
                     label="Terminate Server"
-                    description="Permanently delete the server and all its resources. This cannot be undone. Backups in S3 storage will be preserved and can be used to restore to a new server."
+                    description="Permanently delete the server and all its resources. This cannot be undone. Any backups in S3 storage will be preserved and can be used to restore to a new server."
+                    onClick={callTerminateAction}
                 />
             </div>
             <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>;
+            {open && <ConfirmDialog message={"Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."} yesMessage="Delete" noMessage="Cancel" onResult={onResult} inputValue />}
         </div>
     );
 }

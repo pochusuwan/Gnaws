@@ -9,6 +9,7 @@ import {
     START_SERVER_FUNCTION_ARN,
     startWorkflow,
     STOP_SERVER_FUNCTION_ARN,
+    TERMINATE_SERVER_FUNCTION_ARN,
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
@@ -26,7 +27,8 @@ const ACTION_START = "start";
 const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
 const ACTION_UPDATE = "update";
-const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP, ACTION_UPDATE];
+const ACTION_TERMINATE = "terminate";
+const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP, ACTION_UPDATE, ACTION_TERMINATE];
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
@@ -173,6 +175,15 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_UPDATE) {
         result = await startWorkflow(server.name, instanceId, UPDATE_SERVER_FUNCTION_ARN);
+    }
+    if (action === ACTION_TERMINATE) {
+        const securityGroupId = server.ec2?.securityGroupId;
+        result = await startWorkflow(
+            server.name,
+            instanceId,
+            TERMINATE_SERVER_FUNCTION_ARN,
+            securityGroupId ? { securityGroupId } : undefined,
+        );
     }
     if (!result) {
         // Failed to start workflow. Remove lock and return error
