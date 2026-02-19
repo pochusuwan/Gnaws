@@ -181,7 +181,7 @@ const createEc2 = async (
                 TagSpecifications: [
                     {
                         ResourceType: "security-group",
-                        Tags: [{ Key: "OwnedBy", Value: `GnawsStack` }],
+                        Tags: [{ Key: "OwnedBy", Value: "GnawsStack" }],
                     },
                 ],
             }),
@@ -231,7 +231,7 @@ const createEc2 = async (
                     ResourceType: "instance",
                     Tags: [
                         { Key: "Name", Value: `Gnaws-${serverName}` },
-                        { Key: "OwnedBy", Value: `GnawsStack` },
+                        { Key: "OwnedBy", Value: "GnawsStack" },
                     ],
                 },
                 {
