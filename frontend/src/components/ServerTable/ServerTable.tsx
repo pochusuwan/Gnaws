@@ -34,7 +34,7 @@ export default function ServerTable(props: ServerTableProps) {
                 if (shouldBackup === null) {
                     return;
                 }
-                payload.shouldBackup = shouldBackup;
+                payload.shouldBackup = shouldBackup.result;
             }
             setMessage("");
             lastAction.current = { action, serverName };

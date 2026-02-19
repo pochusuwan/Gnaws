@@ -216,7 +216,7 @@ const createEc2 = async (
                 {
                     DeviceName: "/dev/sda1",
                     Ebs: {
-                        DeleteOnTermination: false,
+                        DeleteOnTermination: true,
                         Iops: 3000,
                         VolumeSize: storage,
                         VolumeType: "gp3",
@@ -232,6 +232,13 @@ const createEc2 = async (
                     Tags: [
                         { Key: "Name", Value: `Gnaws-${serverName}` },
                         { Key: "OwnedBy", Value: `GnawsStack` },
+                    ],
+                },
+                {
+                    ResourceType: "volume",
+                    Tags: [
+                        { Key: "Name", Value: `Gnaws-${serverName}-root` },
+                        { Key: "OwnedBy", Value: "GnawsStack" },
                     ],
                 },
             ],

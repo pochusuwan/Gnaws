@@ -42,6 +42,7 @@ export class GnawsStack extends cdk.Stack {
     private getServerStatusFunction: sfn.StateMachine;
     private setupServerFunction: sfn.StateMachine;
     private updateServerFunction: sfn.StateMachine;
+    private terminateServerFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
     // Network
@@ -79,6 +80,7 @@ export class GnawsStack extends cdk.Stack {
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
                 SETUP_SERVER_FUNCTION_ARN: this.setupServerFunction.stateMachineArn,
                 UPDATE_SERVER_FUNCTION_ARN: this.updateServerFunction.stateMachineArn,
+                TERMINATE_SERVER_FUNCTION_ARN: this.terminateServerFunction.stateMachineArn,
                 BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
@@ -121,6 +123,7 @@ export class GnawsStack extends cdk.Stack {
         this.getServerStatusFunction.grantStartExecution(backend);
         this.setupServerFunction.grantStartExecution(backend);
         this.updateServerFunction.grantStartExecution(backend);
+        this.terminateServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -326,6 +329,15 @@ export class GnawsStack extends cdk.Stack {
         this.addSsmCommandPermission(this.updateServerFunction);
         this.workflowTable.grantWriteData(this.updateServerFunction);
         this.serverTable.grantWriteData(this.updateServerFunction);
+
+        this.terminateServerFunction = new sfn.StateMachine(this, "GnawsTerminateServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/terminate-server.asl.json"),
+            timeout: cdk.Duration.minutes(30),
+        });
+        this.addEC2DescribePermissions(this.terminateServerFunction);
+        this.addTerminatePermissions(this.terminateServerFunction);
+        this.workflowTable.grantWriteData(this.terminateServerFunction);
+        this.serverTable.grantWriteData(this.terminateServerFunction);
     }
 
     private buildNetwork() {
@@ -381,6 +393,20 @@ export class GnawsStack extends cdk.Stack {
             new iam.PolicyStatement({
                 actions: ["ec2:StopInstances"],
                 resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack"
+                    }
+                }
+            }),
+        );
+    }
+
+    private addTerminatePermissions(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:TerminateInstances", "ec2:DeleteSecurityGroup"],
+                resources: ["*"],
                 conditions: {
                     StringEquals: {
                         "ec2:ResourceTag/OwnedBy": "GnawsStack"
