@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from "aws-lambda/trigger/api-gateway-proxy";
 import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
-import { dynamoClient } from "./clients";
+import { dynamoClient, ec2Client, ssmClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
     BACKUP_SERVER_FUNCTION_ARN,
@@ -13,8 +13,9 @@ import {
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
-import { _InstanceType } from "@aws-sdk/client-ec2";
+import { _InstanceType, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
+import { SendCommandCommand } from "@aws-sdk/client-ssm";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -27,8 +28,22 @@ const ACTION_START = "start";
 const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
 const ACTION_UPDATE = "update";
+const ACTION_START_INSTANCE = "startinstance";
+const ACTION_STOP_INSTANCE = "stopinstance";
+const ACTION_STOP_GAME = "stopgame";
+const ACTION_REMOVE_LOCK = "removelock";
 const ACTION_TERMINATE = "terminate";
-const SERVER_ACTIONS = [ACTION_START, ACTION_STOP, ACTION_BACKUP, ACTION_UPDATE, ACTION_TERMINATE];
+const SERVER_ACTIONS = [
+    ACTION_START,
+    ACTION_STOP,
+    ACTION_BACKUP,
+    ACTION_UPDATE,
+    ACTION_START_INSTANCE,
+    ACTION_STOP_INSTANCE,
+    ACTION_STOP_GAME,
+    ACTION_REMOVE_LOCK,
+    ACTION_TERMINATE,
+];
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
@@ -133,20 +148,33 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (user.role !== ROLE_ADMIN && user.role !== ROLE_MANAGER) {
         return forbidden();
     }
-    if (typeof params.name !== "string" || typeof params.action !== "string" || !SERVER_ACTIONS.includes(params.action)) {
+    if (typeof params.serverName !== "string" || typeof params.action !== "string" || !SERVER_ACTIONS.includes(params.action)) {
         return clientError("Invalid request");
     }
-    const name = params.name;
+    const serverName = params.serverName;
     const action = params.action;
     const shouldBackup = typeof params.shouldBackup === "boolean" ? params.shouldBackup : false;
 
-    const server = await getServerFromDB(name);
+    const server = await getServerFromDB(serverName);
     if (!server) {
         return clientError("Server not found");
     }
     const instanceId = server.ec2?.instanceId;
     if (!instanceId) {
         return serverError("Server has no instance id");
+    }
+    // Server action without workflow lock
+    if (action === ACTION_REMOVE_LOCK) {
+        return removeWorkflowLock(instanceId);
+    }
+    if (action === ACTION_START_INSTANCE) {
+        return startInstance(instanceId);
+    }
+    if (action === ACTION_STOP_INSTANCE) {
+        return stopInstance(instanceId);
+    }
+    if (action === ACTION_STOP_GAME) {
+        return stopGameServer(instanceId);
     }
 
     // Acquire lock
@@ -266,4 +294,63 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
             ExpressionAttributeValues: marshall(values),
         }),
     );
+};
+
+const removeWorkflowLock = async (instanceId: string): Promise<APIGatewayProxyResult> => {
+    try {
+        await dynamoClient.send(
+            new DeleteItemCommand({
+                TableName: WORKFLOW_TABLE,
+                Key: {
+                    resourceId: { S: instanceId },
+                },
+            }),
+        );
+    } catch (e) {
+        console.error(e)
+        return serverError("Failed to remove workflow lock");
+    }
+    return success({ message: "Workflow lock removed" });
+};
+
+const startInstance = async (instanceId: string): Promise<APIGatewayProxyResult> => {
+    try {
+        await ec2Client.send(new StartInstancesCommand({ InstanceIds: [instanceId] }));
+    } catch (e) {
+        console.error(e);
+        return serverError("Failed to start instance");
+    }
+    return success({ message: "Starting" });
+};
+
+const stopInstance = async (instanceId: string): Promise<APIGatewayProxyResult> => {
+    try {
+        await ec2Client.send(new StopInstancesCommand({ InstanceIds: [instanceId] }));
+    } catch (e) {
+        console.error(e);
+        return serverError("Failed to stop instance");
+    }
+    return success({ message: "Stopping" });
+};
+
+const stopGameServer = async (instanceId: string): Promise<APIGatewayProxyResult> => {
+    try {
+        const response = await ssmClient.send(
+            new SendCommandCommand({
+                InstanceIds: [instanceId],
+                DocumentName: "AWS-RunShellScript",
+                Parameters: {
+                    commands: ["/opt/gnaws/scripts/stop_server.sh"],
+                },
+            }),
+        );
+        const commandId = response.Command?.CommandId;
+        if (!commandId) {
+            return serverError("Failed to send SSM command");
+        }
+        return success({ message: "Stopping game server" });
+    } catch (e) {
+        console.error(e);
+        return serverError("Failed to send SSM command");
+    }
 };

@@ -28,7 +28,7 @@ export default function ServerTable(props: ServerTableProps) {
 
     const serverAction = useCallback(
         async (serverName: string, action: ServerAction) => {
-            const payload: { name: string; action: string; shouldBackup?: boolean } = { name: serverName, action: action.toLowerCase() };
+            const payload: { serverName: string; action: string; shouldBackup?: boolean } = { serverName, action: action.toLowerCase() };
             if (action === ServerAction.Stop) {
                 const shouldBackup = await confirm();
                 if (shouldBackup === null) {
@@ -51,7 +51,7 @@ export default function ServerTable(props: ServerTableProps) {
                 props.refreshServer(serverName);
             }
         } else if (serverActionState.state === "Error") {
-            setMessage(`${lastAction?.current} action failed: ${serverActionState.error}`);
+            setMessage(`${lastAction?.current?.action} action failed: ${serverActionState.error}`);
         }
     }, [serverActionState, props.refreshServer]);
 

@@ -66,7 +66,7 @@ export class GnawsStack extends cdk.Stack {
         const backend = new NodejsFunction(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
             handler: "handler",
-            entry: 'backend/lambda/src/index.ts',
+            entry: "backend/lambda/src/index.ts",
             environment: {
                 USER_TABLE_NAME: this.userTable.tableName,
                 SERVER_TABLE_NAME: this.serverTable.tableName,
@@ -90,19 +90,42 @@ export class GnawsStack extends cdk.Stack {
         });
         backend.addToRolePolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:DescribeImages", "ec2:DescribeInstanceTypes", "ec2:RunInstances", "ec2:CreateSecurityGroup", "ec2:CreateTags"],
+                actions: [
+                    "ec2:DescribeImages",
+                    "ec2:DescribeInstanceTypes",
+                    "ec2:RunInstances",
+                    "ec2:CreateSecurityGroup",
+                    "ec2:CreateTags",
+                ],
                 resources: ["*"],
             }),
         );
         backend.addToRolePolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:AuthorizeSecurityGroupIngress"],
+                actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:StartInstances", "ec2:StopInstances"],
                 resources: ["*"],
                 conditions: {
                     StringEquals: {
-                        "ec2:ResourceTag/OwnedBy": "GnawsStack"
-                    }
-                }
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ssm:resourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ssm:*:*:document/AWS-RunShellScript"],
             }),
         );
         backend.addToRolePolicy(
@@ -187,7 +210,9 @@ export class GnawsStack extends cdk.Stack {
             ],
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
         });
-        this.websiteUrls = [domainName, this.cfnDistribution.domainName].filter((url) => typeof url === "string").map((url) => `https://${url}`);
+        this.websiteUrls = [domainName, this.cfnDistribution.domainName]
+            .filter((url) => typeof url === "string")
+            .map((url) => `https://${url}`);
 
         // Grant Cloundfront distribution access
         this.websiteBucket.addToResourcePolicy(
@@ -362,14 +387,14 @@ export class GnawsStack extends cdk.Stack {
             roles: [this.ec2Role.roleName],
         });
         this.ec2Role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
-        this.backupBucket.grantWrite(this.ec2Role);
+        this.backupBucket.grantReadWrite(this.ec2Role);
     }
 
     private addEC2DescribePermissions(stateMachine: sfn.StateMachine) {
         stateMachine.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
                 actions: ["ec2:DescribeInstances"],
-                resources: ["*"]
+                resources: ["*"],
             }),
         );
     }
@@ -381,9 +406,9 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["arn:aws:ec2:*:*:instance/*"],
                 conditions: {
                     StringEquals: {
-                        "ec2:ResourceTag/OwnedBy": "GnawsStack"
-                    }
-                }
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
             }),
         );
     }
@@ -395,9 +420,9 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["arn:aws:ec2:*:*:instance/*"],
                 conditions: {
                     StringEquals: {
-                        "ec2:ResourceTag/OwnedBy": "GnawsStack"
-                    }
-                }
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
             }),
         );
     }
@@ -409,9 +434,9 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["*"],
                 conditions: {
                     StringEquals: {
-                        "ec2:ResourceTag/OwnedBy": "GnawsStack"
-                    }
-                }
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
             }),
         );
     }
@@ -423,21 +448,21 @@ export class GnawsStack extends cdk.Stack {
                 resources: ["arn:aws:ec2:*:*:instance/*"],
                 conditions: {
                     StringEquals: {
-                        "ssm:resourceTag/OwnedBy": "GnawsStack"
-                    }
-                }
+                        "ssm:resourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
             }),
         );
         stateMachine.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
                 actions: ["ssm:SendCommand"],
-                resources: ["arn:aws:ssm:*:*:document/AWS-RunShellScript"]
+                resources: ["arn:aws:ssm:*:*:document/AWS-RunShellScript"],
             }),
         );
         stateMachine.role.addToPrincipalPolicy(
             new iam.PolicyStatement({
                 actions: ["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation"],
-                resources: ["*"]
+                resources: ["*"],
             }),
         );
     }
