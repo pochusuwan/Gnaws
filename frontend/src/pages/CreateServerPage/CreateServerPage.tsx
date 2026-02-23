@@ -17,7 +17,7 @@ type Terms = {
 };
 
 // Create server with specific version of game bundle release. E.g. "v0.0.15"
-const VERSION_OVERRIDE: string | undefined = "v0.0.15";
+const VERSION_OVERRIDE: string | undefined = undefined;
 
 export default function CreateServerPage(props: CreateServerPageProps) {
     const userRole = useUser().role;
