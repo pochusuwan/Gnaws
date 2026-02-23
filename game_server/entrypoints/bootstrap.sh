@@ -1,23 +1,13 @@
 #!/bin/bash
 set -eu
 
-# This bootstrap script bundled with games and scripts folder. 
+# This bootstrap script bundled with games and scripts.
 # The first input is the game id which is the folder of the game configurations
 GAME_ID="$1"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GAME_CONF="$SCRIPT_DIR/games/$GAME_ID/gnaws-script.conf"
-GAME_INSTALL="$SCRIPT_DIR/games/$GAME_ID/gnaws-install.sh"
-
-# Verify minimum requirement files
-[ -f $GAME_CONF ] || {
-    echo "Missing gnaws-script.conf" >&2
-    exit 1
-}
-[ -f $GAME_INSTALL ] || {
-    echo "Missing gnaws-install.sh" >&2
-    exit 1
-}
+GNAWS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+GAME_CONF="$GNAWS_ROOT/games/$GAME_ID/gnaws-script.conf"
+GAME_INSTALL="$GNAWS_ROOT/games/$GAME_ID/gnaws-install.sh"
 
 # Install dependencies
 export DEBIAN_FRONTEND=noninteractive
@@ -30,10 +20,13 @@ if ! command -v aws >/dev/null; then
     rm -rf /tmp/aws /tmp/awscliv2.zip
 fi
 
-# Create user which will be used with screen to run game server
-USER="gnaws-user"
-id -u "$USER" >/dev/null 2>&1 || \
-    useradd -m -s /bin/bash -p '!' "$USER"
+# Create user to run game server
+SERVER_USER="gnaws-user"
+id -u "$SERVER_USER" >/dev/null 2>&1 || \
+    useradd -m -s /bin/bash -p '!' "$SERVER_USER"
+
+# Create systemd service
+ln -sfn "$GNAWS_ROOT/internal/gnaws.service" "/etc/systemd/system/gnaws.service"
 
 # Read game server configurations
 . "$GAME_CONF"
@@ -56,12 +49,12 @@ fi
 
 # Copy game server folder and give ownership to gnaws-user
 mkdir -p "$GAME_SERVER_DIR"
-cp -a "$SCRIPT_DIR/games/$GAME_ID/." "$GAME_SERVER_DIR"
-rm -rf "$SCRIPT_DIR/games"
-chown -R "$USER":"$USER" "$GAME_SERVER_DIR"
+cp -a "$GNAWS_ROOT/games/$GAME_ID/." "$GAME_SERVER_DIR"
+rm -rf "$GNAWS_ROOT/games"
+chown -R "$SERVER_USER":"$SERVER_USER" "$GAME_SERVER_DIR"
 
 # Create configurations link
-ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$SCRIPT_DIR/scripts/gnaws-script.conf"
+ln -sfn "$GAME_SERVER_DIR/gnaws-script.conf" "$GNAWS_ROOT/gnaws-script.conf"
 
 # Install game as gnaws-user
 echo "Installing game"
@@ -74,7 +67,7 @@ for i in $(seq 1 $MAX_INSTALL_ATTEMPT); do
     echo "Install attempt $i/$MAX_INSTALL_ATTEMPT"
 
     cd "$GAME_SERVER_DIR"
-    if sudo -u "$USER" "./gnaws-install.sh"; then
+    if sudo -u "$SERVER_USER" "./gnaws-install.sh"; then
         echo "Install succeeded"
         exit 0
     fi

@@ -340,7 +340,7 @@ const stopGameServer = async (instanceId: string): Promise<APIGatewayProxyResult
                 InstanceIds: [instanceId],
                 DocumentName: "AWS-RunShellScript",
                 Parameters: {
-                    commands: ["/opt/gnaws/scripts/stop_server.sh"],
+                    commands: ["/opt/gnaws/entrypoints/stop_server.sh"],
                 },
             }),
         );

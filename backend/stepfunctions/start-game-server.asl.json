@@ -1,5 +1,5 @@
 {
-  "Comment": "Start EC2 instance, check game server is not online with is_online.sh, then start game server with start_server.sh",
+  "Comment": "Start EC2 instance, check game server is not online with server_status.sh, then start game server with start_server.sh",
   "StartAt": "Init",
   "States": {
     "Init": {
@@ -331,7 +331,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/is_online.sh"
+            "/opt/gnaws/entrypoints/server_status.sh"
           ]
         }
       },
@@ -350,6 +350,9 @@
         "CommandId.$": "$.command.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
+      "Assign": {
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
+      },
       "ResultPath": "$.commandResult",
       "Next": "IncrementGameServerCheck"
     },
@@ -365,15 +368,15 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "online\n",
+          "Variable": "$serverStatus.is_online",
+          "BooleanEquals": true,
           "Next": "Success"
         },
         {
           "And": [
             {
-              "Variable": "$.commandResult.StandardOutputContent",
-              "StringEquals": "offline\n"
+              "Variable": "$serverStatus.is_online",
+              "BooleanEquals": false
             },
             {
               "Variable": "$.meta.startGameServerCommandSent.val",
@@ -398,7 +401,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/start_server.sh"
+            "/opt/gnaws/entrypoints/start_server.sh"
           ]
         }
       },

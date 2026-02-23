@@ -6,6 +6,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "devFrontend": "cd frontend && npm run dev",
     "buildFrontend": "cd frontend && npm run build",
     "buildAndDeploy": "npm run buildFrontend && cdk deploy",
     "watch": "tsc -w",

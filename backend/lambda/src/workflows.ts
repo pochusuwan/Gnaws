@@ -67,13 +67,14 @@ export const startWorkflow = async (serverName: string, instanceId: string, stat
     }
 };
 
-export const startSetupWorkflow = async (serverName: string, instanceId: string, gameId: string) => {
+export const startSetupWorkflow = async (serverName: string, instanceId: string, gameId: string, versionOverride: string | undefined) => {
     const cmd = new StartExecutionCommand({
         stateMachineArn: SETUP_SERVER_FUNCTION_ARN,
         input: JSON.stringify({
             serverName,
             instanceId,
             gameId,
+            versionOverride,
             workflowTable: WORKFLOW_TABLE,
             serverTable: SERVER_TABLE,
         }),

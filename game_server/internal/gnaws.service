@@ -1,0 +1,18 @@
+[Unit]
+Description=Gnaws Game Server
+
+[Service]
+Type=simple
+User=gnaws-user
+PermissionsStartOnly=true
+WorkingDirectory=/opt/gnaws
+
+ExecStartPre=/opt/gnaws/internal/pre_start.sh
+ExecStart=/opt/gnaws/internal/start_server.sh
+ExecStop=/opt/gnaws/internal/stop_server.sh
+
+StandardOutput=truncate:/opt/gnaws/server.log
+StandardError=truncate:/opt/gnaws/server.log
+
+KillSignal=SIGINT
+TimeoutStopSec=600

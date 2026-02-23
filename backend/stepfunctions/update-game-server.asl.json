@@ -166,7 +166,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/is_online.sh"
+            "/opt/gnaws/entrypoints/server_status.sh"
           ]
         }
       },
@@ -185,6 +185,9 @@
         "CommandId.$": "$.command.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
+      "Assign": {
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
+      },
       "ResultPath": "$.commandResult",
       "Next": "CheckGameServerOutput"
     },
@@ -192,8 +195,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "offline\n",
+          "Variable": "$serverStatus.is_online",
+          "BooleanEquals": false,
           "Next": "UpdateGameServer"
         }
       ],
@@ -207,7 +210,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/update_server.sh"
+            "/opt/gnaws/entrypoints/update_server.sh"
           ]
         }
       },

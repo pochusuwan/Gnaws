@@ -1,9 +1,9 @@
 #!/bin/bash
 set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GNAWS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-. "$SCRIPT_DIR/gnaws-script.conf"
+. "$GNAWS_ROOT/gnaws-script.conf"
 
 GAME_SERVER_DIR=/opt/$SERVER_FOLDER_NAME
 echo "Updating game"
@@ -11,12 +11,13 @@ echo "Updating game"
 # Update with SteamCMD sometimes fail. Update with retries
 MAX_INSTALL_ATTEMPT="${MAX_INSTALL_ATTEMPT:-1}"
 INSTALL_SLEEP=5
+SERVER_USER="gnaws-user"
 
 for i in $(seq 1 $MAX_INSTALL_ATTEMPT); do
     echo "Update attempt $i/$MAX_INSTALL_ATTEMPT"
 
     cd "$GAME_SERVER_DIR"
-    if sudo -u "$USER" "./gnaws-update.sh"; then
+    if sudo -u "$SERVER_USER" "./gnaws-update.sh"; then
         echo "Update succeeded"
         exit 0
     fi
