@@ -1,12 +1,13 @@
 #!/bin/bash
 set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GNAWS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Read configurable values
 # SERVER_PORT_PROTOCOL "tcp" or "udp"
 # SERVER_PORT_NUMBER
-. "$SCRIPT_DIR/gnaws-script.conf"
+# PLAYER_COUNT_UNSUPPORTED
+. "$GNAWS_ROOT/gnaws-script.conf"
 
 PROTOCOL="t"
 if [ "$SERVER_PORT_PROTOCOL" = "udp" ]; then

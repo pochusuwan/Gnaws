@@ -1,5 +1,5 @@
 {
-  "Comment": "Get various statuses: get game server status with server_stats.sh, get last backup date, and update server status in DDB",
+  "Comment": "Get various statuses: get game server status with server_status.sh, get last backup date, and update server status in DDB",
   "StartAt": "ListBackups",
   "States": {
     "ListBackups": {
@@ -52,7 +52,7 @@
       "QueryLanguage": "JSONata",
       "Type": "Pass",
       "Assign": {
-        "status": "{% $serverStats.is_online ? 'server online' : 'server offline' %}"
+        "status": "{% $serverStatus.is_online ? 'server online' : 'server offline' %}"
       },
       "Next": "WriteToDDB"
     },
@@ -79,9 +79,9 @@
               },
               "message": "{% $message ? { 'S': $message } : null %}",
               "ipAddress": "{% $states.input.ec2.Reservations[0].Instances[0].PublicIpAddress ? {'S': $states.input.ec2.Reservations[0].Instances[0].PublicIpAddress } : null %}",
-              "totalStorage": "{% $serverStats.max_storage != null ? { 'N': $serverStats.max_storage & '' } : null %}",
-              "usedStorage": "{% $serverStats.current_storage != null ? { 'N': $serverStats.current_storage & '' } : null %}",
-              "playerCount": "{% $serverStats.players_count != null ? { 'N': $serverStats.players_count & '' } : null %}",
+              "totalStorage": "{% $serverStatus.max_storage != null ? { 'N': $serverStatus.max_storage & '' } : null %}",
+              "usedStorage": "{% $serverStatus.current_storage != null ? { 'N': $serverStatus.current_storage & '' } : null %}",
+              "playerCount": "{% $serverStatus.players_count != null ? { 'N': $serverStatus.players_count & '' } : null %}",
               "lastBackup": "{% $lastBackup ? { 'S': $lastBackup.LastModified } : null %}",
               "lastUpdated": {
                 "S": "{% $states.context.State.EnteredTime %}"
@@ -179,7 +179,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/server_stats.sh"
+            "/opt/gnaws/entrypoints/server_status.sh"
           ]
         }
       },
@@ -199,7 +199,7 @@
         "InstanceId.$": "$.instanceId"
       },
       "Assign": {
-        "serverStats.$": "States.StringToJson($.StandardOutputContent)"
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
       },
       "ResultPath": "$.commandResult",
       "Next": "SetOfflineOnline"
