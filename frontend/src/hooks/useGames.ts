@@ -10,7 +10,7 @@ export type GamesData = {
 export const useGames = (user: User | null) => {
     const initialized = useRef(false);
     const [games, setGames] = useState<NetworkDataState<GamesData>>(loadingState());
-    const { call, state } = useApiCall<{ games: Game[] }>("getGames");
+    const { call, state } = useApiCall<{ games: Game[] }>("initCreateServer");
 
     const loadGames = useCallback(() => {
         if (!initialized.current) {

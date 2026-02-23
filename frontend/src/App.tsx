@@ -19,7 +19,7 @@ enum Page {
 function App() {
     const [page, setPage] = useState<Page>(Page.Servers);
     const [user, setUser] = useState<User | null>(null);
-    const { servers, refreshServers } = useServers(user);
+    const { servers, refreshServer } = useServers(user);
     const { users, loadUsers, updateUsers } = useUsers(user);
     const { games, loadGames } = useGames(user);
 
@@ -37,9 +37,9 @@ function App() {
             <div className="app">
                 <LoggedIn clearUser={() => setUser(null)} />
                 {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
-                {page === Page.Servers && <ServerPage servers={servers} refreshServers={refreshServers} />}
+                {page === Page.Servers && <ServerPage servers={servers} refreshServer={refreshServer} />}
                 {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
-                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} refreshServers={refreshServers}/>}
+                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer}/>}
             </div>
         </UserContext.Provider>
     );

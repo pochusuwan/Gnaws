@@ -13,6 +13,31 @@
     align-items: center;
 }
 
+.createServerPortGrid {
+    max-width: 478px;
+    display: grid;
+    grid-template-columns: 150px 200px 100px;
+    gap: 8px 12px;
+    align-items: center;
+}
+
+.createServerRow {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.createServerPageDivider {
+    width: 100%;
+    height: 1px;
+    background-color: black;
+    margin-bottom: 12px;
+}
+
 .createServerPageButton {
     width: 150px;
+}
+
+.createServerPageList {
+    margin: 0px;
 }

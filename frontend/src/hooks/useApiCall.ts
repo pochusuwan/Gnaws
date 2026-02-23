@@ -43,5 +43,5 @@ export default function useApiCall<T>(requestType: string) {
         }
     }, []);
 
-    return { call, state };
+    return { call, state, inFlight };
 }

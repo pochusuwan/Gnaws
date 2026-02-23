@@ -5,22 +5,22 @@ import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import { useUser } from "../../hooks/useUser";
+import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 
 type ServerTableProps = {
     servers: Server[];
-    refreshServers: () => void;
-    onServerRowClick: (server: Server) => void;
+    refreshServer: (serverName: string) => void;
+    setFocusedServer: (server: string) => void;
 };
 
 enum ServerAction {
     Start = "Start",
-    Stop = "Stop",
-    Backup = "Backup",
+    Stop = "Stop"
 }
 
 export default function ServerTable(props: ServerTableProps) {
     const [message, setMessage] = useState<string>("");
-    const lastAction = useRef<ServerAction | null>(null);
+    const lastAction = useRef<{ action: ServerAction, serverName: string} | null>(null);
     const { call: callServerAction, state: serverActionState } = useApiCall<{ message: string }>("serverAction");
 
     // Stop server action backup dialog
@@ -28,16 +28,16 @@ export default function ServerTable(props: ServerTableProps) {
 
     const serverAction = useCallback(
         async (serverName: string, action: ServerAction) => {
-            const payload: { name: string; action: string; shouldBackup?: boolean } = { name: serverName, action: action.toLowerCase() };
+            const payload: { serverName: string; action: string; shouldBackup?: boolean } = { serverName, action: action.toLowerCase() };
             if (action === ServerAction.Stop) {
                 const shouldBackup = await confirm();
                 if (shouldBackup === null) {
                     return;
                 }
-                payload.shouldBackup = shouldBackup;
+                payload.shouldBackup = shouldBackup.result;
             }
             setMessage("");
-            lastAction.current = action;
+            lastAction.current = { action, serverName };
             callServerAction(payload);
         },
         [callServerAction],
@@ -45,12 +45,15 @@ export default function ServerTable(props: ServerTableProps) {
 
     useEffect(() => {
         if (serverActionState.state === "Loaded") {
-            setMessage(`${lastAction?.current} action: ${serverActionState.data.message}`);
-            props.refreshServers();
+            setMessage(`${lastAction?.current?.action} action: ${serverActionState.data.message}`);
+            const serverName = lastAction?.current?.serverName;
+            if (serverName) {
+                props.refreshServer(serverName);
+            }
         } else if (serverActionState.state === "Error") {
-            setMessage(`${lastAction?.current} action failed: ${serverActionState.error}`);
+            setMessage(`${lastAction?.current?.action} action failed: ${serverActionState.error}`);
         }
-    }, [serverActionState, props.refreshServers]);
+    }, [serverActionState, props.refreshServer]);
 
     return (
         <div>
@@ -71,7 +74,13 @@ export default function ServerTable(props: ServerTableProps) {
                 </thead>
                 <tbody>
                     {props.servers.map((server) => (
-                        <ServerRow key={server.name} server={server} serverAction={serverAction} actionInProgress={serverActionState.state === "Loading"} onClick={props.onServerRowClick} />
+                        <ServerRow
+                            key={server.name}
+                            server={server}
+                            serverAction={serverAction}
+                            actionInProgress={serverActionState.state === "Loading"}
+                            onClick={props.setFocusedServer}
+                        />
                     ))}
                 </tbody>
             </table>
@@ -84,7 +93,7 @@ type ServerRowProps = {
     server: Server;
     serverAction: (serverName: string, action: ServerAction) => void;
     actionInProgress: boolean;
-    onClick: (server: Server) => void;
+    onClick: (server: string) => void;
 };
 function ServerRow(props: ServerRowProps) {
     const { server, serverAction, actionInProgress } = props;
@@ -97,7 +106,7 @@ function ServerRow(props: ServerRowProps) {
         [serverAction, server.name],
     );
 
-    const loadingStatus = server.status?.lastRequest !== undefined && (server.status?.lastUpdated === undefined || new Date(server.status.lastRequest) > new Date(server.status?.lastUpdated));
+    const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
     let currentTask = server.workflow?.currentTask;
     if (currentTask) {
         currentTask += ": " + server.workflow?.status;
@@ -115,15 +124,15 @@ function ServerRow(props: ServerRowProps) {
     }
 
     return (
-        <tr onClick={() => props.onClick(server)}>
-            <Cell value={server.name} />
+        <tr onClick={() => props.onClick(server.name)}>
+            <Cell value={server.name} loading={showSpinner} />
             <Cell value={server.ec2?.instanceType} />
-            <Cell value={server.status?.status} loading={loadingStatus} />
+            <Cell value={server.status?.status} />
             <Cell value={currentTask} />
-            <Cell value={server.status?.ipAddress} loading={loadingStatus} />
-            <Cell value={server.status?.playerCount} loading={loadingStatus} />
-            <Cell value={storageString} loading={loadingStatus} />
-            <Cell value={timeSinceBackup} loading={loadingStatus} />
+            <Cell value={server.status?.ipAddress} />
+            <Cell value={server.status?.playerCount} />
+            <Cell value={storageString} />
+            <Cell value={timeSinceBackup} />
             <td>
                 {userRole === Role.Admin || userRole === Role.Manager ? (
                     <div className="actionRow">
@@ -148,7 +157,10 @@ type CellProps = {
 function Cell(props: CellProps) {
     return (
         <td>
-            <div className="cell">{props.loading ? <Spinner /> : props.value}</div>
+            <div className="cell">
+                <div>{props.value}</div>
+                {props.loading && <Spinner />}
+            </div>
         </td>
     );
 }

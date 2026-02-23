@@ -8,3 +8,39 @@
     overflow-x: auto;
     white-space: pre-wrap;
 }
+
+.serverAdminPanel {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: start;
+}
+
+.serverAdminPanelButtonGrid {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+}
+
+.adminPanelMessage {
+    height: 20px;
+    display: flex;
+    flex: row;
+    justify-content: start;
+    text-align: start;
+    margin-bottom: 8px;
+}
+
+.adminPanelButton {
+    height: 100%;
+    align-self: stretch;
+}
+
+.adminPanelRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}

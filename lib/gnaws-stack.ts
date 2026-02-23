@@ -14,6 +14,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
@@ -40,6 +41,8 @@ export class GnawsStack extends cdk.Stack {
     private backupServerFunction: sfn.StateMachine;
     private getServerStatusFunction: sfn.StateMachine;
     private setupServerFunction: sfn.StateMachine;
+    private updateServerFunction: sfn.StateMachine;
+    private terminateServerFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
     // Network
@@ -60,10 +63,10 @@ export class GnawsStack extends cdk.Stack {
 
     private buildBackend() {
         // Create Lambda function for handling all requests
-        const backend = new lambda.Function(this, "GnawsLambdaBackend", {
+        const backend = new NodejsFunction(this, "GnawsLambdaBackend", {
             runtime: lambda.Runtime.NODEJS_20_X,
-            handler: "index.handler",
-            code: lambda.Code.fromAsset("backend/lambda"),
+            handler: "handler",
+            entry: "backend/lambda/src/index.ts",
             environment: {
                 USER_TABLE_NAME: this.userTable.tableName,
                 SERVER_TABLE_NAME: this.serverTable.tableName,
@@ -76,6 +79,8 @@ export class GnawsStack extends cdk.Stack {
                 BACKUP_SERVER_FUNCTION_ARN: this.backupServerFunction.stateMachineArn,
                 GET_SERVER_STATUS_FUNCTION_ARN: this.getServerStatusFunction.stateMachineArn,
                 SETUP_SERVER_FUNCTION_ARN: this.setupServerFunction.stateMachineArn,
+                UPDATE_SERVER_FUNCTION_ARN: this.updateServerFunction.stateMachineArn,
+                TERMINATE_SERVER_FUNCTION_ARN: this.terminateServerFunction.stateMachineArn,
                 BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
@@ -85,8 +90,42 @@ export class GnawsStack extends cdk.Stack {
         });
         backend.addToRolePolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:CreateSecurityGroup", "ec2:AuthorizeSecurityGroupIngress", "ec2:RunInstances", "ec2:CreateTags", "ec2:DescribeInstanceTypes"],
+                actions: [
+                    "ec2:DescribeImages",
+                    "ec2:DescribeInstanceTypes",
+                    "ec2:RunInstances",
+                    "ec2:CreateSecurityGroup",
+                    "ec2:CreateTags",
+                ],
                 resources: ["*"],
+            }),
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:StartInstances", "ec2:StopInstances"],
+                resources: ["*"],
+                conditions: {
+                    StringEquals: {
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ssm:resourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ssm:*:*:document/AWS-RunShellScript"],
             }),
         );
         backend.addToRolePolicy(
@@ -106,6 +145,8 @@ export class GnawsStack extends cdk.Stack {
         this.backupServerFunction.grantStartExecution(backend);
         this.getServerStatusFunction.grantStartExecution(backend);
         this.setupServerFunction.grantStartExecution(backend);
+        this.updateServerFunction.grantStartExecution(backend);
+        this.terminateServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -169,7 +210,9 @@ export class GnawsStack extends cdk.Stack {
             ],
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
         });
-        this.websiteUrls = [domainName, this.cfnDistribution.domainName].filter((url) => typeof url === "string").map((url) => `https://${url}`);
+        this.websiteUrls = [domainName, this.cfnDistribution.domainName]
+            .filter((url) => typeof url === "string")
+            .map((url) => `https://${url}`);
 
         // Grant Cloundfront distribution access
         this.websiteBucket.addToResourcePolicy(
@@ -205,23 +248,6 @@ export class GnawsStack extends cdk.Stack {
             destinationBucket: this.websiteBucket,
             distribution: this.cfnDistribution,
             distributionPaths: ["/*"],
-            // TODO: enable prune
-            prune: false,
-        });
-        // TODO: Remove legacy page
-        const configs = {
-            API_BASE: this.apiUrl,
-        };
-        const constants = Object.entries(configs)
-            .map(([k, v]) => `const ${k} = '${v}';`)
-            .join("\n");
-        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteLegacy", {
-            destinationBucket: this.websiteBucket,
-            sources: [s3deploy.Source.asset("frontend/legacy"), s3deploy.Source.data("config.js", constants)],
-            distribution: this.cfnDistribution,
-            distributionPaths: ["/*"],
-            destinationKeyPrefix: "legacy/",
-            prune: false,
         });
     }
 
@@ -277,75 +303,66 @@ export class GnawsStack extends cdk.Stack {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/start-game-server.asl.json"),
             timeout: cdk.Duration.minutes(40),
         });
-
-        this.startServerFunction.role.addToPrincipalPolicy(
-            new iam.PolicyStatement({
-                actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
-                resources: ["*"], // TODO: to managed EC2 only
-            }),
-        );
+        this.addEC2DescribePermissions(this.startServerFunction);
+        this.addEC2StartPermissions(this.startServerFunction);
+        this.addSsmCommandPermission(this.startServerFunction);
         this.workflowTable.grantWriteData(this.startServerFunction);
         this.serverTable.grantWriteData(this.startServerFunction);
-        new cdk.CfnOutput(this, "GnawsStartServerFunctionArn", { value: this.startServerFunction.stateMachineArn });
 
         this.stopServerFunction = new sfn.StateMachine(this, "GnawsStopGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/stop-game-server.asl.json"),
             timeout: cdk.Duration.minutes(15),
         });
-
-        this.stopServerFunction.role.addToPrincipalPolicy(
-            new iam.PolicyStatement({
-                actions: ["ec2:StopInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
-                resources: ["*"], // TODO: to managed EC2 only
-            }),
-        );
+        this.addEC2DescribePermissions(this.stopServerFunction);
+        this.addEC2StopPermissions(this.stopServerFunction);
+        this.addSsmCommandPermission(this.stopServerFunction);
         this.workflowTable.grantWriteData(this.stopServerFunction);
         this.serverTable.grantWriteData(this.stopServerFunction);
-        new cdk.CfnOutput(this, "GnawsStopServerFunctionArn", { value: this.stopServerFunction.stateMachineArn });
 
         this.backupServerFunction = new sfn.StateMachine(this, "GnawsBackupGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/backup-server.asl.json"),
             timeout: cdk.Duration.minutes(15),
         });
-
-        this.backupServerFunction.role.addToPrincipalPolicy(
-            new iam.PolicyStatement({
-                actions: ["ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
-                resources: ["*"], // TODO: to managed EC2 only
-            }),
-        );
+        this.addEC2DescribePermissions(this.backupServerFunction);
+        this.addSsmCommandPermission(this.backupServerFunction);
         this.workflowTable.grantWriteData(this.backupServerFunction);
         this.serverTable.grantWriteData(this.backupServerFunction);
-        new cdk.CfnOutput(this, "GnawsBackupServerFunctionArn", { value: this.backupServerFunction.stateMachineArn });
 
         this.getServerStatusFunction = new sfn.StateMachine(this, "GnawsGetServerStatus", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/get-server-status.asl.json"),
             timeout: cdk.Duration.minutes(5),
         });
-        this.getServerStatusFunction.role.addToPrincipalPolicy(
-            new iam.PolicyStatement({
-                actions: ["ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
-                resources: ["*"], // TODO: to managed EC2 only
-            }),
-        );
+        this.addEC2DescribePermissions(this.getServerStatusFunction);
+        this.addSsmCommandPermission(this.getServerStatusFunction);
         this.backupBucket.grantRead(this.getServerStatusFunction);
         this.serverTable.grantWriteData(this.getServerStatusFunction);
-        new cdk.CfnOutput(this, "GnawsGetServerStatusFunctionArn", { value: this.getServerStatusFunction.stateMachineArn });
 
         this.setupServerFunction = new sfn.StateMachine(this, "GnawsSetupGameServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/setup-game-server.asl.json"),
             timeout: cdk.Duration.minutes(80),
         });
-
-        this.setupServerFunction.role.addToPrincipalPolicy(
-            new iam.PolicyStatement({
-                actions: ["ec2:StartInstances", "ec2:DescribeInstances", "ssm:DescribeInstanceInformation", "ssm:SendCommand", "ssm:GetCommandInvocation"],
-                resources: ["*"], // TODO: to managed EC2 only
-            }),
-        );
+        this.addEC2DescribePermissions(this.setupServerFunction);
+        this.addEC2StartPermissions(this.setupServerFunction);
+        this.addSsmCommandPermission(this.setupServerFunction);
         this.workflowTable.grantWriteData(this.setupServerFunction);
         this.serverTable.grantWriteData(this.setupServerFunction);
-        new cdk.CfnOutput(this, "GnawsSetupServerFunctionArn", { value: this.setupServerFunction.stateMachineArn });
+
+        this.updateServerFunction = new sfn.StateMachine(this, "GnawsUpdateGameServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/update-game-server.asl.json"),
+            timeout: cdk.Duration.minutes(40),
+        });
+        this.addSsmCommandPermission(this.updateServerFunction);
+        this.workflowTable.grantWriteData(this.updateServerFunction);
+        this.serverTable.grantWriteData(this.updateServerFunction);
+
+        this.terminateServerFunction = new sfn.StateMachine(this, "GnawsTerminateServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/terminate-server.asl.json"),
+            timeout: cdk.Duration.minutes(30),
+        });
+        this.addEC2DescribePermissions(this.terminateServerFunction);
+        this.addTerminatePermissions(this.terminateServerFunction);
+        this.workflowTable.grantWriteData(this.terminateServerFunction);
+        this.serverTable.grantWriteData(this.terminateServerFunction);
     }
 
     private buildNetwork() {
@@ -370,6 +387,83 @@ export class GnawsStack extends cdk.Stack {
             roles: [this.ec2Role.roleName],
         });
         this.ec2Role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"));
-        this.backupBucket.grantWrite(this.ec2Role);
+        this.backupBucket.grantReadWrite(this.ec2Role);
+    }
+
+    private addEC2DescribePermissions(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:DescribeInstances"],
+                resources: ["*"],
+            }),
+        );
+    }
+
+    private addEC2StartPermissions(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:StartInstances"],
+                resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+    }
+
+    private addEC2StopPermissions(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:StopInstances"],
+                resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+    }
+
+    private addTerminatePermissions(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ec2:TerminateInstances", "ec2:DeleteSecurityGroup"],
+                resources: ["*"],
+                conditions: {
+                    StringEquals: {
+                        "ec2:ResourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+    }
+
+    private addSsmCommandPermission(stateMachine: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ec2:*:*:instance/*"],
+                conditions: {
+                    StringEquals: {
+                        "ssm:resourceTag/OwnedBy": "GnawsStack",
+                    },
+                },
+            }),
+        );
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:SendCommand"],
+                resources: ["arn:aws:ssm:*:*:document/AWS-RunShellScript"],
+            }),
+        );
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation"],
+                resources: ["*"],
+            }),
+        );
     }
 }

@@ -1,0 +1,175 @@
+{
+  "Comment": "Delete server, associated EC2 instance, and security group. This cannot be undone.",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "terminateCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "TerminateInstance"
+    },
+    "DescribeEC2Fail": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Failed to get EC2 instance state"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "TerminateTimeout": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting for EC2 instance to terminate"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "WriteToServerDDB": {
+      "QueryLanguage": "JSONata",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "{% $states.input.serverTable %}",
+        "Key": {
+          "name": {
+            "S": "{% $states.input.serverName %}"
+          }
+        },
+        "UpdateExpression": "SET #w = :workflowObj",
+        "ExpressionAttributeNames": {
+          "#w": "workflow"
+        },
+        "ExpressionAttributeValues": {
+          ":workflowObj": {
+            "M": {
+              "currentTask": {
+                "S": "terminate"
+              },
+              "executionId": {
+                "S": "{% $states.context.Execution.Id %}"
+              },
+              "status": {
+                "S": "{% $status %}"
+              },
+              "message": "{% $message ? { 'S': $message } : null %}",
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
+            }
+          }
+        }
+      },
+      "Output": "{% $states.input %}",
+      "Next": "RemoveLock"
+    },
+    "TerminateInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:terminateInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.terminate",
+      "Next": "WaitForTermination"
+    },
+    "WaitForTermination": {
+      "Type": "Wait",
+      "Seconds": 20,
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "CheckIfTerminated"
+    },
+    "CheckIfTerminated": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ec2.Reservations",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0]",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "DescribeEC2Fail"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "terminated",
+          "Next": "DeleteSecurityGroup"
+        },
+        {
+          "Variable": "$.meta.terminateCheck.val",
+          "NumericGreaterThanEquals": 30,
+          "Next": "TerminateTimeout"
+        }
+      ],
+      "Default": "IncrementTerminateCheck"
+    },
+    "IncrementTerminateCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.terminateCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.terminateCheck",
+      "Next": "WaitForTermination"
+    },
+    "DeleteSecurityGroup": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:deleteSecurityGroup",
+      "Parameters": {
+        "GroupId.$": "$.securityGroupId"
+      },
+      "ResultPath": "$.deleteSG",
+      "Next": "DeleteServerFromTable"
+    },
+    "DeleteServerFromTable": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.serverTable",
+        "Key": {
+          "name": {
+            "S.$": "$.serverName"
+          }
+        }
+      },
+      "ResultPath": "$.deleteServer",
+      "Next": "RemoveLock"
+    },
+    "RemoveLock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:deleteItem",
+      "Parameters": {
+        "TableName.$": "$.workflowTable",
+        "Key": {
+          "resourceId": {
+            "S.$": "$.instanceId"
+          }
+        }
+      },
+      "ResultPath": "$.removeLock",
+      "End": true
+    }
+  }
+}

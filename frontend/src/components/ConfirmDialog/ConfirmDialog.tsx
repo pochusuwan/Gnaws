@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import "./ConfirmDialog.css";
 
-type ConfirmResult = boolean | null;
+type ConfirmResult = { input?: string, result: boolean } | null;
 
 export function useConfirm() {
     const [open, setOpen] = useState(false);
@@ -31,20 +31,23 @@ type ConfirmDialogProps = {
     message?: string;
     yesMessage?: string;
     noMessage?: string;
+    inputValue?: boolean;
     onResult: (result: ConfirmResult) => void;
 };
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
+    const [inputValue, setInputValue] = useState("");
     const message = props.message ?? "Are you sure?";
     const yesMessage = props.yesMessage ?? "Yes";
     const noMessage = props.noMessage ?? "No";
     return (
         <div className="confirmDialogRoot" onClick={() => props.onResult(null)}>
             <div onClick={(e) => e.stopPropagation()} className="confirmDialog">
-                <p>{message}</p>
+                <p style={{ whiteSpace: 'pre-line' }}>{message}</p>
+                {props.inputValue && <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />}
                 <div className="confirmDialogButtons">
-                    <button onClick={() => props.onResult(true)}>{yesMessage}</button>
-                    <button onClick={() => props.onResult(false)}>{noMessage}</button>
+                    <button onClick={() => props.onResult({ input: inputValue, result: true})}>{yesMessage}</button>
+                    <button onClick={() => props.onResult({ input: inputValue, result: false})}>{noMessage}</button>
                 </div>
             </div>
         </div>
