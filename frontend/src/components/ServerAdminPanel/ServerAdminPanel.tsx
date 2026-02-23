@@ -18,33 +18,42 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const lastAction = useRef<string>(null);
 
     // Terminate server action dialog
-    const { open, onResult, confirm } = useConfirm();
+    const { open: terminateOpen, onResult: terminateResult, confirm: terminateConfirm } = useConfirm();
+    // Stop instance action dialog
+    const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
         (action: string) => {
             if (server !== null) {
                 lastAction.current = action;
-                const payload = { name: server.name, action: action.toLowerCase() };
+                const payload = { serverName: server.name, action: action.toLowerCase() };
                 call(payload);
             }
         },
         [server],
     );
 
+    const callStopInstance = useCallback(async () => {
+        const result = await stopInstanceConfirm();
+        if (result?.result) {
+            callAction("StopInstance");
+        }
+    }, [server, callAction]);
+
     const callTerminateAction = useCallback(async () => {
-        const shouldBackup = await confirm();
-        if (shouldBackup?.result) {
-            if (shouldBackup?.input === server.name) {
+        const result = await terminateConfirm();
+        if (result?.result) {
+            if (result?.input === server.name) {
                 lastAction.current = "Terminate";
-                const payload = { name: server.name, action: "terminate" };
+                const payload = { serverName: server.name, action: "terminate" };
                 call(payload);
             } else {
-                setMessage("Termination failed. Server name did not match.")
+                setMessage("Termination failed. Server name did not match.");
             }
         } else {
-            setMessage("Termination cancelled")
+            setMessage("Termination cancelled");
         }
-    }, [server])
+    }, [server]);
 
     useEffect(() => {
         if (state.state === "Loading") {
@@ -70,8 +79,24 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             </div>
             <div className="adminPanelMessage">{message}</div>
             <div className="serverAdminPanelButtonGrid">
-                <Button disabled={inProgress} label="Start Instance" description="Start EC2 instance without starting the game server." />
-                <Button disabled={inProgress} label="Stop Game Server" description="Stop game server without stopping the EC2 instance." />
+                <Button
+                    disabled={inProgress}
+                    label="Start Instance"
+                    description="Start EC2 instance without starting the game server."
+                    onClick={() => callAction("StartInstance")}
+                />
+                <Button
+                    disabled={inProgress}
+                    label="Stop Game Server"
+                    description="Stop game server without stopping the EC2 instance."
+                    onClick={() => callAction("stopgame")}
+                />
+                <Button
+                    disabled={inProgress}
+                    label="Force Stop Instance"
+                    description="Force stop that shuts down the EC2 instance without gracefully stopping the game server first. Unsaved game progress may be lost."
+                    onClick={callStopInstance}
+                />
                 <Button
                     disabled={inProgress}
                     label="Backup Server Save"
@@ -86,13 +111,9 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                 />
                 <Button
                     disabled={inProgress}
-                    label="Force Stop Instance"
-                    description="Force stop that shuts down the EC2 instance without gracefully stopping the game server first. Unsaved game progress may be lost."
-                />
-                <Button
-                    disabled={inProgress}
                     label="Remove workflow lock"
                     description="Clear the workflow lock if the server is stuck after a failed action. The lock prevents multiple operations from running at once. Removing it does not change the server state."
+                    onClick={() => callAction("RemoveLock")}
                 />
                 <Button
                     disabled={inProgress}
@@ -102,7 +123,25 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                 />
             </div>
             <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>;
-            {open && <ConfirmDialog message={"Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."} yesMessage="Delete" noMessage="Cancel" onResult={onResult} inputValue />}
+            {stopInstanceOpen && (
+                <ConfirmDialog
+                    message={"Are you sure you want to force stop instance? Unsaved game progress may be lost."}
+                    yesMessage="Confirm"
+                    noMessage="Cancel"
+                    onResult={stopInstanceResult}
+                />
+            )}
+            {terminateOpen && (
+                <ConfirmDialog
+                    message={
+                        "Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."
+                    }
+                    yesMessage="Delete"
+                    noMessage="Cancel"
+                    onResult={terminateResult}
+                    inputValue
+                />
+            )}
         </div>
     );
 }
