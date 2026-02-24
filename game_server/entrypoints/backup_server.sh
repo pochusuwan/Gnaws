@@ -1,11 +1,12 @@
 #!/bin/bash
 set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GNAWS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Read configurable values
 # BACKUP_DIR_TARGET relative to server root folder
-. "$SCRIPT_DIR/gnaws-script.conf"
+# GAME_SERVER_DIR
+. "$GNAWS_ROOT/gnaws-script.conf"
 
 GAME_SERVER_DIR=/opt/$SERVER_FOLDER_NAME
 cd "$GAME_SERVER_DIR"

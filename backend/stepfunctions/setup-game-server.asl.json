@@ -390,16 +390,17 @@
       "Next": "DescribeEC2SSM"
     },
     "InitializeGameServer": {
+      "QueryLanguage": "JSONata",
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)",
+      "Arguments": {
+        "InstanceIds": "{% [$states.input.instanceId] %}",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/latest/download/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/bootstrap.sh {}', $.gameId))"
+            "commands": "{% ['set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/' & ($states.input.versionOverride ? ('download/' & $states.input.versionOverride) : 'latest/download') & '/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/entrypoints/bootstrap.sh ' & $states.input.gameId] %}"
         }
       },
-      "ResultPath": "$.command",
+      "Output": "{% $merge([$states.input, $states.result]) %}",
       "Next": "WaitForSetupCommand"
     },
     "WaitForSetupCommand": {
@@ -411,7 +412,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
       "Parameters": {
-        "CommandId.$": "$.command.Command.CommandId",
+        "CommandId.$": "$.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
       "ResultPath": "$.commandResult",
@@ -471,7 +472,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/start_server.sh"
+            "/opt/gnaws/entrypoints/start_server.sh"
           ]
         }
       },
@@ -491,7 +492,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/is_online.sh"
+            "/opt/gnaws/entrypoints/server_status.sh"
           ]
         }
       },
@@ -510,6 +511,9 @@
         "CommandId.$": "$.command.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
+      "Assign": {
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
+      },
       "ResultPath": "$.commandResult",
       "Next": "IncrementGameServerCheck"
     },
@@ -525,8 +529,8 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "online\n",
+          "Variable": "$serverStatus.is_online",
+          "BooleanEquals": true,
           "Next": "Success"
         },
         {

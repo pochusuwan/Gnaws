@@ -41,6 +41,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (typeof instanceType !== "string") {
         return clientError("Invalid instanceType");
     }
+    let versionOverride = undefined;
+    if (typeof params?.versionOverride === "string") {
+        versionOverride = params?.versionOverride;
+    }
     try {
         await ec2Client.send(
             new DescribeInstanceTypesCommand({
@@ -121,7 +125,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             }
         }
         if (!res.errorMessage) {
-            const result = await startSetupWorkflow(server.name, res.instanceId, gameId);
+            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, versionOverride);
             if (result) {
                 // Workflow started. Update server table
                 try {

@@ -16,6 +16,9 @@ type Terms = {
     accepted: boolean;
 };
 
+// Create server with specific version of game bundle release. E.g. "v0.0.15"
+const VERSION_OVERRIDE: string | undefined = undefined;
+
 export default function CreateServerPage(props: CreateServerPageProps) {
     const userRole = useUser().role;
     const [serverName, setServerName] = useState("");
@@ -128,7 +131,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             return;
         }
         setMessage("Creating");
-        createServerCall({ serverName, gameId: game, instanceType, storage, ports });
+        createServerCall({ serverName, gameId: game, instanceType, storage, ports, versionOverride: VERSION_OVERRIDE });
     }, [serverName, game, instanceType, storage, ports]);
 
     // Update states from create server response

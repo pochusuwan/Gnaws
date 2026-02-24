@@ -274,7 +274,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/is_online.sh"
+            "/opt/gnaws/entrypoints/server_status.sh"
           ]
         }
       },
@@ -293,6 +293,9 @@
         "CommandId.$": "$.command.Command.CommandId",
         "InstanceId.$": "$.instanceId"
       },
+      "Assign": {
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
+      },
       "ResultPath": "$.commandResult",
       "Next": "IncrementGameServerCheck"
     },
@@ -310,8 +313,8 @@
         {
           "And": [
             {
-              "Variable": "$.commandResult.StandardOutputContent",
-              "StringEquals": "offline\n"
+              "Variable": "$serverStatus.is_online",
+              "BooleanEquals": false
             },
             {
               "Variable": "$.shouldBackup",
@@ -325,15 +328,15 @@
           "Next": "BackupServer"
         },
         {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringEquals": "offline\n",
+          "Variable": "$serverStatus.is_online",
+          "BooleanEquals": false,
           "Next": "StopInstance"
         },
         {
           "And": [
             {
-              "Variable": "$.commandResult.StandardOutputContent",
-              "StringEquals": "online\n"
+              "Variable": "$serverStatus.is_online",
+              "BooleanEquals": true
             },
             {
               "Variable": "$.meta.stopGameServerCommandSent.val",
@@ -363,7 +366,7 @@
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
           "commands": [
-            "/opt/gnaws/scripts/stop_server.sh"
+            "/opt/gnaws/entrypoints/stop_server.sh"
           ]
         }
       },
@@ -385,7 +388,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('/opt/gnaws/scripts/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
+          "commands.$": "States.Array(States.Format('/opt/gnaws/entrypoints/backup_server.sh {}', States.Format('{}/{}', $.backupBucketName, $.serverName)))"
         }
       },
       "ResultPath": "$.command",
