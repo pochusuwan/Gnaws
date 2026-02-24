@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./server.sh
+exec ./server.sh

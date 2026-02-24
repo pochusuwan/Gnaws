@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./PalServer.sh -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS
+exec ./PalServer.sh -useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS
