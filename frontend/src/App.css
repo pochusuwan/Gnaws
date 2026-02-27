@@ -17,10 +17,3 @@
     justify-content: center;
     align-items: start;
 }
-
-.pageSelector {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    margin-bottom: 24px;
-}

@@ -6,7 +6,10 @@ export type Request = {
 export type Server = {
     name: string;
     game?: {
-        name?: string;
+        id: string;
+        name: string;
+        messages?: Message[];
+        supportServerCommand?: boolean;
     };
     ec2?: {
         instanceId?: string;
@@ -38,4 +41,27 @@ export type Server = {
 export type Port = {
     port: number;
     protocol: string;
+};
+
+export type TermsOfService = {
+    name: string;
+    url: string;
+    type: string;
+};
+export type Message = {
+    type: string;
+    text: string;
+};
+export type Game = {
+    id: string;
+    displayName: string;
+    ec2: {
+        instanceType: string;
+        minimumInstanceType: string;
+        storage: number;
+        ports: Port[];
+    };
+    termsOfService?: TermsOfService[];
+    messages?: Message[];
+    supportServerCommand?: boolean;
 };
