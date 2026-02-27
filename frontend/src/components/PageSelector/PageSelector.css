@@ -1,0 +1,37 @@
+.pageSelector {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    margin-top: 18px;
+    margin-bottom: 18px;
+}
+
+.pageSelectorActive {
+    padding: 6px 16px;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px 8px 0 0;
+    background: white;
+    font-weight: 600;
+    font-size: 18px;
+
+    border-bottom-color: white;
+    margin-bottom: -1px;
+    z-index: 1;
+}
+
+.pageSelectorActive:focus {
+    outline: none;
+}
+
+.pageSelectorInactive {
+    padding: 6px 16px;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px 8px 0 0;
+    background: #f0f0f0;
+    font-weight: 400;
+    font-size: 18px;
+}
+
+.pageSelectorInactive:focus {
+    outline: none;
+}

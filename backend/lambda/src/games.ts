@@ -1,10 +1,7 @@
-import { APIGatewayProxyResult } from "aws-lambda";
-import { forbidden, serverError, success } from "./util";
 import { createWriteStream, promises as fs } from "fs";
 import { pipeline } from "stream/promises";
 import * as tar from "tar";
-import { Port } from "./types";
-import { ROLE_ADMIN, User } from "./users";
+import { Game, Message, Port, TermsOfService } from "./types";
 import { dynamoClient } from "./clients";
 import { BatchWriteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
@@ -22,28 +19,6 @@ const CONTENT_PATH = "/tmp/gnaws";
 const GAMES_DIR = "/game_server/games";
 const HEADERS = {
     "User-Agent": "aws-lambda",
-};
-
-type TermsOfService = {
-    name: string;
-    url: string;
-    type: string;
-};
-type Message = {
-    type: string;
-    text: string;
-};
-type Game = {
-    id: string;
-    displayName: string;
-    ec2: {
-        instanceType: string;
-        minimumInstanceType: string;
-        storage: number;
-        ports: Port[];
-    };
-    termsOfService?: TermsOfService[];
-    messages?: Message[];
 };
 
 export async function getGames(): Promise<{ games?: Game[]; message?: string }> {
@@ -186,6 +161,7 @@ async function parseGameFiles(): Promise<Game[]> {
                 },
                 termsOfService,
                 messages,
+                supportServerCommand: parsed.supportServerCommand === true,
             });
         } catch (e) {
             console.debug(`Failed to read game: ${file} ${e}`);
@@ -337,4 +313,22 @@ async function setGameListStatusFailed(): Promise<void> {
             },
         }),
     );
+}
+
+export async function getGameFromDB(gameId: string): Promise<Game | null> {
+    try {
+        const result = await dynamoClient.send(
+            new GetItemCommand({
+                TableName: GAME_TABLE,
+                Key: { id: { S: gameId } },
+            }),
+        );
+
+        if (!result.Item) {
+            return null;
+        }
+        return unmarshall(result.Item) as Game;
+    } catch (e) {
+        return null;
+    }
 }

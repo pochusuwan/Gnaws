@@ -12,6 +12,7 @@
             }
         ]
     },
+    "supportServerCommand": true,
     "termsOfService": [{
         "name": "Minecraft EULA",
         "url": "https://aka.ms/MinecraftEULA",
