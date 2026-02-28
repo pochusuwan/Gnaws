@@ -4,14 +4,14 @@ import "./ServerActionPanel.css";
 
 type ServerActionPanelProps = {
     server: Server;
-    callAction: (action: string, params?: { [key: string]: string }) => void;
+    callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string }) => void;
 };
 
 export default function ServerActionPanel(props: ServerActionPanelProps) {
     const { server, callAction } = props;
     const [command, setCommand] = useState("");
     const sendCommand = useCallback(() => {
-        callAction("SendServerCommand", { command });
+        callAction("SendServerCommand", false, { command });
         setCommand("");
     }, [command, callAction]);
 
