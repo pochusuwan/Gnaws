@@ -364,8 +364,8 @@ const sendServerCommand = async (server: Server, instanceId: string, command: an
     if (server.game?.supportServerCommand !== true) {
         return clientError("Server does not support command");
     }
-    if (typeof command !== "string" || command.length < 1) {
-        return clientError("Invalid command");
+    if (typeof command !== "string" || command.length < 1 || command.length > 128) {
+        return clientError("Invalid command. Must be between 1 to 128 characters");
     }
     try {
         const response = await ssmClient.send(

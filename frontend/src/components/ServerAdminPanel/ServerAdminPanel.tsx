@@ -140,7 +140,7 @@ function InstanceActionButtons(props: InstanceActionProps) {
                 disabled={inProgress}
                 label="Stop Game Server"
                 description="Stop game server without stopping the EC2 instance."
-                onClick={() => callAction("stopgame")}
+                onClick={() => callAction("StopGame")}
             />
             <Button
                 disabled={inProgress}
