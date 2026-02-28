@@ -5,7 +5,7 @@ type PageSelectorProps = {
     current: string;
     onSelect: (page: string) => void;
 };
-export function PageSelector({ pages, current, onSelect }: PageSelectorProps) {
+export default function PageSelector({ pages, current, onSelect }: PageSelectorProps) {
     return (
         <div className="pageSelector">
             {pages.map((page) => (

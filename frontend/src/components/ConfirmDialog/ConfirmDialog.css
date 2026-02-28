@@ -2,6 +2,7 @@
     position: fixed;
     inset: 0;
     background-color: #0000003a;
+    z-index: 100;
 }
 
 .confirmDialog {

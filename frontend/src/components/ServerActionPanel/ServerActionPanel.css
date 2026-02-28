@@ -1,0 +1,17 @@
+.serverActionPanel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.sendCommandRow {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+}
+
+.sendCommandInput {
+    width: 50%;
+    max-width: 350px;
+}
