@@ -9,7 +9,7 @@ import { useServers } from "./hooks/useServers.ts";
 import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
-import { PageSelector } from "./components/PageSelector/PageSelector.tsx";
+import PageSelector from "./components/PageSelector/PageSelector.tsx";
 
 
 const SERVERS_PAGE = "Servers";

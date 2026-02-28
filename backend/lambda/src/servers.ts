@@ -31,6 +31,7 @@ const ACTION_UPDATE = "update";
 const ACTION_START_INSTANCE = "startinstance";
 const ACTION_STOP_INSTANCE = "stopinstance";
 const ACTION_STOP_GAME = "stopgame";
+const ACTION_SEND_SERVER_COMMAND = "sendservercommand";
 const ACTION_REMOVE_LOCK = "removelock";
 const ACTION_TERMINATE = "terminate";
 const SERVER_ACTIONS = [
@@ -41,6 +42,7 @@ const SERVER_ACTIONS = [
     ACTION_START_INSTANCE,
     ACTION_STOP_INSTANCE,
     ACTION_STOP_GAME,
+    ACTION_SEND_SERVER_COMMAND,
     ACTION_REMOVE_LOCK,
     ACTION_TERMINATE,
 ];
@@ -175,6 +177,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_STOP_GAME) {
         return stopGameServer(instanceId);
+    }
+    if (action === ACTION_SEND_SERVER_COMMAND) {
+        return sendServerCommand(server, instanceId, params.command);
     }
 
     // Acquire lock
@@ -349,6 +354,34 @@ const stopGameServer = async (instanceId: string): Promise<APIGatewayProxyResult
             return serverError("Failed to send SSM command");
         }
         return success({ message: "Stopping game server" });
+    } catch (e) {
+        console.error(e);
+        return serverError("Failed to send SSM command");
+    }
+};
+
+const sendServerCommand = async (server: Server, instanceId: string, command: any): Promise<APIGatewayProxyResult> => {
+    if (server.game?.supportServerCommand !== true) {
+        return clientError("Server does not support command");
+    }
+    if (typeof command !== "string" || command.length < 1) {
+        return clientError("Invalid command");
+    }
+    try {
+        const response = await ssmClient.send(
+            new SendCommandCommand({
+                InstanceIds: [instanceId],
+                DocumentName: "AWS-RunShellScript",
+                Parameters: {
+                    commands: [`/opt/gnaws/entrypoints/write_server_stdin.sh '${command}'`],
+                },
+            }),
+        );
+        const commandId = response.Command?.CommandId;
+        if (!commandId) {
+            return serverError("Failed to send SSM command");
+        }
+        return success({ message: "Done" });
     } catch (e) {
         console.error(e);
         return serverError("Failed to send SSM command");

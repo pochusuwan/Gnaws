@@ -15,7 +15,10 @@ export type User = {
 export type Server = {
     name: string;
     game?: {
-        name?: string;
+        id: string;
+        name: string;
+        messages?: Message[];
+        supportServerCommand?: boolean;
     };
     ec2?: {
         instanceId?: string;

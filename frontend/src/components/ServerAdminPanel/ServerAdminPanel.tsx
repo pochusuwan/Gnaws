@@ -5,7 +5,8 @@ import "./ServerAdminPanel.css";
 import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
-import { PageSelector } from "../../components/PageSelector/PageSelector";
+import PageSelector from "../../components/PageSelector/PageSelector";
+import ServerActionPanel from "../ServerActionPanel/ServerActionPanel";
 
 const SERVER_ACTION = "Server Action";
 const INSTANCE_ACTION = "Instance Action";
@@ -30,10 +31,10 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
-        (action: string) => {
+        (action: string, params?: { [key: string]: string }) => {
             if (server !== null) {
                 lastAction.current = action;
-                const payload = { serverName: server.name, action: action.toLowerCase() };
+                const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
                 call(payload);
             }
         },
@@ -87,6 +88,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             <div className="adminPanelMessage">{message}</div>
             <PageSelector current={page} onSelect={setPage} pages={PAGES} />
             {page === SERVER_STATUS && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
+            {page === SERVER_ACTION && <ServerActionPanel server={server} callAction={callAction} />}
             {page === INSTANCE_ACTION && (
                 <InstanceActionButtons
                     inProgress={inProgress}

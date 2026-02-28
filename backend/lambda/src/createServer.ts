@@ -238,6 +238,9 @@ const createEc2 = async (
                     },
                 },
             ],
+            CreditSpecification: {
+                CpuCredits: "standard",
+            },
             InstanceInitiatedShutdownBehavior: "stop",
             IamInstanceProfile: { Arn: EC2_PROFILE_ARN },
             TagSpecifications: [
