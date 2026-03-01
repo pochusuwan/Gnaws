@@ -17,5 +17,11 @@
         "name": "Minecraft EULA",
         "url": "https://aka.ms/MinecraftEULA",
         "type": "checkbox"
-    }]
+    }],
+    "messages": [
+        {
+            "type": "info",
+            "text": "First startup is resource-intensive. Start with a larger instance, then switch to a smaller one if the game runs smoothly."
+        }
+    ]
 }
