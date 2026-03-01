@@ -1,7 +1,17 @@
 {
   "Comment": "Get various statuses: get game server status with server_status.sh, get last backup date, and update server status in DDB",
-  "StartAt": "ListBackups",
+  "StartAt": "Init",
   "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "statusCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "ListBackups"
+    },
     "ListBackups": {
       "QueryLanguage": "JSONata",
       "Type": "Task",
@@ -19,7 +29,7 @@
     "DescribeEC2Fail": {
       "Type": "Pass",
       "Assign": {
-        "status": "instance offline",
+        "status": "invalid state",
         "message": "Could not get EC2 state"
       },
       "Next": "WriteToDDB"
@@ -27,7 +37,7 @@
     "InvalidEC2State": {
       "Type": "Pass",
       "Assign": {
-        "status": "instance offline",
+        "status.$": "States.Format('instance {}', $.ec2.Reservations[0].Instances[0].State.Name)",
         "message.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
       },
       "Next": "WriteToDDB"
@@ -35,7 +45,7 @@
     "DescribeSSMFail": {
       "Type": "Pass",
       "Assign": {
-        "status": "instance offline",
+        "status": "invalid state",
         "message": "Could not get ssm status"
       },
       "Next": "WriteToDDB"
@@ -48,11 +58,27 @@
       },
       "Next": "WriteToDDB"
     },
+    "GetStatusFailed": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "invalid state",
+        "message.$": "States.Format('Get status command fail with status: {}', $.commandResult.Status)"
+      },
+      "Next": "WriteToDDB"
+    },
+    "GetServerStatusTimeout": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "invalid state",
+        "message": "Timeout waiting for server status"
+      },
+      "Next": "WriteToDDB"
+    },
     "SetOfflineOnline": {
       "QueryLanguage": "JSONata",
       "Type": "Pass",
       "Assign": {
-        "status": "{% $serverStatus.is_online ? 'server online' : 'server offline' %}"
+        "status": "{% $serverStatus.is_online ? 'server online' : ($serverStatus.is_running ? 'server running offline' : 'server not running') %}"
       },
       "Next": "WriteToDDB"
     },
@@ -188,7 +214,12 @@
     },
     "WaitForCommand": {
       "Type": "Wait",
-      "Seconds": 2,
+      "Seconds": 5,
+      "Next": "GetCommandResult"
+    },
+    "WaitForCommandLong": {
+      "Type": "Wait",
+      "Seconds": 10,
       "Next": "GetCommandResult"
     },
     "GetCommandResult": {
@@ -202,7 +233,52 @@
         "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
       },
       "ResultPath": "$.commandResult",
-      "Next": "SetOfflineOnline"
+      "Next": "IncrementStatusCheck"
+    },
+    "IncrementStatusCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.statusCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.statusCheck",
+      "Next": "CheckGameServerOutput"
+    },
+    "CheckGameServerOutput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelled"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "TimedOut"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Failed"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelling"
+            }
+          ],
+          "Next": "GetStatusFailed"
+        },
+        {
+          "Variable": "$.commandResult.Status",
+          "StringEquals": "Success",
+          "Next": "SetOfflineOnline"
+        },
+        {
+          "Variable": "$.meta.statusCheck.val",
+          "NumericGreaterThanEquals": 6,
+          "Next": "GetServerStatusTimeout"
+        }
+      ],
+      "Default": "WaitForCommandLong"
     }
   }
 }

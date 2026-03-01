@@ -120,7 +120,7 @@
         },
         {
           "Variable": "$.meta.terminateCheck.val",
-          "NumericGreaterThanEquals": 30,
+          "NumericGreaterThanEquals": 60,
           "Next": "TerminateTimeout"
         }
       ],
