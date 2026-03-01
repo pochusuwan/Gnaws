@@ -1,8 +1,9 @@
 #!/bin/bash
 set -eu
 
+OS_RESERVE_MB=450
 TOTAL_MEM=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
-MC_MEM=$(( TOTAL_MEM * 70 / 100 ))
+MC_MEM=$(( TOTAL_MEM - OS_RESERVE_MB ))
 
 JAVA_FLAGS=(
   -XX:+UseG1GC

@@ -14,6 +14,11 @@ if [ "$SERVER_PORT_PROTOCOL" = "udp" ]; then
     PROTOCOL="u"
 fi
 
+IS_RUNNING="false"
+if systemctl is-active --quiet gnaws; then
+    IS_RUNNING="true"
+fi
+
 IS_ONLINE="false"
 if ss -ln$PROTOCOL | grep -q "[.:]$SERVER_PORT_NUMBER\b"; then
     IS_ONLINE="true"
@@ -41,6 +46,7 @@ fi
 
 cat <<EOF
 {
+  "is_running": $IS_RUNNING,
   "is_online": $IS_ONLINE,
   $PLAYER_COUNT_FIELD
   "current_storage": $CURRENT_STORAGE_GIB,

@@ -22,7 +22,7 @@ const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const LOCK_TIMEOUT_MS = 60 * 60 * 1000;
-const GET_STATUS_TIMEOUT = 30 * 1000;
+const GET_STATUS_TIMEOUT = 20 * 1000;
 
 const ACTION_START = "start";
 const ACTION_STOP = "stop";

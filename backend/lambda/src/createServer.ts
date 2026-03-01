@@ -82,9 +82,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     // Add server to DDB with conditional check
     const server: Server = {
         name: serverName,
-        ec2: {
-            status: "creating",
-        },
+        ec2: {},
         game: {
             id: game.id,
             name: game.displayName,
@@ -118,7 +116,6 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
-            status: "initializing",
         };
         // Update server table
         try {

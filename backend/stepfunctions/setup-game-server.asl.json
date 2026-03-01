@@ -1,14 +1,11 @@
 {
-  "Comment": "Start EC2 instance, download game server script, and setup game server",
+  "Comment": "Wait 20 for SSM online, download game server script, setup game server, wait 20 minutes for setup, wait 20 minutes for server online",
   "StartAt": "Init",
   "States": {
     "Init": {
       "Type": "Pass",
       "Result": {
         "ssmChecks": {
-          "val": 0
-        },
-        "ec2Checks": {
           "val": 0
         },
         "setupChecks": {
@@ -19,214 +16,65 @@
         }
       },
       "ResultPath": "$.meta",
-      "Next": "DescribeEC2"
-    },
-    "DescribeEC2Fail": {
-      "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Could not get EC2 state"
-        }
-      },
-      "ResultPath": "$.workflowObj.val",
-      "Next": "WriteToServerDDB"
-    },
-    "InvalidEC2State": {
-      "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
-        }
-      },
-      "ResultPath": "$.workflowObj.val",
-      "Next": "WriteToServerDDB"
-    },
-    "FailEC2Timeout": {
-      "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Timeout waiting for instance running"
-        }
-      },
-      "ResultPath": "$.workflowObj.val",
-      "Next": "WriteToServerDDB"
+      "Next": "DescribeSSM"
     },
     "FailSSMTimeout": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Timeout waiting for SSM online"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting for SSM online"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "FailSetupTimeout": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Timeout waiting setup to complete"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting setup to complete"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "FailSetup": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Game server setup failed."
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Game server setup failed"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "InvalidSetupCommandStatus": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S.$": "States.Format('Invalid setup command status: {}', $.commandResult.Status)"
-        }
+      "Assign": {
+        "status": "failed",
+        "message.$": "States.Format('Invalid setup command status: {}', $.commandResult.Status)"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "FailGameServerTimeout": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "start"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Setup complete but timeout waiting for server to start"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Setup complete but timeout waiting for server to start"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "Success": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "setup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "success"
-        },
-        "message": {
-          "S": "Setup game server successfully and server running"
-        }
+      "Assign": {
+        "status": "success",
+        "message": "Setup game server successfully and server running"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "WriteToServerDDB": {
+      "QueryLanguage": "JSONata",
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
-      "Parameters": {
-        "TableName.$": "$.serverTable",
+      "Arguments": {
+        "TableName": "{% $states.input.serverTable %}",
         "Key": {
           "name": {
-            "S.$": "$.serverName"
+            "S": "{% $states.input.serverName %}"
           }
         },
         "UpdateExpression": "SET #w = :workflowObj",
@@ -235,11 +83,25 @@
         },
         "ExpressionAttributeValues": {
           ":workflowObj": {
-            "M.$": "$.workflowObj.val"
+            "M": {
+              "currentTask": {
+                "S": "setup"
+              },
+              "executionId": {
+                "S": "{% $states.context.Execution.Id %}"
+              },
+              "status": {
+                "S": "{% $status %}"
+              },
+              "message": "{% $message ? { 'S': $message } : null %}",
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
+            }
           }
         }
       },
-      "ResultPath": "$.updateServer",
+      "Output": "{% $states.input %}",
       "Next": "RemoveLock"
     },
     "RemoveLock": {
@@ -255,85 +117,7 @@
       },
       "End": true
     },
-    "DescribeEC2": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)"
-      },
-      "ResultPath": "$.ec2",
-      "Next": "IncrementEC2Check"
-    },
-    "IncrementEC2Check": {
-      "Type": "Pass",
-      "Parameters": {
-        "val.$": "States.MathAdd($.meta.ec2Checks.val, 1)"
-      },
-      "ResultPath": "$.meta.ec2Checks",
-      "Next": "IsInstanceRunning"
-    },
-    "IsInstanceRunning": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Or": [
-            {
-              "Variable": "$.ec2.Reservations",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0]",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0].Instances",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0].Instances[0]",
-              "IsPresent": false
-            }
-          ],
-          "Next": "DescribeEC2Fail"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "stopped",
-          "Next": "StartInstances"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "pending",
-          "Next": "WaitForEC2Running"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "running",
-          "Next": "DescribeEC2SSM"
-        },
-        {
-          "Variable": "$.meta.ec2Checks.val",
-          "NumericGreaterThanEquals": 30,
-          "Next": "FailEC2Timeout"
-        }
-      ],
-      "Default": "InvalidEC2State"
-    },
-    "StartInstances": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:startInstances",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)"
-      },
-      "ResultPath": "$.ec2",
-      "Next": "WaitForEC2Running"
-    },
-    "WaitForEC2Running": {
-      "Type": "Wait",
-      "Seconds": 30,
-      "Next": "DescribeEC2"
-    },
-    "DescribeEC2SSM": {
+    "DescribeSSM": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
       "Parameters": {
@@ -359,26 +143,25 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Or": [
+          "And": [
             {
               "Variable": "$.ssm.InstanceInformationList",
-              "IsPresent": false
+              "IsPresent": true
             },
             {
               "Variable": "$.ssm.InstanceInformationList[0]",
-              "IsPresent": false
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
+              "StringEquals": "Online"
             }
           ],
-          "Next": "WaitBeforeRetrySSM"
-        },
-        {
-          "Variable": "$.ssm.InstanceInformationList[0].PingStatus",
-          "StringEquals": "Online",
-          "Next": "InitializeGameServer"
+          "Next": "SetupGameServer"
         },
         {
           "Variable": "$.meta.ssmChecks.val",
-          "NumericGreaterThanEquals": 10,
+          "NumericGreaterThanEquals": 20,
           "Next": "FailSSMTimeout"
         }
       ],
@@ -386,10 +169,10 @@
     },
     "WaitBeforeRetrySSM": {
       "Type": "Wait",
-      "Seconds": 20,
-      "Next": "DescribeEC2SSM"
+      "Seconds": 60,
+      "Next": "DescribeSSM"
     },
-    "InitializeGameServer": {
+    "SetupGameServer": {
       "QueryLanguage": "JSONata",
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
@@ -397,7 +180,7 @@
         "InstanceIds": "{% [$states.input.instanceId] %}",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-            "commands": "{% ['set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/' & ($states.input.versionOverride ? ('download/' & $states.input.versionOverride) : 'latest/download') & '/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/entrypoints/bootstrap.sh ' & $states.input.gameId] %}"
+          "commands": "{% ['set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/' & ($states.input.versionOverride ? ('download/' & $states.input.versionOverride) : 'latest/download') & '/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/entrypoints/bootstrap.sh ' & $states.input.gameId] %}"
         }
       },
       "Output": "{% $merge([$states.input, $states.result]) %}",
@@ -405,7 +188,7 @@
     },
     "WaitForSetupCommand": {
       "Type": "Wait",
-      "Seconds": 20,
+      "Seconds": 30,
       "Next": "GetSetupCommandResult"
     },
     "GetSetupCommandResult": {
@@ -441,7 +224,7 @@
         },
         {
           "Variable": "$.meta.setupChecks.val",
-          "NumericGreaterThanEquals": 90,
+          "NumericGreaterThanEquals": 40,
           "Next": "FailSetupTimeout"
         },
         {
@@ -497,11 +280,19 @@
         }
       },
       "ResultPath": "$.command",
+      "Next": "IncrementGameServerCheck"
+    },
+    "IncrementGameServerCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.gameServerChecks.val, 1)"
+      },
+      "ResultPath": "$.meta.gameServerChecks",
       "Next": "WaitForStartCommand"
     },
     "WaitForStartCommand": {
       "Type": "Wait",
-      "Seconds": 2,
+      "Seconds": 5,
       "Next": "GetStartCommandResult"
     },
     "GetStartCommandResult": {
@@ -515,31 +306,62 @@
         "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
       },
       "ResultPath": "$.commandResult",
-      "Next": "IncrementGameServerCheck"
-    },
-    "IncrementGameServerCheck": {
-      "Type": "Pass",
-      "Parameters": {
-        "val.$": "States.MathAdd($.meta.gameServerChecks.val, 1)"
-      },
-      "ResultPath": "$.meta.gameServerChecks",
       "Next": "CheckGameServerOutput"
     },
     "CheckGameServerOutput": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$serverStatus.is_online",
-          "BooleanEquals": true,
+          "And": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Success"
+            },
+            {
+              "Variable": "$serverStatus.is_online",
+              "BooleanEquals": true
+            }
+          ],
           "Next": "Success"
         },
         {
           "Variable": "$.meta.gameServerChecks.val",
           "NumericGreaterThanEquals": 40,
           "Next": "FailGameServerTimeout"
+        },
+        {
+          "Or": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelled"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "TimedOut"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Failed"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelling"
+            }
+          ],
+          "Next": "WaitGameServerOnline"
+        },
+        {
+          "Variable": "$.commandResult.Status",
+          "StringEquals": "Success",
+          "Next": "WaitGameServerOnline"
         }
       ],
-      "Default": "WaitGameServerOnline"
+      "Default": "WaitForStartCommandLong"
+    },
+    "WaitForStartCommandLong": {
+      "Type": "Wait",
+      "Seconds": 25,
+      "Next": "IncrementGameServerCheck"
     }
   }
 }

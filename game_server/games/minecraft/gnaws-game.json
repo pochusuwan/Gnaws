@@ -2,8 +2,8 @@
     "id": "minecraft",
     "displayName": "Minecraft",
     "ec2": {
-        "instanceType": "t3.medium",
-        "minimumInstanceType": "t3.small",
+        "instanceType": "t3a.large",
+        "minimumInstanceType": "t3a.medium",
         "storage": 8,
         "ports": [
             {
