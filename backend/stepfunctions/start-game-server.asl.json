@@ -1,5 +1,5 @@
 {
-  "Comment": "Start EC2 instance, check game server is not online with server_status.sh, then start game server with start_server.sh",
+  "Comment": "Start EC2 instance, wait 15 minutes for online, start game server with start_server.sh, then wait up to 20 for game server online.",
   "StartAt": "Init",
   "States": {
     "Init": {

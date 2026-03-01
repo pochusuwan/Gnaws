@@ -1,5 +1,5 @@
 {
-  "Comment": "Update game server with update_server.sh",
+  "Comment": "Check game server is not running with server_status.sh then update game server with update_server.sh",
   "StartAt": "Init",
   "States": {
     "Init": {

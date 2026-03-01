@@ -1,5 +1,5 @@
 {
-  "Comment": "Get various statuses: get game server status with server_status.sh, get last backup date, and update server status in DDB",
+  "Comment": "Get various statuses: get game server status with server_status.sh and wait up to 1 minute, get last backup date, and update server status in DDB",
   "StartAt": "Init",
   "States": {
     "Init": {
