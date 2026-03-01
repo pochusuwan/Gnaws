@@ -7,6 +7,9 @@
       "Result": {
         "updateCheck": {
           "val": 0
+        },
+        "statusCheck": {
+          "val": 0
         }
       },
       "ResultPath": "$.meta",
@@ -30,10 +33,26 @@
     },
     "InvalidGameServerStatus": {
       "Type": "Pass",
-        "Assign": {
-          "status": "failed",
-          "message": "Game server is not offline"
-        },
+      "Assign": {
+        "status": "failed",
+        "message": "Game server is not offline"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "GetStatusFailed": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message.$": "States.Format('Invalid server status: {}', $.commandResult.Status)"
+      },
+      "Next": "WriteToServerDDB"
+    },
+    "GetServerStatusTimeout": {
+      "Type": "Pass",
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting for server status"
+      },
       "Next": "WriteToServerDDB"
     },
     "InvalidUpdateCommandStatus": {
@@ -175,7 +194,12 @@
     },
     "WaitForCommand": {
       "Type": "Wait",
-      "Seconds": 2,
+      "Seconds": 5,
+      "Next": "GetCommandResult"
+    },
+    "WaitForCommandLong": {
+      "Type": "Wait",
+      "Seconds": 10,
       "Next": "GetCommandResult"
     },
     "GetCommandResult": {
@@ -189,18 +213,65 @@
         "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
       },
       "ResultPath": "$.commandResult",
+      "Next": "IncrementStatusCheck"
+    },
+    "IncrementStatusCheck": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.statusCheck.val, 1)"
+      },
+      "ResultPath": "$.meta.statusCheck",
       "Next": "CheckGameServerOutput"
     },
     "CheckGameServerOutput": {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$serverStatus.is_online",
-          "BooleanEquals": false,
+          "Or": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelled"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "TimedOut"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Failed"
+            },
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Cancelling"
+            }
+          ],
+          "Next": "GetStatusFailed"
+        },
+        {
+          "And": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Success"
+            },
+            {
+              "Variable": "$serverStatus.is_running",
+              "BooleanEquals": false
+            }
+          ],
           "Next": "UpdateGameServer"
+        },
+        {
+          "Variable": "$.commandResult.Status",
+          "StringEquals": "Success",
+          "Next": "InvalidGameServerStatus"
+        },
+        {
+          "Variable": "$.meta.statusCheck.val",
+          "NumericGreaterThanEquals": 6,
+          "Next": "GetServerStatusTimeout"
         }
       ],
-      "Default": "InvalidGameServerStatus"
+      "Default": "WaitForCommandLong"
     },
     "UpdateGameServer": {
       "Type": "Task",

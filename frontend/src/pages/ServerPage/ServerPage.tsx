@@ -56,7 +56,10 @@ export default function ServerPage(props: Props) {
                 (focusedServer == null ? (
                     <h2 style={{ marginBottom: "4px" }}>Loading server data...</h2>
                 ) : (
-                    <ServerAdminPanel server={focusedServer} refreshServer={props.refreshServer} servers={props.servers.data} />
+                    <>
+                        <div className="pageDivider" />
+                        <ServerAdminPanel server={focusedServer} refreshServer={props.refreshServer} servers={props.servers.data} />
+                    </>
                 ))}
         </div>
     );

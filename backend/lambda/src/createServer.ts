@@ -17,6 +17,7 @@ import { marshall } from "@aws-sdk/util-dynamodb";
 import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
 import { getImageIdFromDB } from "./initCreateServer";
+import { getGameFromDB } from "./games";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -32,9 +33,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (typeof serverName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(serverName) || serverName.length === 0) {
         return clientError("Invalid serverName");
     }
-    // TODO: validate game id against available games
     const gameId = params?.gameId;
     if (typeof gameId !== "string") {
+        return clientError("Invalid gameId");
+    }
+    const game = await getGameFromDB(gameId);
+    if (!game) {
         return clientError("Invalid gameId");
     }
     const instanceType = params?.instanceType;
@@ -78,15 +82,19 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     // Add server to DDB with conditional check
     const server: Server = {
         name: serverName,
-        ec2: {
-            status: "creating",
+        ec2: {},
+        game: {
+            id: game.id,
+            name: game.displayName,
+            messages: game.messages,
+            supportServerCommand: game.supportServerCommand,
         },
     };
     try {
         await dynamoClient.send(
             new PutItemCommand({
                 TableName: SERVER_TABLE,
-                Item: marshall(server),
+                Item: marshall(server, { removeUndefinedValues: true }),
                 ConditionExpression: "attribute_not_exists(#name)",
                 ExpressionAttributeNames: {
                     "#name": "name",
@@ -108,7 +116,6 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
-            status: "initializing",
         };
         // Update server table
         try {
@@ -228,6 +235,9 @@ const createEc2 = async (
                     },
                 },
             ],
+            CreditSpecification: {
+                CpuCredits: "standard",
+            },
             InstanceInitiatedShutdownBehavior: "stop",
             IamInstanceProfile: { Arn: EC2_PROFILE_ARN },
             TagSpecifications: [

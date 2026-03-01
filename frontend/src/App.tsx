@@ -9,15 +9,16 @@ import { useServers } from "./hooks/useServers.ts";
 import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
+import PageSelector from "./components/PageSelector/PageSelector.tsx";
 
-enum Page {
-    Servers = "Servers",
-    Users = "Users",
-    CreateServer = "CreateServer",
-}
 
-function App() {
-    const [page, setPage] = useState<Page>(Page.Servers);
+const SERVERS_PAGE = "Servers";
+const USERS_PAGE = "Users";
+const CREATE_SERVER_PAGE = "Create Server";
+const PAGES = [SERVERS_PAGE, USERS_PAGE, CREATE_SERVER_PAGE];
+
+export default function App() {
+    const [page, setPage] = useState(SERVERS_PAGE);
     const [user, setUser] = useState<User | null>(null);
     const { servers, refreshServer } = useServers(user);
     const { users, loadUsers, updateUsers } = useUsers(user);
@@ -25,7 +26,7 @@ function App() {
 
     useEffect(() => {
         if (user !== null) {
-            setPage(Page.Servers);
+            setPage(SERVERS_PAGE);
         }
     }, [user]);
 
@@ -36,29 +37,11 @@ function App() {
         <UserContext.Provider value={user}>
             <div className="app">
                 <LoggedIn clearUser={() => setUser(null)} />
-                {user.role === Role.Admin && <PageSelector current={page} onSelect={setPage} />}
-                {page === Page.Servers && <ServerPage servers={servers} refreshServer={refreshServer} />}
-                {page === Page.Users && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
-                {page === Page.CreateServer && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer}/>}
+                {user.role === Role.Admin && <PageSelector pages={PAGES}current={page} onSelect={setPage} />}
+                {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} />}
+                {page === USERS_PAGE && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
+                {page === CREATE_SERVER_PAGE && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer}/>}
             </div>
         </UserContext.Provider>
     );
 }
-
-type PageSelectorProps = {
-    current: Page;
-    onSelect: (page: Page) => void;
-};
-function PageSelector({ current, onSelect }: PageSelectorProps) {
-    return (
-        <div className="pageSelector">
-            {Object.values(Page).map((page) => (
-                <button key={page} onClick={() => onSelect(page)} disabled={current === page}>
-                    {page}
-                </button>
-            ))}
-        </div>
-    );
-}
-
-export default App;

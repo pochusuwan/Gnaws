@@ -10,170 +10,57 @@
         }
       },
       "ResultPath": "$.meta",
-      "Next": "DescribeEC2"
-    },
-    "DescribeEC2Fail": {
-      "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Could not get EC2 state"
-        }
-      },
-      "ResultPath": "$.workflowObj.val",
-      "Next": "WriteToServerDDB"
-    },
-    "InvalidEC2State": {
-      "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S.$": "States.Format('Invalid ec2 state: {}', $.ec2.Reservations[0].Instances[0].State.Name)"
-        }
-      },
-      "ResultPath": "$.workflowObj.val",
-      "Next": "WriteToServerDDB"
+      "Next": "DescribeSSM"
     },
     "DescribeSSMFail": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Could not get ssm status"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Could not get ssm status"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "InvalidSSMStatus": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
-        }
+      "Assign": {
+        "status": "failed",
+        "message.$": "States.Format('Invalid ssm status: {}', $.ssm.InstanceInformationList[0].PingStatus)"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "BackupFailed": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Failed to backup server"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Failed to backup server"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "FailBackupTimeout": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "failed"
-        },
-        "message": {
-          "S": "Timeout waiting for backup to complete"
-        }
+      "Assign": {
+        "status": "failed",
+        "message": "Timeout waiting for backup to complete"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "Success": {
       "Type": "Pass",
-      "Parameters": {
-        "currentTask": {
-          "S": "backup"
-        },
-        "executionId": {
-          "S.$": "$$.Execution.Id"
-        },
-        "lastUpdated": {
-          "S.$": "$$.State.EnteredTime"
-        },
-        "status": {
-          "S": "success"
-        },
-        "message": {
-          "S": "Backup server"
-        }
+      "Assign": {
+        "status": "success",
+        "message": "Backup server success"
       },
-      "ResultPath": "$.workflowObj.val",
       "Next": "WriteToServerDDB"
     },
     "WriteToServerDDB": {
+      "QueryLanguage": "JSONata",
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
-      "Parameters": {
-        "TableName.$": "$.serverTable",
+      "Arguments": {
+        "TableName": "{% $states.input.serverTable %}",
         "Key": {
           "name": {
-            "S.$": "$.serverName"
+            "S": "{% $states.input.serverName %}"
           }
         },
         "UpdateExpression": "SET #w = :workflowObj",
@@ -182,11 +69,25 @@
         },
         "ExpressionAttributeValues": {
           ":workflowObj": {
-            "M.$": "$.workflowObj.val"
+            "M": {
+              "currentTask": {
+                "S": "backup"
+              },
+              "executionId": {
+                "S": "{% $states.context.Execution.Id %}"
+              },
+              "status": {
+                "S": "{% $status %}"
+              },
+              "message": "{% $message ? { 'S': $message } : null %}",
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
+            }
           }
         }
       },
-      "ResultPath": "$.updateServer",
+      "Output": "{% $states.input %}",
       "Next": "RemoveLock"
     },
     "RemoveLock": {
@@ -202,48 +103,7 @@
       },
       "End": true
     },
-    "DescribeEC2": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)"
-      },
-      "ResultPath": "$.ec2",
-      "Next": "IsInstanceRunning"
-    },
-    "IsInstanceRunning": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Or": [
-            {
-              "Variable": "$.ec2.Reservations",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0]",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0].Instances",
-              "IsPresent": false
-            },
-            {
-              "Variable": "$.ec2.Reservations[0].Instances[0]",
-              "IsPresent": false
-            }
-          ],
-          "Next": "DescribeEC2Fail"
-        },
-        {
-          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
-          "StringEquals": "running",
-          "Next": "DescribeEC2SSM"
-        }
-      ],
-      "Default": "InvalidEC2State"
-    },
-    "DescribeEC2SSM": {
+    "DescribeSSM": {
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:describeInstanceInformation",
       "Parameters": {
@@ -326,8 +186,8 @@
           "Next": "BackupFailed"
         },
         {
-          "Variable": "$.commandResult.StandardOutputContent",
-          "StringMatches": "*Success\n",
+          "Variable": "$.commandResult.Status",
+          "StringMatches": "Success",
           "Next": "Success"
         },
         {

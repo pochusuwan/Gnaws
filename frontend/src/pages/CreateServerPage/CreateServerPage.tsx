@@ -72,7 +72,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
         setPorts([
             ...ports,
             {
-                port: 80,
+                port: 22,
                 protocol: Protocol.TCP,
             },
         ]);
