@@ -102,7 +102,7 @@ export class GnawsStack extends cdk.Stack {
         );
         backend.addToRolePolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:StartInstances", "ec2:StopInstances"],
+                actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:StartInstances", "ec2:StopInstances", "ec2:ModifyVolume"],
                 resources: ["*"],
                 conditions: {
                     StringEquals: {

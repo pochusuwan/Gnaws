@@ -58,9 +58,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     } catch (e) {
         return clientError("Invalid instanceType");
     }
+    // Storage size in GiB
     const storage = params?.storage;
     if (typeof storage !== "number" || storage < 4 || storage > 128) {
-        return clientError("Invalid storage");
+        return clientError("Invalid storage size");
     }
 
     if (!Array.isArray(params?.ports)) {
@@ -110,12 +111,13 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
 
     // Create EC2 with ingress rules
     const res = await createEc2(serverName, ports, instanceType, storage);
-    if (res.instanceId && res.securityGroupId && !res.errorMessage) {
+    if (res.instanceId && res.securityGroupId && res.volumeId && !res.errorMessage) {
         // Successfully create EC2. Update server item in DDB and start initialize workflow
         server.ec2 = {
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
+            volumeId: res.volumeId,
         };
         // Update server table
         try {
@@ -174,6 +176,7 @@ const createEc2 = async (
     instanceId?: string;
     securityGroupId?: string;
     errorMessage?: string;
+    volumeId?: string;
 }> => {
     let securityGroupId;
     let instanceId;
@@ -262,8 +265,9 @@ const createEc2 = async (
         if (!instanceId) {
             throw new Error("Create instance succeeded but instanceId was undefined");
         }
+        const volumeId = res.Instances?.[0]?.BlockDeviceMappings?.[0]?.Ebs?.VolumeId;
 
-        return { instanceId, securityGroupId };
+        return { instanceId, securityGroupId, volumeId };
     } catch (err: any) {
         return {
             instanceId,

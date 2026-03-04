@@ -120,7 +120,7 @@ function ServerRow(props: ServerRowProps) {
     if (server.status?.usedStorage && server.status?.totalStorage) {
         const used = parseInt(server.status?.usedStorage);
         const total = parseInt(server.status?.totalStorage);
-        storageString = "" + Math.round((used / GIB) * 100) / 100 + "/" + Math.ceil(total / GIB) + "GiB";
+        storageString = "" + Math.round((used / GIB) * 100) / 100 + "/" + Math.round((total / GIB) * 100) / 100 + "GiB";
     }
 
     return (

@@ -15,6 +15,7 @@ export type Server = {
         instanceId?: string;
         instanceType?: string;
         securityGroupId?: string;
+        volumeId?: string;
         status?: string;
         message?: string;
     };
