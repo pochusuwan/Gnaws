@@ -13,7 +13,7 @@ import {
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
-import { _InstanceType, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
+import { _InstanceType, DescribeInstancesCommand, ModifyVolumeCommand, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
 import { SendCommandCommand } from "@aws-sdk/client-ssm";
 
@@ -28,11 +28,12 @@ const ACTION_START = "start";
 const ACTION_STOP = "stop";
 const ACTION_BACKUP = "backup";
 const ACTION_UPDATE = "update";
-const ACTION_START_INSTANCE = "startinstance";
-const ACTION_STOP_INSTANCE = "stopinstance";
-const ACTION_STOP_GAME = "stopgame";
-const ACTION_SEND_SERVER_COMMAND = "sendservercommand";
-const ACTION_REMOVE_LOCK = "removelock";
+const ACTION_START_INSTANCE = "start_instance";
+const ACTION_STOP_INSTANCE = "stop_instance";
+const ACTION_STOP_GAME = "stop_game";
+const ACTION_SEND_SERVER_COMMAND = "send_server_command";
+const ACTION_REMOVE_LOCK = "remove_lock";
+const ACTION_INCREASE_STORAGE = "increase_storage";
 const ACTION_TERMINATE = "terminate";
 const SERVER_ACTIONS = [
     ACTION_START,
@@ -44,6 +45,7 @@ const SERVER_ACTIONS = [
     ACTION_STOP_GAME,
     ACTION_SEND_SERVER_COMMAND,
     ACTION_REMOVE_LOCK,
+    ACTION_INCREASE_STORAGE,
     ACTION_TERMINATE,
 ];
 
@@ -83,6 +85,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
         const lastRequested = lastRequest ? new Date(lastRequest) : undefined;
         const lastUpdated = lastUpdate ? new Date(lastUpdate) : undefined;
         const instanceId = server.ec2?.instanceId;
+        // TODO: This should not start new workflow if one is running, unless it's running for too long.
         if (
             instanceId &&
             (!lastRequested || now.getTime() - lastRequested.getTime() > GET_STATUS_TIMEOUT) &&
@@ -180,6 +183,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_SEND_SERVER_COMMAND) {
         return sendServerCommand(server, instanceId, params.command);
+    }
+    if (action === ACTION_INCREASE_STORAGE) {
+        return increaseStorage(server, params.storage);
     }
 
     // Acquire lock
@@ -385,5 +391,35 @@ const sendServerCommand = async (server: Server, instanceId: string, command: an
     } catch (e) {
         console.error(e);
         return serverError("Failed to send SSM command");
+    }
+};
+
+const increaseStorage = async (server: Server, storage: any): Promise<APIGatewayProxyResult> => {
+    // Storage size in GiB
+    if (typeof storage !== "number" || storage < 4 || storage > 128) {
+        return clientError("Invalid storage size");
+    }
+
+    try {
+        const instanceId = server.ec2?.instanceId;
+        if (!instanceId) {
+            return serverError("Missing instanceId");
+        }
+
+        const result = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
+        const volumeId = result.Reservations?.[0]?.Instances?.[0]?.BlockDeviceMappings?.[0]?.Ebs?.VolumeId;
+        if (!volumeId) {
+            return serverError("Missing volumeId");
+        }
+
+        await ec2Client.send(
+            new ModifyVolumeCommand({
+                VolumeId: volumeId,
+                Size: storage,
+            })
+        );
+        return success({ message: "Storage increase initiated" });
+    } catch (e: any) {
+        return serverError(`Failed to increase storage: ${e.message || "Unknown error"}`);
     }
 };

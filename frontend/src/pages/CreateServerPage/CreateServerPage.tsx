@@ -184,7 +184,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
                 <div>Storage:</div>
                 <input type="number" value={storage} onChange={(e) => setStorage(parseInt(e.target.value))} />
-                <div>GiB. This can be changed later.</div>
+                <div>GiB. Can be increased later but cannot be decreased.</div>
             </div>
             {ports.map((port, i) => (
                 <div className="createServerPortGrid" key={i} style={{ backgroundColor: i < selectedGame.ec2.ports.length ? "#bebebe63" : undefined }}>

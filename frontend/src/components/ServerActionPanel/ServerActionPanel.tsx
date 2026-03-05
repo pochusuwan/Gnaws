@@ -11,7 +11,7 @@ export default function ServerActionPanel(props: ServerActionPanelProps) {
     const { server, callAction } = props;
     const [command, setCommand] = useState("");
     const sendCommand = useCallback(() => {
-        callAction("SendServerCommand", false, { command });
+        callAction("Send_Server_Command", false, { command });
         setCommand("");
     }, [command, callAction]);
 
