@@ -48,7 +48,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     return (
         <div className="confirmDialogRoot" onMouseDown={() => props.onResult(null)}>
             <div onMouseDown={(e) => e.stopPropagation()} className="confirmDialog">
-                <p style={{ whiteSpace: "pre-line" }}>{message}</p>
+                <div>{message}</div>
                 {props.inputValue !== undefined && <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />}
                 <div className="confirmDialogButtons">
                     <button onClick={() => props.onResult({ input: inputValue, result: true })}>{yesMessage}</button>

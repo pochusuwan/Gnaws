@@ -111,13 +111,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
 
     // Create EC2 with ingress rules
     const res = await createEc2(serverName, ports, instanceType, storage);
-    if (res.instanceId && res.securityGroupId && res.volumeId && !res.errorMessage) {
+    if (res.instanceId && res.securityGroupId && !res.errorMessage) {
         // Successfully create EC2. Update server item in DDB and start initialize workflow
         server.ec2 = {
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
-            volumeId: res.volumeId,
         };
         // Update server table
         try {
@@ -163,6 +162,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         await cleanupResources(server, res.instanceId, res.securityGroupId, res.errorMessage);
         return serverError(`Failed to create server: ${res.errorMessage}. Successfully cleaned up resources.`);
     } catch (e) {
+        console.debug(e);
         return serverError(`Failed to create server: ${res.errorMessage}. Resource clean up needed!`);
     }
 };
@@ -176,7 +176,6 @@ const createEc2 = async (
     instanceId?: string;
     securityGroupId?: string;
     errorMessage?: string;
-    volumeId?: string;
 }> => {
     let securityGroupId;
     let instanceId;
@@ -265,9 +264,8 @@ const createEc2 = async (
         if (!instanceId) {
             throw new Error("Create instance succeeded but instanceId was undefined");
         }
-        const volumeId = res.Instances?.[0]?.BlockDeviceMappings?.[0]?.Ebs?.VolumeId;
 
-        return { instanceId, securityGroupId, volumeId };
+        return { instanceId, securityGroupId };
     } catch (err: any) {
         return {
             instanceId,

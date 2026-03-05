@@ -13,7 +13,7 @@ import {
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
-import { _InstanceType, ModifyVolumeCommand, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
+import { _InstanceType, DescribeInstancesCommand, ModifyVolumeCommand, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
 import { SendCommandCommand } from "@aws-sdk/client-ssm";
 
@@ -400,12 +400,18 @@ const increaseStorage = async (server: Server, storage: any): Promise<APIGateway
         return clientError("Invalid storage size");
     }
 
-    const volumeId = server.ec2?.volumeId;
-    if (!volumeId) {
-        return serverError("No volume ID found");
-    }
-    
     try {
+        const instanceId = server.ec2?.instanceId;
+        if (!instanceId) {
+            return serverError("Missing instanceId");
+        }
+
+        const result = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
+        const volumeId = result.Reservations?.[0]?.Instances?.[0]?.BlockDeviceMappings?.[0]?.Ebs?.VolumeId;
+        if (!volumeId) {
+            return serverError("Missing volumeId");
+        }
+
         await ec2Client.send(
             new ModifyVolumeCommand({
                 VolumeId: volumeId,

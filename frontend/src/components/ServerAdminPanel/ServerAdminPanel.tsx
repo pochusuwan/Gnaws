@@ -135,7 +135,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {terminateOpen && (
                 <ConfirmDialog
                     message={
-                        "Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."
+                        <p style={{ whiteSpace: "pre-line" }}>{"Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."}</p>
                     }
                     yesMessage="Delete"
                     noMessage="Cancel"
