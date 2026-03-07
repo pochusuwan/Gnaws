@@ -13,9 +13,17 @@
         ]
     },
     "supportServerCommand": true,
-    "termsOfService": [{
-        "name": "Minecraft EULA",
-        "url": "https://aka.ms/MinecraftEULA",
-        "type": "checkbox"
-    }]
+    "termsOfService": [
+        {
+            "name": "Minecraft EULA",
+            "url": "https://aka.ms/MinecraftEULA",
+            "type": "checkbox"
+        }
+    ],
+    "messages": [
+        {
+            "type": "info",
+            "text": "You're setting up a Vanilla server. For better performance and lower hosting costs, we recommend Minecraft - Paper, a highly optimized Minecraft server that is fully compatible with Vanilla worlds and clients."
+        }
+    ]
 }
