@@ -58,9 +58,10 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     } catch (e) {
         return clientError("Invalid instanceType");
     }
+    // Storage size in GiB
     const storage = params?.storage;
     if (typeof storage !== "number" || storage < 4 || storage > 128) {
-        return clientError("Invalid storage");
+        return clientError("Invalid storage size");
     }
 
     if (!Array.isArray(params?.ports)) {
@@ -161,6 +162,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         await cleanupResources(server, res.instanceId, res.securityGroupId, res.errorMessage);
         return serverError(`Failed to create server: ${res.errorMessage}. Successfully cleaned up resources.`);
     } catch (e) {
+        console.debug(e);
         return serverError(`Failed to create server: ${res.errorMessage}. Resource clean up needed!`);
     }
 };

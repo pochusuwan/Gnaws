@@ -58,7 +58,7 @@
     "Success": {
       "Type": "Pass",
       "Assign": {
-        "status": "failed",
+        "status": "success",
         "message": "Stopped game server"
       },
       "Next": "WriteToServerDDB"

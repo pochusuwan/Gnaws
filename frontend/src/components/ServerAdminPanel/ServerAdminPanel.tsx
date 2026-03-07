@@ -12,6 +12,7 @@ const INSTANCE_ACTION = "Instance Action";
 const SERVER_ACTION = "Server Action";
 const SERVER_DATA = "Server Data";
 const PAGES = [INSTANCE_ACTION, SERVER_ACTION, SERVER_DATA];
+const STORAGE_COST_PER_GIB_PER_MONTH = 0.08;
 
 type ServerAdminPanelProps = {
     servers: Server[];
@@ -29,9 +30,11 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const { open: terminateOpen, onResult: terminateResult, confirm: terminateConfirm } = useConfirm();
     // Stop instance action dialog
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
+    // Increase storage dialog
+    const { open: increaseStorageOpen, onResult: increaseStorageResult, confirm: increaseStorageConfirm } = useConfirm();
 
     const callAction = useCallback(
-        (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string }) => {
+        (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
             if (server !== null) {
                 lastAction.current = { action, refreshAfterSuccess };
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
@@ -44,9 +47,30 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const callStopInstance = useCallback(async () => {
         const result = await stopInstanceConfirm();
         if (result?.result) {
-            callAction("StopInstance", true);
+            callAction("Stop_Instance", true);
         }
     }, [server, callAction]);
+
+    const callIncreaseStorage = useCallback(async () => {
+        const result = await increaseStorageConfirm();
+        if (result?.result) {
+            const newSize = parseInt(result?.input ?? "");
+            if (isNaN(newSize)) {
+                setMessage("Invalid storage size.");
+            } else {
+                callAction("Increase_Storage", false, { storage: newSize });
+            }
+        }
+    }, [server, callAction]);
+    const buildStorageConfirmationMessage = useCallback((input: string) => {
+        const num = parseInt(input);
+        const message = isNaN(num) ? "Invalid storage size." : `Estimated cost: $${num * STORAGE_COST_PER_GIB_PER_MONTH}/month (may be outdated).`; 
+        return <div>
+            <div>See pricing details <a href="https://aws.amazon.com/ebs/pricing/" target="_blank" rel="noopener noreferrer">here</a></div>
+            <div>Enter new storage size in GiB.</div>
+            <div>{message}</div>
+        </div>
+    }, []);
 
     const callTerminateAction = useCallback(async () => {
         const result = await terminateConfirm();
@@ -96,6 +120,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                     inProgress={inProgress}
                     callAction={callAction}
                     callStopInstance={callStopInstance}
+                    callIncreaseStorage={callIncreaseStorage}
                     callTerminateAction={callTerminateAction}
                 />
             )}
@@ -110,12 +135,21 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {terminateOpen && (
                 <ConfirmDialog
                     message={
-                        "Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."
+                        <p style={{ whiteSpace: "pre-line" }}>{"Are you sure you want to terminate this server? This will delete the server and cannot be undone.\nYou should create backup before terminating.\nEnter server name to confirm."}</p>
                     }
                     yesMessage="Delete"
                     noMessage="Cancel"
                     onResult={terminateResult}
-                    inputValue
+                    inputValue={""}
+                />
+            )}
+            {increaseStorageOpen && (
+                <ConfirmDialog
+                    message={buildStorageConfirmationMessage}
+                    yesMessage="Confirm"
+                    noMessage="Cancel"
+                    onResult={increaseStorageResult}
+                    inputValue={""}
                 />
             )}
         </div>
@@ -126,23 +160,24 @@ type InstanceActionProps = {
     inProgress: boolean;
     callAction: (action: string, refreshAfterSuccess: boolean) => void;
     callStopInstance: () => void;
+    callIncreaseStorage: () => void;
     callTerminateAction: () => void;
 };
 function InstanceActionButtons(props: InstanceActionProps) {
-    const { inProgress, callAction, callStopInstance, callTerminateAction } = props;
+    const { inProgress, callAction, callStopInstance, callIncreaseStorage, callTerminateAction } = props;
     return (
         <div className="serverAdminPanelButtonGrid">
             <Button
                 disabled={inProgress}
                 label="Start Instance"
                 description="Start EC2 instance without starting the game server."
-                onClick={() => callAction("StartInstance", true)}
+                onClick={() => callAction("Start_Instance", true)}
             />
             <Button
                 disabled={inProgress}
                 label="Stop Game Server"
                 description="Stop game server without stopping the EC2 instance."
-                onClick={() => callAction("StopGame", true)}
+                onClick={() => callAction("Stop_Game", true)}
             />
             <Button
                 disabled={inProgress}
@@ -164,9 +199,15 @@ function InstanceActionButtons(props: InstanceActionProps) {
             />
             <Button
                 disabled={inProgress}
+                label="Increase Storage"
+                description="Storage has a continuous cost even when the server is offline. Once increased, storage size cannot be decreased. After increasing, you must wait at least 15 minutes and restart the instance to apply the changes."
+                onClick={callIncreaseStorage}
+            />
+            <Button
+                disabled={inProgress}
                 label="Remove workflow lock"
                 description="Clear the workflow lock if the server is stuck after a failed action. The lock prevents multiple operations from running at once. Removing it does not change the server state."
-                onClick={() => callAction("RemoveLock", false)}
+                onClick={() => callAction("Remove_Lock", false)}
             />
             <Button
                 disabled={inProgress}

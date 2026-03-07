@@ -1,6 +1,6 @@
 {
-    "id": "minecraft",
-    "displayName": "Minecraft",
+    "id": "minecraft_paper",
+    "displayName": "Minecraft - Paper",
     "ec2": {
         "instanceType": "t3a.large",
         "minimumInstanceType": "t3a.medium",
