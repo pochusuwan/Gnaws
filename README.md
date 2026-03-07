@@ -10,7 +10,7 @@ Running a game server has always been a pain:
 
 | Problem | Traditional Fix | Gnaws |
 |---|---|---|
-| Your PC has to stay on 24/7 | Rent a server for ~$20–50/month | EC2 runs only when playing |
+| Your PC has to stay on 24/7 | Rent a server for ~$20–50/month | EC2 runs only when playing. A t3.large EC2 running 21 hours/week cost about $6-7/month |
 | Friends can't start the server without you | Pay for always-on hosting | Friends can start/stop via simple webpage |
 | Rented servers are slow or overpriced | Hope for the best | Your own dedicated EC2 — pick your instance type |
 | Setup takes hours | Watch a 40-min YouTube tutorial | Deploy supported games in minutes |

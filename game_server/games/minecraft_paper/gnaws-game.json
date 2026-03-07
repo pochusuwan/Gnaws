@@ -1,0 +1,23 @@
+{
+    "id": "minecraft_paper",
+    "displayName": "Minecraft - Paper",
+    "ec2": {
+        "instanceType": "t3a.medium",
+        "minimumInstanceType": "t3a.small",
+        "storage": 8,
+        "ports": [
+            {
+                "port": 25565,
+                "protocol": "tcp"
+            }
+        ]
+    },
+    "supportServerCommand": true,
+    "termsOfService": [
+        {
+            "name": "Minecraft EULA",
+            "url": "https://aka.ms/MinecraftEULA",
+            "type": "checkbox"
+        }
+    ]
+}
