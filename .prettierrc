@@ -9,5 +9,13 @@
     "bracketSpacing": true,
     "bracketSameLine": false,
     "arrowParens": "always",
-    "endOfLine": "lf"
+    "endOfLine": "lf",
+    "overrides": [
+        {
+            "files": ["*.yml", "*.yaml"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
 }
