@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ServerTable from "../../components/ServerTable/ServerTable";
-import { Role, type NetworkDataState, type Server } from "../../types";
+import { type NetworkDataState, type Server } from "../../types";
 import "./ServerPage.css";
 import ServerAdminPanel from "../../components/ServerAdminPanel/ServerAdminPanel";
 import { useUser } from "../../hooks/useUser";
+import { hasAdminPermission } from "../../utils";
 
 type Props = {
     servers: NetworkDataState<Server[]>;
@@ -51,7 +52,7 @@ export default function ServerPage(props: Props) {
     return (
         <div className="serverPage">
             <ServerTable servers={props.servers.data} refreshServer={props.refreshServer} setFocusedServer={setFocusedServerName} />
-            {userRole === Role.Admin &&
+            {hasAdminPermission(userRole) &&
                 focusedServerName !== null &&
                 (focusedServer == null ? (
                     <h2 style={{ marginBottom: "4px" }}>Loading server data...</h2>

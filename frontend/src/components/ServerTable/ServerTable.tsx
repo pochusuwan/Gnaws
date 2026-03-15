@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useApiCall from "../../hooks/useApiCall";
-import { GIB, HOUR_IN_MS, Role, type Server } from "../../types";
+import { GIB, HOUR_IN_MS, type Server } from "../../types";
 import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import { useUser } from "../../hooks/useUser";
-import { serverHasRunningTask, serverRefreshingStatus } from "../../utils";
+import { hasUserPermission, serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 
 type ServerTableProps = {
     servers: Server[];
@@ -134,7 +134,7 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={storageString} />
             <Cell value={timeSinceBackup} />
             <td>
-                {userRole === Role.Admin || userRole === Role.Manager ? (
+                {hasUserPermission(userRole) ? (
                     <div className="actionRow">
                         {Object.values(ServerAction).map((action) => (
                             <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>

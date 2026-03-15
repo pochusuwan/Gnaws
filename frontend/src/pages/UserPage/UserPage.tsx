@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Role, type NetworkDataState, type User } from "../../types";
 import "./UserPage.css";
 import { useUser } from "../../hooks/useUser";
-
-const ADMIN_USER = "admin";
+import { hasAdminPermission, hasOwnerPermission } from "../../utils";
 
 type UserPageProps = {
     users: NetworkDataState<User[]>;
@@ -14,18 +13,18 @@ type UserPageProps = {
 export default function UserPage(props: UserPageProps) {
     const userRole = useUser().role;
     const [editingUsers, setEditingUsers] = useState<{ [username: string]: Role }>({});
-    const [adminUser, setAdminUser] = useState<User | undefined>(undefined);
+    const [ownerUser, setOwnerUser] = useState<User | undefined>(undefined);
     const [updateUsersMessage, setUpdateUsersMessage] = useState("");
     useEffect(() => {
-        if (userRole === Role.Admin) {
+        if (hasAdminPermission(userRole)) {
             props.loadUsers();
         }
     }, [userRole, props.loadUsers]);
 
     useEffect(() => {
         if (props.users.state === "Loaded") {
-            const admin = props.users.data.find((user) => user.username === ADMIN_USER);
-            setAdminUser(admin);
+            const owner = props.users.data.find((user) => hasOwnerPermission(user.role));
+            setOwnerUser(owner);
         }
     }, [props.users]);
 
@@ -52,7 +51,7 @@ export default function UserPage(props: UserPageProps) {
         }
     }, [props.updateUsers, editingUsers]);
 
-    if (userRole !== Role.Admin) {
+    if (!hasAdminPermission(userRole)) {
         return <div>No permission</div>;
     }
 
@@ -66,9 +65,9 @@ export default function UserPage(props: UserPageProps) {
 
     return (
         <div className="userTable">
-            {adminUser && <UserRow user={adminUser} disabled />}
+            {ownerUser && <UserRow user={ownerUser} disabled />}
             {props.users.data
-                .filter((user) => user.username !== ADMIN_USER)
+                .filter((user) => !hasOwnerPermission(user.role))
                 .map((user) => (
                     <UserRow key={user.username} user={user} onUpdate={onUpdate} editting={editingUsers[user.username] !== undefined} />
                 ))}
@@ -100,7 +99,7 @@ function UserRow(props: RowProps) {
         <div className="userRow" style={{ backgroundColor: props.editting ? "lightgreen" : "transparent" }}>
             <div>{props.user.username}</div>
             <select defaultValue={props.user.role} onChange={onChange} disabled={props.disabled}>
-                {Object.values(Role).map((role) => (
+                {Object.values(Role).filter((role) => role !== Role.Owner).map((role) => (
                     <option key={role} value={role}>
                         {role}
                     </option>

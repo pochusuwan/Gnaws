@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from "aws-lambda/trigger/api-gateway-proxy";
-import { ROLE_ADMIN, User } from "./users";
+import { ROLE_ADMIN, ROLE_OWNER, User } from "./users";
 import {
     _InstanceType,
     DeleteSecurityGroupCommand,
@@ -25,7 +25,7 @@ const EC2_PROFILE_ARN = process.env.EC2_PROFILE_ARN!;
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 
 export const createServer = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
-    if (user.role !== ROLE_ADMIN) {
+    if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
         return forbidden();
     }
     // Validate params

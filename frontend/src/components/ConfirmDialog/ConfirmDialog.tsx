@@ -33,6 +33,7 @@ type ConfirmDialogProps = {
     noMessage?: string;
     inputValue?: string;
     onResult: (result: ConfirmResult) => void;
+    isPassword?: boolean;
 };
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
@@ -49,7 +50,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         <div className="confirmDialogRoot" onMouseDown={() => props.onResult(null)}>
             <div onMouseDown={(e) => e.stopPropagation()} className="confirmDialog">
                 <div>{message}</div>
-                {props.inputValue !== undefined && <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />}
+                {props.inputValue !== undefined && <input type={props.isPassword ? "password" : "text"} value={inputValue} onChange={(e) => setInputValue(e.target.value)} />}
                 <div className="confirmDialogButtons">
                     <button onClick={() => props.onResult({ input: inputValue, result: true })}>{yesMessage}</button>
                     <button onClick={() => props.onResult({ input: inputValue, result: false })}>{noMessage}</button>

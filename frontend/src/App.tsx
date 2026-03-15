@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { Role, type User } from "./types";
+import { type User } from "./types";
 import LoginForm, { LoggedIn } from "./components/Login/Login.tsx";
 import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
@@ -10,6 +10,7 @@ import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
 import PageSelector from "./components/PageSelector/PageSelector.tsx";
+import { hasAdminPermission } from "./utils.ts";
 
 
 const SERVERS_PAGE = "Servers";
@@ -37,7 +38,7 @@ export default function App() {
         <UserContext.Provider value={user}>
             <div className="app">
                 <LoggedIn clearUser={() => setUser(null)} />
-                {user.role === Role.Admin && <PageSelector pages={PAGES}current={page} onSelect={setPage} />}
+                {hasAdminPermission(user.role) && <PageSelector pages={PAGES}current={page} onSelect={setPage} />}
                 {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} />}
                 {page === USERS_PAGE && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
                 {page === CREATE_SERVER_PAGE && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer}/>}

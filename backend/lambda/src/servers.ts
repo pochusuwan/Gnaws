@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from "aws-lambda/trigger/api-gateway-proxy";
-import { ROLE_ADMIN, ROLE_MANAGER, User } from "./users";
+import { ROLE_ADMIN, ROLE_OWNER, ROLE_USER, User } from "./users";
 import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { dynamoClient, ec2Client, ssmClient } from "./clients";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
@@ -35,19 +35,22 @@ const ACTION_SEND_SERVER_COMMAND = "send_server_command";
 const ACTION_REMOVE_LOCK = "remove_lock";
 const ACTION_INCREASE_STORAGE = "increase_storage";
 const ACTION_TERMINATE = "terminate";
-const SERVER_ACTIONS = [
-    ACTION_START,
-    ACTION_STOP,
-    ACTION_BACKUP,
-    ACTION_UPDATE,
-    ACTION_START_INSTANCE,
-    ACTION_STOP_INSTANCE,
-    ACTION_STOP_GAME,
-    ACTION_SEND_SERVER_COMMAND,
-    ACTION_REMOVE_LOCK,
-    ACTION_INCREASE_STORAGE,
-    ACTION_TERMINATE,
-];
+
+const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
+const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
+const SERVER_ACTIONS: {[action: string]: string[]} = {
+    ACTION_START: ALL_USERS,
+    ACTION_STOP: ALL_USERS,
+    ACTION_BACKUP: ADMIN_USERS,
+    ACTION_UPDATE: ADMIN_USERS,
+    ACTION_START_INSTANCE: ADMIN_USERS,
+    ACTION_STOP_INSTANCE: ADMIN_USERS,
+    ACTION_STOP_GAME: ADMIN_USERS,
+    ACTION_SEND_SERVER_COMMAND: ADMIN_USERS,
+    ACTION_REMOVE_LOCK: ADMIN_USERS,
+    ACTION_INCREASE_STORAGE: ADMIN_USERS,
+    ACTION_TERMINATE: ADMIN_USERS,
+};
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     const refreshStatus = !!params?.refreshStatus;
@@ -150,11 +153,11 @@ const getServerFromDB = async (name: string): Promise<Server | null> => {
 };
 
 export const serverAction = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
-    if (user.role !== ROLE_ADMIN && user.role !== ROLE_MANAGER) {
-        return forbidden();
-    }
-    if (typeof params.serverName !== "string" || typeof params.action !== "string" || !SERVER_ACTIONS.includes(params.action)) {
+    if (typeof params.serverName !== "string" || typeof params.action !== "string") {
         return clientError("Invalid request");
+    }
+    if (SERVER_ACTIONS[params.action]?.includes(user.role) !== true) {
+        return forbidden();
     }
     const serverName = params.serverName;
     const action = params.action;
