@@ -7,8 +7,6 @@ on:
       - develop
     paths:
       - "game_server/**"
-    paths-ignore:
-      - "version.json"
 
 jobs:
   release:
