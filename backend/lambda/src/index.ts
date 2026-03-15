@@ -5,6 +5,7 @@ import { getUsers, updateUsers } from "./users";
 import { getServers, serverAction } from "./servers";
 import { createServer } from "./createServer";
 import { initCreateServer } from "./initCreateServer";
+import { invalidCredential, serverError } from "./util";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -41,12 +42,15 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     // All other request require valid JWT
-    const user = await getUserFromJwt(event.cookies);
+    let user;
+    try {
+        user = await getUserFromJwt(event.cookies);
+    } catch (e: any) {
+        console.error(`Failed to get user from JWT: ${e.message}`);
+        return serverError("Internal server error");
+    }
     if (!user) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({ error: "Invalid credentials" }),
-        };
+        return invalidCredential();
     }
     if (requestType === GET_USERS_TYPE) {
         return await getUsers(user, params);

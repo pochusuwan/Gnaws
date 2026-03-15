@@ -48,6 +48,7 @@ export const useUsers = (user: User | null) => {
 
     useEffect(() => {
         if (user === null) {
+            initialized.current = false;
             setUsers(loadingState());
         }
     }, [user]);

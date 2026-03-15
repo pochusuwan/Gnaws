@@ -1,4 +1,4 @@
-import type { Server } from "./types";
+import { Role, type Server } from "./types";
 
 export function serverRefreshingStatus(server: Server): boolean {
     const statusLastRequest = server.status?.lastRequest;
@@ -17,4 +17,16 @@ export function serverRefreshingStatus(server: Server): boolean {
 
 export function serverHasRunningTask(server: Server): boolean {
     return server.workflow?.status === "running";
+}
+
+export function hasUserPermission(role: Role): boolean {
+    return role === Role.User || role === Role.Admin || role === Role.Owner;
+}
+
+export function hasAdminPermission(role: Role): boolean {
+    return role === Role.Admin || role === Role.Owner;
+}
+
+export function hasOwnerPermission(role: Role): boolean {
+    return role === Role.Owner;
 }

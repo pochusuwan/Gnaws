@@ -4,9 +4,10 @@ import { dynamoClient } from "./clients";
 
 const USER_TABLE = process.env.USER_TABLE_NAME!;
 export const ROLE_NEW = "new";
-export const ROLE_MANAGER = "manager";
+export const ROLE_USER = "user";
 export const ROLE_ADMIN = "admin";
-const ROLES = [ROLE_NEW, ROLE_MANAGER, ROLE_ADMIN];
+export const ROLE_OWNER = "owner";
+const ROLES = [ROLE_NEW, ROLE_USER, ROLE_ADMIN, ROLE_OWNER];
 
 export type User = {
     username: string;
@@ -14,7 +15,7 @@ export type User = {
 };
 
 export const getUsers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
-    if (user.role !== ROLE_ADMIN) {
+    if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
         return {
             statusCode: 403,
             body: JSON.stringify({ error: "Forbidden" }),
@@ -35,7 +36,7 @@ export const getUsers = async (user: User, params: any): Promise<APIGatewayProxy
     const users =
         result.Items?.map((item) => ({
             username: item.username.S!,
-            role: item.role?.S || "ROLE_NEW",
+            role: item.role?.S || ROLE_NEW,
         })) || [];
 
     return {
@@ -44,50 +45,27 @@ export const getUsers = async (user: User, params: any): Promise<APIGatewayProxy
     };
 };
 
-export const getOrCreateUser = async (username: string): Promise<User | null> => {
-    try {
-        await dynamoClient.send(
-            new PutItemCommand({
-                TableName: USER_TABLE,
-                Item: {
-                    username: { S: username },
-                    role: { S: ROLE_NEW },
-                },
-                ConditionExpression: "attribute_not_exists(username)",
-            })
-        );
+export async function createUser(username: string): Promise<User> {
+    await dynamoClient.send(
+        new PutItemCommand({
+            TableName: USER_TABLE,
+            Item: {
+                username: { S: username },
+                role: { S: ROLE_NEW },
+            },
+            ConditionExpression: "attribute_not_exists(username)",
+        }),
+    );
 
-        return { username, role: ROLE_NEW };
-    } catch (err: any) {
-        if (err.name !== "ConditionalCheckFailedException") {
-            return null;
-        }
-
-        const result = await dynamoClient.send(
-            new GetItemCommand({
-                TableName: USER_TABLE,
-                Key: { username: { S: username } },
-            })
-        );
-
-        // User disappear. Should not happen. Just return null
-        if (!result.Item) {
-            return null;
-        }
-
-        return {
-            username: result.Item.username.S!,
-            role: result.Item.role?.S ?? ROLE_NEW,
-        };
-    }
-};
+    return { username, role: ROLE_NEW };
+}
 
 export const getUserFromDB = async (username: string): Promise<User | null> => {
     const result = await dynamoClient.send(
         new GetItemCommand({
             TableName: USER_TABLE,
             Key: { username: { S: username } },
-        })
+        }),
     );
 
     if (!result.Item) {
@@ -101,7 +79,7 @@ export const getUserFromDB = async (username: string): Promise<User | null> => {
 };
 
 export const updateUsers = async (requestUser: User, params: any): Promise<APIGatewayProxyResult> => {
-    if (requestUser.role !== ROLE_ADMIN) {
+    if (requestUser.role !== ROLE_ADMIN && requestUser.role !== ROLE_OWNER) {
         return {
             statusCode: 403,
             body: JSON.stringify({ error: "Forbidden" }),
@@ -115,7 +93,16 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
     }
     const users = params.users
         .map((user: any) => {
-            if (typeof user?.username === "string" && typeof user?.role === "string" && ROLES.includes(user.role) && user.username != requestUser.username) {
+            if (
+                typeof user?.username === "string" &&
+                typeof user?.role === "string" &&
+                ROLES.includes(user.role) &&
+                // Cannot change anyone else to owner
+                user.role !== ROLE_OWNER &&
+                // Cannot change self role
+                user.username != requestUser.username
+                // TODO: cannot change owner role
+            ) {
                 return {
                     username: user.username,
                     role: user.role,
@@ -123,7 +110,7 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
             }
             return null;
         })
-        .filter((u: User | null) => u !== null && u.username !== "admin") as User[];
+        .filter((u: User | null) => u !== null) as User[];
     if (users.length === 0) {
         return {
             statusCode: 400,
@@ -146,8 +133,8 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
                     ExpressionAttributeValues: {
                         ":role": { S: user.role },
                     },
-                })
-            )
+                }),
+            ),
         );
 
         const results = await Promise.allSettled(updates);

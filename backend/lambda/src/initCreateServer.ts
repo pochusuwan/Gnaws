@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from "aws-lambda";
 import { forbidden, serverError, success } from "./util";
-import { ROLE_ADMIN, User } from "./users";
+import { ROLE_ADMIN, ROLE_OWNER, User } from "./users";
 import { dynamoClient, ec2Client } from "./clients";
 import { GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { DescribeImagesCommand } from "@aws-sdk/client-ec2";
@@ -13,7 +13,7 @@ const GET_AMAZON_IMAGE_RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 const LOCK_EXPIRE = 20 * 1000;
 
 export async function initCreateServer(user: User, params: any): Promise<APIGatewayProxyResult> {
-    if (user.role !== ROLE_ADMIN) {
+    if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
         return forbidden();
     }
 

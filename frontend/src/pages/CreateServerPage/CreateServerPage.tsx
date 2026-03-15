@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "../../hooks/useUser";
-import { Protocol, Role, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
+import { Protocol, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
 import type { GamesData } from "../../hooks/useGames";
 import "./CreateServerPage.css";
 import useApiCall from "../../hooks/useApiCall";
+import { hasAdminPermission } from "../../utils";
 
 type CreateServerPageProps = {
     games: NetworkDataState<GamesData>;
@@ -34,7 +35,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
     // Load games on page load
     useEffect(() => {
-        if (userRole === Role.Admin) {
+        if (hasAdminPermission(userRole)) {
             props.loadGames();
         }
     }, [userRole, props.loadGames]);
@@ -149,7 +150,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
         }
     }, [createServerResponse, props.games, props.refreshServer]);
 
-    if (userRole !== Role.Admin) {
+    if (!hasAdminPermission(userRole)) {
         return <div>No permission</div>;
     }
     if (props.games.state === "Error") return <div>Failed to load games: {props.games.error}</div>;

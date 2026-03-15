@@ -5,7 +5,6 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
@@ -15,21 +14,22 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import * as crypto from "crypto";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
     cloudFrontDomainName?: string; // e.g. games.example.com
     cloudFrontCertArn?: string; // ACM cert ARN in us-east-1
+    ownerUsername?: string;
 }
 
 export class GnawsStack extends cdk.Stack {
     // Storage
-    private serverManagerPassword: secretsmanager.Secret;
-    private jwtSecret: secretsmanager.Secret;
     private userTable: dynamodb.Table;
     private serverTable: dynamodb.Table;
     private workflowTable: dynamodb.Table;
     private gameTable: dynamodb.Table;
+    private secretTable: dynamodb.Table;
     private backupBucket: s3.Bucket;
     // Frontend
     private websiteBucket: s3.Bucket;
@@ -53,7 +53,7 @@ export class GnawsStack extends cdk.Stack {
 
     constructor(scope: Construct, id: string, props?: GnawsStackProps) {
         super(scope, id, props);
-        this.buildStorage();
+        this.buildStorage(props?.ownerUsername);
         this.buildFrontend(props);
         this.buildWorkflows();
         this.buildNetwork();
@@ -72,8 +72,7 @@ export class GnawsStack extends cdk.Stack {
                 SERVER_TABLE_NAME: this.serverTable.tableName,
                 WORKFLOW_TABLE_NAME: this.workflowTable.tableName,
                 GAME_TABLE_NAME: this.gameTable.tableName,
-                SERVER_MANAGER_PASSWORD: this.serverManagerPassword.secretArn,
-                JWT_SECRET: this.jwtSecret.secretArn,
+                SECRET_TABLE_NAME: this.secretTable.tableName,
                 START_SERVER_FUNCTION_ARN: this.startServerFunction.stateMachineArn,
                 STOP_SERVER_FUNCTION_ARN: this.stopServerFunction.stateMachineArn,
                 BACKUP_SERVER_FUNCTION_ARN: this.backupServerFunction.stateMachineArn,
@@ -135,12 +134,11 @@ export class GnawsStack extends cdk.Stack {
                 resources: [this.ec2Role.roleArn],
             }),
         );
-        this.serverManagerPassword.grantRead(backend);
-        this.jwtSecret.grantRead(backend);
         this.userTable.grantFullAccess(backend);
         this.serverTable.grantFullAccess(backend);
         this.workflowTable.grantFullAccess(backend);
         this.gameTable.grantFullAccess(backend);
+        this.secretTable.grantFullAccess(backend);
         this.startServerFunction.grantStartExecution(backend);
         this.stopServerFunction.grantStartExecution(backend);
         this.backupServerFunction.grantStartExecution(backend);
@@ -252,16 +250,7 @@ export class GnawsStack extends cdk.Stack {
         });
     }
 
-    private buildStorage() {
-        this.serverManagerPassword = new secretsmanager.Secret(this, "GnawsServerManagerPassword", {
-            secretStringValue: cdk.SecretValue.unsafePlainText("pass121"),
-        });
-        this.jwtSecret = new secretsmanager.Secret(this, "GnawsJwtSigningSecret", {
-            generateSecretString: {
-                passwordLength: 64,
-                excludePunctuation: true,
-            },
-        });
+    private buildStorage(ownerUsername?: string) {
         this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
         });
@@ -274,23 +263,70 @@ export class GnawsStack extends cdk.Stack {
         this.gameTable = new dynamodb.Table(this, "GnawsGameTable", {
             partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
         });
+        this.secretTable = new dynamodb.Table(this, "GnawsSecretTable", {
+            partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+        });
 
-        // Create initial admin user
-        new cr.AwsCustomResource(this, "GnawsInitialAdminUser", {
+        // Create owner
+        if (ownerUsername !== undefined) {
+            new cr.AwsCustomResource(this, "GnawsOwner", {
+                onCreate: {
+                    service: "DynamoDB",
+                    action: "putItem",
+                    parameters: {
+                        TableName: this.userTable.tableName,
+                        Item: {
+                            username: { S: ownerUsername },
+                            role: { S: "owner" },
+                        },
+                        ConditionExpression: "attribute_not_exists(username)",
+                    },
+                    ignoreErrorCodesMatching: "ConditionalCheckFailedException",
+                    physicalResourceId: cr.PhysicalResourceId.of("GnawsOwner"),
+                },
+                policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+                    resources: [this.userTable.tableArn],
+                }),
+            });
+        }
+        // Create 4-digit invite code
+        const inviteCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+        new cr.AwsCustomResource(this, "GnawsInviteCode", {
             onCreate: {
                 service: "DynamoDB",
                 action: "putItem",
                 parameters: {
-                    TableName: this.userTable.tableName,
+                    TableName: this.secretTable.tableName,
                     Item: {
-                        username: { S: "admin" },
-                        role: { S: "admin" },
+                        id: { S: "INVITE_CODE" },
+                        value: { S: inviteCode },
                     },
+                    ConditionExpression: "attribute_not_exists(id)",
                 },
-                physicalResourceId: cr.PhysicalResourceId.of("GnawsSeedAdminUser"),
+                ignoreErrorCodesMatching: "ConditionalCheckFailedException",
+                physicalResourceId: cr.PhysicalResourceId.of("GnawsInviteCode"),
             },
             policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
-                resources: [this.userTable.tableArn],
+                resources: [this.secretTable.tableArn],
+            }),
+        });
+        new cr.AwsCustomResource(this, "GnawsJwtSecret", {
+            onCreate: {
+                service: "DynamoDB",
+                action: "putItem",
+                parameters: {
+                    TableName: this.secretTable.tableName,
+                    Item: {
+                        id: { S: "JWT_SECRET" },
+                        value: { S: crypto.randomBytes(32).toString("hex") },
+                    },
+                    ConditionExpression: "attribute_not_exists(id)",
+                },
+                ignoreErrorCodesMatching: "ConditionalCheckFailedException",
+                physicalResourceId: cr.PhysicalResourceId.of("GnawsJwtSecret"),
+            },
+            policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+                resources: [this.secretTable.tableArn],
             }),
         });
         // Create backup S3 bucket
