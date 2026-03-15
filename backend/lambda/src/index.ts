@@ -1,11 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
-import { getUsers, updateUsers } from "./users";
+import { getUsers, ROLE_ADMIN, ROLE_OWNER, updateUsers } from "./users";
 import { getServers, serverAction } from "./servers";
 import { createServer } from "./createServer";
 import { initCreateServer } from "./initCreateServer";
 import { invalidCredential, serverError } from "./util";
+import { getLatestVersionNumber } from "./versioning";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -51,6 +52,14 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (!user) {
         return invalidCredential();
+    }
+    // Check versions on admin or owner activity. Ignore any error and proceed with rest of call
+    if (user.role === ROLE_OWNER || user.role === ROLE_ADMIN) {
+        try {
+            await getLatestVersionNumber();
+        } catch (e: any) {
+            console.error(`Failed update versions data: ${e.message}`);
+        }
     }
     if (requestType === GET_USERS_TYPE) {
         return await getUsers(user, params);
