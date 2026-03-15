@@ -11,7 +11,7 @@ VERSIONS=$(curl -s -H "User-Agent: $USER_AGENT" https://fill.papermc.io/v3/proje
     jq -r '.versions | to_entries[] | .value[]' | \
     sort -V -r)
 
-# Iterate through versions to find one with a stable build
+# Iterate through versions to find a stable build
 for VERSION in $VERSIONS; do
     VERSION_BUILDS=$(curl -s -H "User-Agent: $USER_AGENT" https://fill.papermc.io/v3/projects/${PROJECT}/versions/${VERSION}/builds)
 
