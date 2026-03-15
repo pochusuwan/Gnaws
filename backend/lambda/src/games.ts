@@ -3,16 +3,16 @@ import { pipeline } from "stream/promises";
 import * as tar from "tar";
 import { Game, Message, Port, TermsOfService } from "./types";
 import { dynamoClient } from "./clients";
-import { BatchWriteItemCommand, GetItemCommand, PutItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { BatchWriteItemCommand, GetItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { getLatestGamesVersion } from "./versioning";
 
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const GAME_TABLE = process.env.GAME_TABLE_NAME!;
 const GET_GAMES_RESOURCE_ID = "GET_GAMES";
-const GET_GAMES_TIMEOUT_MS = 60 * 60 * 1000;
-const FAILED_STATUS = "Failed";
+const GET_GAMES_LOCK_EXPIRE_MS = 5 * 60 * 1000;
+const GET_GAMES_RATE_LIMIT_MS = 6 * 60 * 60 * 1000;
 
-const LATEST_RELEASE_URL = "https://api.github.com/repos/pochusuwan/Gnaws/releases/latest";
 const download_url = (releaseTag: string) => `https://github.com/pochusuwan/Gnaws/releases/download/${releaseTag}/game_server.tar.gz`;
 const TAR_PATH = "/tmp/gnaws.tar.gz";
 const CONTENT_PATH = "/tmp/gnaws";
@@ -23,40 +23,51 @@ const HEADERS = {
 
 export async function getGames(): Promise<{ games?: Game[]; message?: string }> {
     // Fetch games list and sync to DDB from latest release on github.
-    // Checking github latest release has timeout of 1 hour to rate limit.
+    // Latest release version tag is already fetched.
+    // Check current game version to see if update is needed.
     // If game sync fail or rate limited, return games list from DDB.
-    let shouldCheckLatest = false;
+    let shouldCheck = false;
     let games = [];
     let errorMessage;
     try {
-        shouldCheckLatest = await shouldCheckForLatestRelease();
+        shouldCheck = await shouldCheckForLatestRelease();
     } catch (e: any) {
+        console.debug(`Failed to get update games lock ${e.message}`)
         errorMessage = "Failed to update games list.";
     }
-    // Fetch games from latest release
-    if (shouldCheckLatest) {
+    if (shouldCheck) {
+        // Attempt to sync games from latest release and return games
         try {
-            const latestRelease = await getLatestReleaseTag();
-            const isOutdated = await isGamesListOutdated(latestRelease);
-            if (isOutdated) {
-                games = await syncGamesList(latestRelease);
-                await setGameListStatusSuccess(latestRelease);
-                return { games };
+            // Get latest release version
+            const latestGamesVersion = await getLatestGamesVersion();
+            if (latestGamesVersion) {
+                // Get fetched games version
+                const syncedVersion = await getSyncedGamesVersion();
+                if (syncedVersion !== latestGamesVersion.version) {
+                    games = await syncGamesList(latestGamesVersion.releaseVersion);
+                    await setGameListStatusSuccess(latestGamesVersion.version);
+                    return { games };
+                }
+            } else {
+                errorMessage = "Failed to update games list.";
             }
-        } catch (e) {
+        } catch (e: any) {
+            console.error(`Failed to update games list ${e.message}`)
             errorMessage = "Failed to update games list.";
         }
-    }
-    try {
-        if (errorMessage == null) {
-            setGameListStatusSuccess();
-        } else {
-            setGameListStatusFailed();
+        // Update not needed or failed. Set lock status
+        try {
+            if (errorMessage) {
+                setGameListStatusFailed();
+            } else {
+                setGameListStatusSuccess();
+            }
+        } catch (e: any) {
+            console.error(`Failed to set game list status ${e.message}`)
+            // Ok to fail. It can retry after timeout.
         }
-    } catch (e) {
-        // Ok to fail. It can retry after timeout.
     }
-    // Otherwise, get games from DDB
+    // Get current games from DDB
     try {
         const command = new ScanCommand({
             TableName: GAME_TABLE,
@@ -71,13 +82,20 @@ export async function getGames(): Promise<{ games?: Game[]; message?: string }> 
     }
 }
 
-async function getLatestReleaseTag(): Promise<string> {
-    const res = await fetch(LATEST_RELEASE_URL, { headers: HEADERS });
-    if (!res.ok) {
-        throw new Error(`Failed to get latest release: ${res.status}`);
-    }
+async function getSyncedGamesVersion(): Promise<string | null> {
+    try {
+        const result = await dynamoClient.send(
+            new GetItemCommand({
+                TableName: WORKFLOW_TABLE,
+                Key: { resourceId: { S: GET_GAMES_RESOURCE_ID } },
+            }),
+        );
 
-    return ((await res.json()) as any).tag_name;
+        return result.Item?.version?.S ?? null;
+    } catch (e: any) {
+        console.error(`Failed to get stored release version ${e.message}`);
+        return null;
+    }
 }
 
 async function downloadReleaseTar(releaseTag: string): Promise<void> {
@@ -207,75 +225,40 @@ async function shouldCheckForLatestRelease(): Promise<boolean> {
     const now = Date.now();
     try {
         await dynamoClient.send(
-            new PutItemCommand({
+            new UpdateItemCommand({
                 TableName: WORKFLOW_TABLE,
-                Item: {
-                    resourceId: { S: GET_GAMES_RESOURCE_ID },
-                    status: { S: "Running" },
-                    lastUpdatedAt: { N: now.toString() },
+                Key: { resourceId: { S: GET_GAMES_RESOURCE_ID } },
+                UpdateExpression: "SET #status = :running, lockTime = :now",
+                ConditionExpression: `
+                    attribute_not_exists(#status) OR 
+                    (
+                        (attribute_not_exists(lastSuccessTime) OR lastSuccessTime < :rateLimitThreshold)
+                        AND
+                        (#status <> :running OR lockTime < :staleLockThreshold)
+                    )`,
+                ExpressionAttributeNames: {
+                    "#status": "status",
                 },
-                ConditionExpression: "attribute_not_exists(resourceId)",
+                ExpressionAttributeValues: {
+                    ":running": { S: "Running" },
+                    ":now": { N: now.toString() },
+                    ":staleLockThreshold": { N: (now - GET_GAMES_LOCK_EXPIRE_MS).toString() },
+                    ":rateLimitThreshold": { N: (now - GET_GAMES_RATE_LIMIT_MS).toString() },
+                },
             }),
         );
     } catch (e: any) {
         if (e.name !== "ConditionalCheckFailedException") {
-            // Retryable unexpected error.
-            throw new Error("Failed to create lock. Try again.");
+            throw new Error(`Failed to create lock. ${e.message}`);
         }
-        try {
-            await dynamoClient.send(
-                new UpdateItemCommand({
-                    TableName: WORKFLOW_TABLE,
-                    Key: { resourceId: { S: GET_GAMES_RESOURCE_ID } },
-                    UpdateExpression: "SET #status = :running, lastUpdatedAt = :now",
-                    ConditionExpression: "#status = :failed OR lastUpdatedAt < :timeoutAgo",
-                    ExpressionAttributeNames: {
-                        "#status": "status",
-                    },
-                    ExpressionAttributeValues: {
-                        ":running": { S: "Running" },
-                        ":failed": { S: FAILED_STATUS },
-                        ":now": { N: now.toString() },
-                        ":timeoutAgo": { N: (now - GET_GAMES_TIMEOUT_MS).toString() },
-                    },
-                }),
-            );
-        } catch (e: any) {
-            if (e.name !== "ConditionalCheckFailedException") {
-                throw new Error("Failed to create lock. Try again.");
-            }
-            // Should not check for new release
-            return false;
-        }
-        // Timeout passed or last run failed
-        return true;
+        return false;
     }
-    // First run
     return true;
-}
-
-async function isGamesListOutdated(latestRelease: string): Promise<boolean> {
-    try {
-        const result = await dynamoClient.send(
-            new GetItemCommand({
-                TableName: WORKFLOW_TABLE,
-                Key: { resourceId: { S: GET_GAMES_RESOURCE_ID } },
-            }),
-        );
-
-        if (!result.Item) {
-            return true;
-        }
-        const item = unmarshall(result.Item);
-        return item.version !== latestRelease;
-    } catch (e) {
-        throw new Error("Failed to check game version.");
-    }
 }
 
 async function setGameListStatusSuccess(version?: string): Promise<void> {
     const now = Date.now();
-    let updateExpression = "SET #status = :success, lastUpdatedAt = :now";
+    let updateExpression = "SET #status = :success, lastSuccessTime = :now";
     const attributeValues: Record<string, any> = {
         ":success": { S: "Success" },
         ":now": { N: now.toString() },
@@ -303,13 +286,12 @@ async function setGameListStatusFailed(): Promise<void> {
         new UpdateItemCommand({
             TableName: WORKFLOW_TABLE,
             Key: { resourceId: { S: GET_GAMES_RESOURCE_ID } },
-            UpdateExpression: "SET #status = :failed, lastUpdatedAt = :now",
+            UpdateExpression: "SET #status = :failed",
             ExpressionAttributeNames: {
                 "#status": "status",
             },
             ExpressionAttributeValues: {
-                ":failed": { S: FAILED_STATUS },
-                ":now": { N: now.toString() },
+                ":failed": { S: "Failed" },
             },
         }),
     );
