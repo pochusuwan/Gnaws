@@ -103,6 +103,7 @@ export default function LoginForm(props: Props) {
 
 type LoggedInProps = {
     clearUser: () => void;
+    hasUpdate: boolean;
 };
 export function LoggedIn(props: LoggedInProps) {
     const username = useUser().username;
@@ -113,6 +114,7 @@ export function LoggedIn(props: LoggedInProps) {
     }, [call]);
     return (
         <div className="loggedIn">
+            {props.hasUpdate && <div className="updateAvailable">Update available: TODO</div>}
             <div>{username}</div>
             <button onClick={logout} disabled={state.state === "Loading"}>
                 Log out

@@ -93,7 +93,7 @@ async function getSyncedGamesVersion(): Promise<string | null> {
 
         return result.Item?.version?.S ?? null;
     } catch (e: any) {
-        console.error(`Failed to get stored release version ${e.message}`);
+        console.error(`Failed to get synced games version ${e.message}`);
         return null;
     }
 }

@@ -11,7 +11,7 @@ import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
 import PageSelector from "./components/PageSelector/PageSelector.tsx";
 import { hasAdminPermission } from "./utils.ts";
-
+import useApiCall from "./hooks/useApiCall.ts";
 
 const SERVERS_PAGE = "Servers";
 const USERS_PAGE = "Users";
@@ -24,10 +24,15 @@ export default function App() {
     const { servers, refreshServer } = useServers(user);
     const { users, loadUsers, updateUsers } = useUsers(user);
     const { games, loadGames } = useGames(user);
+    const { call: checkNewReleaseCall, state: checkNewReleaseState } = useApiCall<{ hasInfraUpdate: boolean }>("checkNewRelease");
+    const hasUpdate = checkNewReleaseState.state === "Loaded" && checkNewReleaseState.data.hasInfraUpdate;
 
     useEffect(() => {
         if (user !== null) {
             setPage(SERVERS_PAGE);
+            if (hasAdminPermission(user.role)) {
+                checkNewReleaseCall();
+            }
         }
     }, [user]);
 
@@ -37,7 +42,7 @@ export default function App() {
     return (
         <UserContext.Provider value={user}>
             <div className="app">
-                <LoggedIn clearUser={() => setUser(null)} />
+                <LoggedIn clearUser={() => setUser(null)} hasUpdate={hasUpdate} />
                 {hasAdminPermission(user.role) && <PageSelector pages={PAGES}current={page} onSelect={setPage} />}
                 {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} />}
                 {page === USERS_PAGE && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}

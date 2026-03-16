@@ -2,6 +2,7 @@ import * as cdk from "aws-cdk-lib/core";
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
@@ -21,6 +22,7 @@ export interface GnawsStackProps extends cdk.StackProps {
     cloudFrontDomainName?: string; // e.g. games.example.com
     cloudFrontCertArn?: string; // ACM cert ARN in us-east-1
     ownerUsername?: string;
+    infrastructureVersion?: string;
 }
 
 export class GnawsStack extends cdk.Stack {
@@ -30,6 +32,7 @@ export class GnawsStack extends cdk.Stack {
     private workflowTable: dynamodb.Table;
     private gameTable: dynamodb.Table;
     private secretTable: dynamodb.Table;
+    private infraVersionParam: ssm.StringParameter;
     private backupBucket: s3.Bucket;
     // Frontend
     private websiteBucket: s3.Bucket;
@@ -53,7 +56,7 @@ export class GnawsStack extends cdk.Stack {
 
     constructor(scope: Construct, id: string, props?: GnawsStackProps) {
         super(scope, id, props);
-        this.buildStorage(props?.ownerUsername);
+        this.buildStorage(props?.ownerUsername, props?.infrastructureVersion);
         this.buildFrontend(props);
         this.buildWorkflows();
         this.buildNetwork();
@@ -80,6 +83,7 @@ export class GnawsStack extends cdk.Stack {
                 SETUP_SERVER_FUNCTION_ARN: this.setupServerFunction.stateMachineArn,
                 UPDATE_SERVER_FUNCTION_ARN: this.updateServerFunction.stateMachineArn,
                 TERMINATE_SERVER_FUNCTION_ARN: this.terminateServerFunction.stateMachineArn,
+                INFRASTRUCTURE_VERSION_SSM_PARAM: this.infraVersionParam.parameterName,
                 BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
                 SUBNET_ID: this.subnetId,
@@ -90,19 +94,27 @@ export class GnawsStack extends cdk.Stack {
         backend.addToRolePolicy(
             new iam.PolicyStatement({
                 actions: [
-                    "ec2:DescribeInstances", 
+                    "ec2:DescribeInstances",
                     "ec2:DescribeImages",
                     "ec2:DescribeInstanceTypes",
                     "ec2:RunInstances",
                     "ec2:CreateSecurityGroup",
                     "ec2:CreateTags",
+                    "ssm:GetParameter",
                 ],
                 resources: ["*"],
             }),
         );
         backend.addToRolePolicy(
             new iam.PolicyStatement({
-                actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:StartInstances", "ec2:StopInstances", "ec2:ModifyVolume", "ec2:TerminateInstances", "ec2:DeleteSecurityGroup"],
+                actions: [
+                    "ec2:AuthorizeSecurityGroupIngress",
+                    "ec2:StartInstances",
+                    "ec2:StopInstances",
+                    "ec2:ModifyVolume",
+                    "ec2:TerminateInstances",
+                    "ec2:DeleteSecurityGroup",
+                ],
                 resources: ["*"],
                 conditions: {
                     StringEquals: {
@@ -250,7 +262,7 @@ export class GnawsStack extends cdk.Stack {
         });
     }
 
-    private buildStorage(ownerUsername?: string) {
+    private buildStorage(ownerUsername?: string, infrastructureVersion?: string) {
         this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
         });
@@ -332,6 +344,11 @@ export class GnawsStack extends cdk.Stack {
         // Create backup S3 bucket
         this.backupBucket = new s3.Bucket(this, "GnawsBackupBucket", {
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS_ONLY,
+        });
+        // Store current infrastructure version
+        this.infraVersionParam = new ssm.StringParameter(this, "GnawsInfraVersion", {
+            parameterName: `/${this.stackName}/infrastructure/version`,
+            stringValue: infrastructureVersion ?? "0.0.0",
         });
     }
 
