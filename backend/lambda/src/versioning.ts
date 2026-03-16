@@ -1,6 +1,11 @@
 import { GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
-import { dynamoClient } from "./clients";
+import { dynamoClient, ssmClient } from "./clients";
+import { ROLE_ADMIN, ROLE_OWNER, User } from "./users";
+import { APIGatewayProxyResult } from "aws-lambda";
+import { forbidden, success } from "./util";
+import { GetParameterCommand } from "@aws-sdk/client-ssm";
 
+const INFRASTRUCTURE_VERSION_SSM_PARAM = process.env.INFRASTRUCTURE_VERSION_SSM_PARAM!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const GET_RELEASE_VERSIONS_ID = "GET_RELEASE_VERSIONS";
 const GET_RELEASE_VERSIONS_RATE_LIMIT_MS = 60 * 60 * 1000;
@@ -13,7 +18,21 @@ const HEADERS = {
     "User-Agent": "aws-lambda",
 };
 
-export async function getLatestVersionNumber(): Promise<void> {
+export async function checkForNewRelease(user: User, params: any): Promise<APIGatewayProxyResult> {
+    if (user.role !== ROLE_OWNER && user.role !== ROLE_ADMIN) {
+        return forbidden();
+    }
+    try {
+        await getLatestVersionNumber();
+    } catch (e: any) {
+        console.error(`Failed update versions data: ${e.message}`);
+    }
+    return success({
+        hasInfraUpdate: await hasNewInfraUpdate(),
+    });
+}
+
+async function getLatestVersionNumber(): Promise<void> {
     let shouldCheck;
     try {
         shouldCheck = await shouldCheckForLatestRelease();
@@ -97,7 +116,7 @@ async function saveLatestReleaseVersion(version: string): Promise<boolean> {
     return true;
 }
 
-export async function getLatestInfraVersion(): Promise<{ releaseVersion: string; version: string } | null> {
+async function getLatestInfraVersion(): Promise<{ releaseVersion: string; version: string } | null> {
     const releaseVersion = await getStoredVersion();
     const v = releaseVersion?.split("_");
     if (releaseVersion == null || v?.length !== 2 || v[0].length <= INFRA_VERSION_PREFIX.length) return null;
@@ -130,5 +149,21 @@ async function getStoredVersion(): Promise<string | null> {
     } catch (e: any) {
         console.error(`Failed to get stored release version ${e.message}`);
         return null;
+    }
+}
+
+async function hasNewInfraUpdate(): Promise<boolean> {
+    try {
+        const latestInfraVersion = await getLatestInfraVersion();
+        const current = await ssmClient.send(
+            new GetParameterCommand({
+                Name: INFRASTRUCTURE_VERSION_SSM_PARAM,
+            }),
+        );
+
+        return latestInfraVersion !== null && latestInfraVersion.version !== current.Parameter?.Value;
+    } catch (e: any) {
+        console.error(`Failed to get current version ${e.message}`);
+        return false;
     }
 }

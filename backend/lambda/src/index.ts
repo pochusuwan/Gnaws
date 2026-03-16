@@ -1,12 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
 import { getUserFromJwt, login, logout } from "./auth";
-import { getUsers, ROLE_ADMIN, ROLE_OWNER, updateUsers } from "./users";
+import { getUsers, updateUsers } from "./users";
 import { getServers, serverAction } from "./servers";
 import { createServer } from "./createServer";
 import { initCreateServer } from "./initCreateServer";
 import { invalidCredential, serverError } from "./util";
-import { getLatestVersionNumber } from "./versioning";
+import { checkForNewRelease } from "./versioning";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -17,7 +17,8 @@ const GET_SERVERS_TYPE = "getServers";
 const CREATE_SERVER_TYPE = "createServer";
 const SERVER_ACTION_TYPE = "serverAction";
 const INIT_CRATE_SERVER_TYPE = "initCreateServer";
-const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, SERVER_ACTION_TYPE, INIT_CRATE_SERVER_TYPE, CREATE_SERVER_TYPE];
+const CHECK_NEW_RELEASE_TYPE = "checkNewRelease";
+const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, SERVER_ACTION_TYPE, INIT_CRATE_SERVER_TYPE, CREATE_SERVER_TYPE, CHECK_NEW_RELEASE_TYPE];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -53,14 +54,6 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     if (!user) {
         return invalidCredential();
     }
-    // Check versions on admin or owner activity. Ignore any error and proceed with rest of call
-    if (user.role === ROLE_OWNER || user.role === ROLE_ADMIN) {
-        try {
-            await getLatestVersionNumber();
-        } catch (e: any) {
-            console.error(`Failed update versions data: ${e.message}`);
-        }
-    }
     if (requestType === GET_USERS_TYPE) {
         return await getUsers(user, params);
     }
@@ -78,6 +71,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (requestType === CREATE_SERVER_TYPE) {
         return await createServer(user, params);
+    }
+    if (requestType === CHECK_NEW_RELEASE_TYPE) {
+        return await checkForNewRelease(user, params);
     }
 
     return {

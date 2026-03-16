@@ -13,6 +13,7 @@ const cloudFrontCertArn = process.env.CLOUDFRONT_CERT_ARN;
 
 const app = new cdk.App();
 const ownerUsername = app.node.tryGetContext("ownerUsername");
+const infrastructureVersion = app.node.tryGetContext("infrastructureVersion");
 
 new GnawsStack(app, "GnawsStack", {
     /* If you don't specify 'env', this stack will be environment-agnostic.
@@ -20,5 +21,6 @@ new GnawsStack(app, "GnawsStack", {
      * but a single synthesized template can be deployed anywhere. */
     /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
     ...(cloudFrontDomainName && cloudFrontCertArn ? { cloudFrontDomainName, cloudFrontCertArn } : {}),
-    ownerUsername: typeof ownerUsername === "string" ? ownerUsername : undefined
+    ownerUsername: typeof ownerUsername === "string" ? ownerUsername : undefined,
+    infrastructureVersion: typeof infrastructureVersion === "string" ? infrastructureVersion : undefined
 });
