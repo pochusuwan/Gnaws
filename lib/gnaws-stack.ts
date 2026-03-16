@@ -201,11 +201,14 @@ export class GnawsStack extends cdk.Stack {
         });
 
         // Cloundfront distribution
+        const oac = new cloudfront.S3OriginAccessControl(this, "GnawsOAC", {
+            originAccessControlName: `${this.stackName}-${this.region}`,
+        });
         this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
             defaultBehavior: {
                 allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 compress: true,
-                origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
+                origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket, { originAccessControl: oac }),
                 viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             },
             defaultRootObject: "index.html",
