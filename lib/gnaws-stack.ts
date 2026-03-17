@@ -4,6 +4,7 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
@@ -16,6 +17,7 @@ import * as cloudfrontOrigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as crypto from "crypto";
+import { Aspects } from "aws-cdk-lib";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
@@ -62,6 +64,18 @@ export class GnawsStack extends cdk.Stack {
         this.buildNetwork();
         this.buildBackend();
         this.deployFrontend();
+        Aspects.of(this).add({
+            visit(node) {
+                if (node instanceof logs.LogGroup) {
+                    const cfnLogGroup = node.node.defaultChild as logs.CfnLogGroup;
+                    if (cfnLogGroup) {
+                        cfnLogGroup.cfnOptions.deletionPolicy = cdk.CfnDeletionPolicy.DELETE;
+                        cfnLogGroup.cfnOptions.updateReplacePolicy = cdk.CfnDeletionPolicy.DELETE;
+                        cfnLogGroup.retentionInDays = 14;
+                    }
+                }
+            },
+        });
     }
 
     private buildBackend() {
@@ -268,18 +282,38 @@ export class GnawsStack extends cdk.Stack {
     private buildStorage(ownerUsername?: string, infrastructureVersion?: string) {
         this.userTable = new dynamodb.Table(this, "GnawsUsersTable", {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            pointInTimeRecovery: false,
+            tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.serverTable = new dynamodb.Table(this, "GnawsGameServersTable", {
             partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            pointInTimeRecovery: false,
+            tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
             partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            pointInTimeRecovery: false,
+            tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.gameTable = new dynamodb.Table(this, "GnawsGameTable", {
             partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            pointInTimeRecovery: false,
+            tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.secretTable = new dynamodb.Table(this, "GnawsSecretTable", {
             partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            pointInTimeRecovery: false,
+            tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
 
         // Create owner
