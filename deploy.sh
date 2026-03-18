@@ -1,8 +1,10 @@
 #!/bin/bash
 set -eu
 
-#aws ssm put-parameter --region us-east-1 --name "/gnaws/regions" --value "us-east-1,us-west-1" --type String --overwrite
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
+#aws ssm put-parameter --region us-east-1 --name "/gnaws/regions" --value "us-east-1,us-west-1" --type String --overwrite
+DEPLOYED_REGIONS=$(aws ssm get-parameter --region us-east-1 --name "/gnaws/regions" --query Parameter.Value --output text 2>/dev/null || echo "")
 REGIONS=(
     "us-east-1       (N. Virginia)"
     "us-west-2       (Oregon)"
@@ -18,6 +20,9 @@ for i in "${!REGIONS[@]}"; do
     echo "  $((i+1))) ${REGIONS[$i]}"
 done
 echo "  $((${#REGIONS[@]}+1))) Enter manually"
+if [ -n "$DEPLOYED_REGIONS" ]; then
+    echo "  Select already deployed regions to update: $DEPLOYED_REGIONS"
+fi
 
 read -p "Enter number (1-$((${#REGIONS[@]}+1))): " CHOICE
 if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$((${#REGIONS[@]}+1))" ]; then
@@ -51,8 +56,8 @@ fi
 
 echo "Fetching latest updates..."
 git -C "$(dirname "$0")" reset --hard
-git -C "$(dirname "$0")" checkout main
-git -C "$(dirname "$0")" pull
+#git -C "$(dirname "$0")" checkout main
+#git -C "$(dirname "$0")" pull
 
 LATEST_TAG=$(git -C "$(dirname "$0")" tag --sort=-creatordate | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
 if [ -z "$LATEST_TAG" ]; then
@@ -60,6 +65,11 @@ if [ -z "$LATEST_TAG" ]; then
     exit 1
 fi
 
-git -C "$(dirname "$0")" checkout "$LATEST_TAG"
+#git -C "$(dirname "$0")" checkout "$LATEST_TAG"
 
 echo "Version: $LATEST_TAG"
+
+npm run installAll
+npm run buildAll
+cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION";
+cdk deploy --require-approval never --region "$AWS_REGION"
