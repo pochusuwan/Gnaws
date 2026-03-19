@@ -61,7 +61,7 @@ fi
 
 # Fetch latest changes
 git pull --rebase --autostash
-VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
+VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "0.0.0")
 
 # Set deployed regions
 if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
