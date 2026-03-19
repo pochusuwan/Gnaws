@@ -192,7 +192,6 @@ export class GnawsStack extends cdk.Stack {
         const apiUrl = api.url;
         if (apiUrl === undefined) throw "No API url";
         this.apiUrl = apiUrl;
-        new cdk.CfnOutput(this, "GnawsApiUrl", { value: apiUrl });
     }
 
     private buildFrontend(props?: GnawsStackProps) {

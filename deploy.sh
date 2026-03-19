@@ -1,9 +1,16 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+# Script to
+cd "$(dirname "$0")"
 
-#aws ssm put-parameter --region us-east-1 --name "/gnaws/regions" --value "us-east-1,us-west-1" --type String --overwrite
+# Get AWS account id
+if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text); then
+    echo "AWS authentication failed"
+    exit 1
+fi
+
+# Selecting AWS region
 DEPLOYED_REGIONS=$(aws ssm get-parameter --region us-east-1 --name "/gnaws/regions" --query Parameter.Value --output text 2>/dev/null || echo "")
 REGIONS=(
     "us-east-1       (N. Virginia)"
@@ -34,19 +41,17 @@ if [ "$CHOICE" -eq "$((${#REGIONS[@]}+1))" ]; then
     read -p "Enter region name (e.g. us-east-1): " AWS_REGION
 else
     SELECTED=${REGIONS[$((CHOICE-1))]}
-    AWS_REGION=$(echo $SELECTED | awk '{print $1}')
+    AWS_REGION="${SELECTED%% *}"
 fi
-
-echo "Validating region..."
-if ! aws ec2 describe-regions --region "$AWS_REGION" --query "Regions[?RegionName=='$AWS_REGION'].RegionName" --output text 2>/dev/null | grep -q "$AWS_REGION"; then
+if ! aws sts get-caller-identity --region "$AWS_REGION" >/dev/null 2>&1; then
     echo "Invalid or inaccessible region: $AWS_REGION"
     exit 1
 fi
 
-
+# Enter owner username
 echo ""
 echo "Choose a username for the server owner account."
-echo "This will be the admin account used to manage the server."
+echo "This will be the owner account used to manage the servers."
 echo ""
 read -p "Enter owner username (letters and numbers only): " OWNER_USERNAME
 if ! [[ "$OWNER_USERNAME" =~ ^[a-zA-Z0-9]+$ ]]; then
@@ -54,22 +59,23 @@ if ! [[ "$OWNER_USERNAME" =~ ^[a-zA-Z0-9]+$ ]]; then
     exit 1
 fi
 
-echo "Fetching latest updates..."
-git -C "$(dirname "$0")" reset --hard
-#git -C "$(dirname "$0")" checkout main
-#git -C "$(dirname "$0")" pull
+# Fetch latest changes
+git pull --rebase --autostash
+VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
 
-LATEST_TAG=$(git -C "$(dirname "$0")" tag --sort=-creatordate | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
-if [ -z "$LATEST_TAG" ]; then
-    echo "No release tag found."
-    exit 1
+# Set deployed regions
+if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
+    if [ -z "$DEPLOYED_REGIONS" ]; then
+        NEW_REGIONS="$AWS_REGION"
+    else
+        NEW_REGIONS="$DEPLOYED_REGIONS,$AWS_REGION"
+    fi
+
+    aws ssm put-parameter --region us-east-1 --name "/gnaws/regions" --value "$NEW_REGIONS" --type String --overwrite
 fi
 
-#git -C "$(dirname "$0")" checkout "$LATEST_TAG"
-
-echo "Version: $LATEST_TAG"
-
+# Install, build, and deploy
 npm run installAll
 npm run buildAll
 cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION";
-cdk deploy --require-approval never --region "$AWS_REGION"
+cdk deploy --require-approval never --region "$AWS_REGION" -c infrastructureVersion="$VERSION" -c ownerUsername="$OWNER_USERNAME"
