@@ -51,7 +51,7 @@ TODO
 git clone https://github.com/pochusuwan/Gnaws.git 2>/dev/null || true && cd Gnaws && git pull --rebase --autostash && ./deploy.sh
 ```
 4. Once complete, the webpage URL will be shown in the output. If your CloudShell session timed out during deployment, find the URL in [CloudFront](https://console.aws.amazon.com/cloudfront) under your distribution's domain name.
-5. Go to your webpage and sign in with your owner username. You will be prompted to your password on first sign in.
+5. Go to your webpage and sign in with your username. You will be prompted to setup your password on first sign in.
 
 ---
 
