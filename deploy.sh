@@ -22,7 +22,7 @@ REGIONS=(
     "eu-central-1    (Frankfurt)"
     "us-east-2       (Ohio)"
 )
-echo "Select a region:"
+echo "Select a region (choose the one closest to you or your friends for lowest latency):"
 for i in "${!REGIONS[@]}"; do
     echo "  $((i+1))) ${REGIONS[$i]}"
 done
