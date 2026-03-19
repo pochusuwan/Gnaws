@@ -38,19 +38,27 @@ TODO
 
 ## Prerequisites
 
-TODO
+* AWS Account https://aws.amazon.com/
 
 ---
 
 ## Getting Started
 
-TODO
+1. Sign in to your AWS account
+2. Open AWS [CloudShell](https://console.aws.amazon.com/cloudshell)
+3. Run the command below and follow the prompts. You'll be asked to choose a region and set a username
+```
+git clone https://github.com/pochusuwan/Gnaws.git 2>/dev/null || true && cd Gnaws && git pull --rebase --autostash && ./deploy.sh
+```
+4. Once complete, the webpage URL will be shown in the output. If your CloudShell session timed out during deployment, find the URL in [CloudFront](https://console.aws.amazon.com/cloudfront) under your distribution's domain name.
+5. Go to your webpage and sign in with your username. You will be prompted to setup your password on first sign in.
 
 ---
 
 ## Supported Games
 
 - Minecraft (Java)
+- Minecraft (Paper)
 - Palworld
 - Valheim
 
@@ -59,7 +67,7 @@ TODO
 ---
 
 ## Giving Friends Access
-
+TODO
 Simply give your friend website url and the shared password. Assign your friends different roles:
 
 - new (Default) - View and join game servers only
