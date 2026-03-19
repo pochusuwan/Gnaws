@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to
-cd "$(dirname "$0")"
+# This script is used to deploy and update to the selected AWS region. 
+# This is meant to run from CloudShell from within Gnaws directory.
 
 # Get AWS account id
 if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text); then
@@ -48,20 +48,25 @@ if ! aws sts get-caller-identity --region "$AWS_REGION" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Enter owner username
-echo ""
-echo "Choose a username for the server owner account."
-echo "This will be the owner account used to manage the servers."
-echo ""
-read -p "Enter owner username (letters and numbers only): " OWNER_USERNAME
-if ! [[ "$OWNER_USERNAME" =~ ^[a-zA-Z0-9]+$ ]]; then
-    echo "Invalid username. Only letters and numbers are allowed, no spaces or special characters."
-    exit 1
+# Enter owner username or skip if this is an update
+SKIP_USERNAME=false
+for arg in "$@"; do
+    if [[ "$arg" == "-u" ]]; then
+        SKIP_USERNAME=true
+        break
+    fi
+done
+if [ "$SKIP_USERNAME" = false ]; then
+    echo ""
+    echo "Choose a username for the server owner account."
+    echo "This will be the owner account used to manage the servers."
+    echo ""
+    read -p "Enter owner username (letters and numbers only): " OWNER_USERNAME
+    if ! [[ "$OWNER_USERNAME" =~ ^[a-zA-Z0-9]+$ ]]; then
+        echo "Invalid username. Only letters and numbers are allowed, no spaces or special characters."
+        exit 1
+    fi
 fi
-
-# Fetch latest changes
-git pull --rebase --autostash
-VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "0.0.0")
 
 # Set deployed regions
 if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
@@ -74,8 +79,16 @@ if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
     aws ssm put-parameter --region us-east-1 --name "/gnaws/regions" --value "$NEW_REGIONS" --type String --overwrite
 fi
 
+# Get version from tag
+VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "0.0.0")
+
 # Install, build, and deploy
 npm run installAll
 npm run buildAll
-cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION";
-cdk deploy --require-approval never --region "$AWS_REGION" -c infrastructureVersion="$VERSION" -c ownerUsername="$OWNER_USERNAME"
+cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
+
+EXTRA_ARGS=""
+if [ "$SKIP_USERNAME" = false ]; then
+    EXTRA_ARGS="-c ownerUsername=$OWNER_USERNAME"
+fi
+cdk deploy --require-approval never --region "$AWS_REGION" -c infrastructureVersion="$VERSION" $EXTRA_ARGS

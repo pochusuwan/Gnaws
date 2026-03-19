@@ -10,8 +10,6 @@ const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const GET_RELEASE_VERSIONS_ID = "GET_RELEASE_VERSIONS";
 const GET_RELEASE_VERSIONS_RATE_LIMIT_MS = 60 * 60 * 1000;
 const LOCK_EXPIRE = 30 * 1000;
-const INFRA_VERSION_PREFIX = "infra-";
-const GAMES_VERSION_PREFIX = "games-";
 
 const LATEST_RELEASE_URL = "https://api.github.com/repos/pochusuwan/Gnaws/releases/latest";
 const HEADERS = {
@@ -116,27 +114,17 @@ async function saveLatestReleaseVersion(version: string): Promise<boolean> {
     return true;
 }
 
-async function getLatestInfraVersion(): Promise<{ releaseVersion: string; version: string } | null> {
-    const releaseVersion = await getStoredVersion();
-    const v = releaseVersion?.split("_");
-    if (releaseVersion == null || v?.length !== 2 || v[0].length <= INFRA_VERSION_PREFIX.length) return null;
-    return {
-        releaseVersion,
-        version: v[0].slice(INFRA_VERSION_PREFIX.length),
-    };
-}
-
 export async function getLatestGamesVersion(): Promise<{ releaseVersion: string; version: string } | null> {
-    const releaseVersion = await getStoredVersion();
+    const releaseVersion = await getStoredLatestVersion();
     const v = releaseVersion?.split("_");
-    if (releaseVersion == null || v?.length !== 2 || v[1].length <= GAMES_VERSION_PREFIX.length) return null;
+    if (releaseVersion == null || v?.length !== 2) return null;
     return {
         releaseVersion,
-        version: v[1].slice(GAMES_VERSION_PREFIX.length),
+        version: v[1],
     };
 }
 
-async function getStoredVersion(): Promise<string | null> {
+async function getStoredLatestVersion(): Promise<string | null> {
     try {
         const result = await dynamoClient.send(
             new GetItemCommand({
@@ -154,14 +142,19 @@ async function getStoredVersion(): Promise<string | null> {
 
 async function hasNewInfraUpdate(): Promise<boolean> {
     try {
-        const latestInfraVersion = await getLatestInfraVersion();
-        const current = await ssmClient.send(
+        const latestVersion = await getStoredLatestVersion();
+        const latestInfraVersion = latestVersion?.split("_")?.[0];
+
+        const currentVersion = await ssmClient.send(
             new GetParameterCommand({
                 Name: INFRASTRUCTURE_VERSION_SSM_PARAM,
             }),
         );
+        const currentInfraVersion = currentVersion.Parameter?.Value?.split("_")?.[0];
+        // if (latestInfraVersion && latestInfraVersion !== currentInfraVersion) 
+        console.debug("hasNewInfraUpdate", latestVersion, latestInfraVersion, currentVersion, currentInfraVersion, (latestInfraVersion && latestInfraVersion !== currentInfraVersion));
 
-        return latestInfraVersion !== null && latestInfraVersion.version !== current.Parameter?.Value;
+        return !!latestInfraVersion && latestInfraVersion !== currentInfraVersion;
     } catch (e: any) {
         console.error(`Failed to get current version ${e.message}`);
         return false;
