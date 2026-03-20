@@ -68,6 +68,21 @@ if [ "$SKIP_USERNAME" = false ]; then
     fi
 fi
 
+echo ""
+echo "=============================================="
+echo "  Deployment started in $AWS_REGION"
+echo "=============================================="
+echo ""
+echo "  This will take approximately 5-10 minutes."
+echo "  Please keep this window open until you see"
+echo "  the 'Deployment complete' message below."
+echo ""
+echo "  You can track progress in the AWS Console:"
+echo "  https://console.aws.amazon.com/cloudformation"
+echo ""
+echo "=============================================="
+echo ""
+
 # Set deployed regions
 if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
     if [ -z "$DEPLOYED_REGIONS" ]; then
@@ -92,3 +107,4 @@ if [ "$SKIP_USERNAME" = false ]; then
     EXTRA_ARGS="-c ownerUsername=$OWNER_USERNAME"
 fi
 cdk deploy --require-approval never --region "$AWS_REGION" --method=direct -c infrastructureVersion="$VERSION" $EXTRA_ARGS
+echo "Deployment complete"
