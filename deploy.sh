@@ -91,4 +91,4 @@ EXTRA_ARGS=""
 if [ "$SKIP_USERNAME" = false ]; then
     EXTRA_ARGS="-c ownerUsername=$OWNER_USERNAME"
 fi
-cdk deploy --require-approval never --region "$AWS_REGION" -c infrastructureVersion="$VERSION" $EXTRA_ARGS
+cdk deploy --require-approval never --region "$AWS_REGION" --method=direct -c infrastructureVersion="$VERSION" $EXTRA_ARGS
