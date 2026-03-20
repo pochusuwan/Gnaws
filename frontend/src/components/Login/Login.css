@@ -6,3 +6,36 @@
     justify-content: end;
     width: 100%;
 }
+
+.usernameContainer {
+    position: relative;
+}
+
+.notificationDot {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: red;
+    padding-right: -80px;
+}
+
+.updateDialogRoot {
+    position: fixed;
+    inset: 0;
+    background-color: #0000003a;
+    z-index: 100;
+}
+
+.updateDialog {
+    margin: 20% auto;
+    padding: 16px;
+    min-width: 300px;
+    width: fit-content;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+}

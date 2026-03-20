@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "installAll": "npm install && cd frontend && npm install && cd .. && cd backend/lambda && npm install",
+    "installAll": "npm install --silent && cd frontend && npm install --silent && cd .. && cd backend/lambda && npm install --silent",
     "devFrontend": "cd frontend && npm run dev",
     "buildFrontend": "cd frontend && npm run build && cd ..",
     "buildAll": "npm run buildFrontend && npm run build",

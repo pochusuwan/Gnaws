@@ -283,35 +283,30 @@ export class GnawsStack extends cdk.Stack {
             partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            pointInTimeRecovery: false,
             tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.serverTable = new dynamodb.Table(this, "GnawsGameServersTable", {
             partitionKey: { name: "name", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            pointInTimeRecovery: false,
             tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.workflowTable = new dynamodb.Table(this, "GnawsWorkflowTable", {
             partitionKey: { name: "resourceId", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            pointInTimeRecovery: false,
             tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.gameTable = new dynamodb.Table(this, "GnawsGameTable", {
             partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            pointInTimeRecovery: false,
             tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
         this.secretTable = new dynamodb.Table(this, "GnawsSecretTable", {
             partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
             billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            pointInTimeRecovery: false,
             tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
         });
 

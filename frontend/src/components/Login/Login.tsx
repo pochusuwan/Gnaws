@@ -108,17 +108,62 @@ type LoggedInProps = {
 export function LoggedIn(props: LoggedInProps) {
     const username = useUser().username;
     const { call, state } = useApiCall("logout");
+    const [updateOpen, setUpdateOpen] = useState(false);
 
     const logout = useCallback(async () => {
         if (await call()) props.clearUser();
     }, [call]);
+    const notificationClick = useCallback(() => {
+        if (props.hasUpdate) {
+            setUpdateOpen(true);
+        }
+    }, [updateOpen, props.hasUpdate]);
+
     return (
         <div className="loggedIn">
-            {props.hasUpdate && <div className="updateAvailable">Update available: TODO</div>}
-            <div>{username}</div>
+            <div className="usernameContainer" onClick={notificationClick}>
+                {props.hasUpdate && <div className="notificationDot" />}
+                <div>{username}</div>
+            </div>
             <button onClick={logout} disabled={state.state === "Loading"}>
                 Log out
             </button>
+            {updateOpen && <UpdateDialog close={() => setUpdateOpen(false)} />}
+        </div>
+    );
+}
+
+const UPDATE_SCRIPT = "[ -d Gnaws ] || git clone https://github.com/pochusuwan/Gnaws.git && ./Gnaws/start.sh -u";
+type UpdateDialogProps = {
+    close: () => void;
+};
+function UpdateDialog(props: UpdateDialogProps) {
+    const [isCopied, setIsCopied] = useState(false);
+    const copyCallback = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(UPDATE_SCRIPT);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy text: ", err);
+        }
+    }, []);
+    return (
+        <div className="updateDialogRoot" onMouseDown={() => props.close()}>
+            <div className="updateDialog" onMouseDown={(e) => e.stopPropagation()}>
+                <div style={{ fontWeight: "bold" }}>Update availble!</div>
+                <div>
+                    1. Go to AWS{" "}
+                    <a href={"https://console.aws.amazon.com/cloudshell"} target="_blank" rel="noopener noreferrer">
+                        CloudShell
+                    </a>
+                </div>
+                <div>2. Run this command</div>
+                <pre style={{ padding: "10px", background: "#f4f4f4", borderRadius: "5px" }}>
+                    <code>{UPDATE_SCRIPT}</code>
+                </pre>
+                <button onClick={copyCallback}>{isCopied ? "Copied!" : "Copy"}</button>
+            </div>
         </div>
     );
 }
