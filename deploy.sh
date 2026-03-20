@@ -28,7 +28,7 @@ for i in "${!REGIONS[@]}"; do
 done
 echo "  $((${#REGIONS[@]}+1))) Enter manually"
 if [ -n "$DEPLOYED_REGIONS" ]; then
-    echo "  Select already deployed regions to update: $DEPLOYED_REGIONS"
+    echo "  Select deployed regions to update infrastructure: $DEPLOYED_REGIONS"
 fi
 
 read -p "Enter number (1-$((${#REGIONS[@]}+1))): " CHOICE
