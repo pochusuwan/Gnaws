@@ -9,5 +9,5 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-git pull --rebase --autostash 2>/dev/null
+git pull --rebase --autostash --quiet
 ./deploy.sh "$@"
