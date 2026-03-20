@@ -151,10 +151,8 @@ async function hasNewInfraUpdate(): Promise<boolean> {
             }),
         );
         const currentInfraVersion = currentVersion.Parameter?.Value?.split("_")?.[0];
-        // if (latestInfraVersion && latestInfraVersion !== currentInfraVersion) 
-        console.debug("hasNewInfraUpdate", latestVersion, latestInfraVersion, currentVersion, currentInfraVersion, (latestInfraVersion && latestInfraVersion !== currentInfraVersion));
 
-        return !!latestInfraVersion && latestInfraVersion !== currentInfraVersion;
+        return latestInfraVersion !== undefined && latestInfraVersion !== currentInfraVersion;
     } catch (e: any) {
         console.error(`Failed to get current version ${e.message}`);
         return false;
