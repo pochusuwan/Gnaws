@@ -3,7 +3,7 @@
 > Deploy and manage game servers (Minecraft, Valheim, Palworld) on AWS with a simple web interface.  
 > A cheaper alternative to traditional game server hosting — run servers on EC2 and only pay when playing.
 
-**Gnaws** is a self-hosted game server platform that lets you spin up, stop, and manage dedicated servers on-demand without needing AWS or DevOps knowledge.
+**Gnaws** is a self-hosted game server platform that lets you spin up, stop, and manage dedicated servers without needing AWS or DevOps knowledge.
 
 Perfect for:
 - Friends who want to share a server
