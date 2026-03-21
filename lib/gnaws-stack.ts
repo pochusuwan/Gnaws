@@ -262,6 +262,14 @@ export class GnawsStack extends cdk.Stack {
     }
 
     private deployFrontend() {
+        new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteHashedAsset", {
+            sources: [s3deploy.Source.asset("frontend/dist")],
+            destinationBucket: this.websiteBucket,
+            cacheControl: [
+                s3deploy.CacheControl.fromString("max-age=86400,public,immutable"),
+            ],
+            exclude: ["index.html"],
+        });
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
             sources: [
                 s3deploy.Source.asset("frontend/dist"),
@@ -272,9 +280,11 @@ export class GnawsStack extends cdk.Stack {
                     }),
                 ),
             ],
+            cacheControl: [
+                s3deploy.CacheControl.fromString('no-cache'),
+            ],
             destinationBucket: this.websiteBucket,
-            distribution: this.cfnDistribution,
-            distributionPaths: ["/*"],
+            include: ['index.html', 'config.json'],
         });
     }
 

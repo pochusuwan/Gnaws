@@ -19,7 +19,7 @@ export const useUsers = (user: User | null) => {
         if (state.state === "Error") {
             setUsers(state);
         } else if (state.state === "Loaded") {
-            setUsers(loadedState(state.data.users));
+            setUsers(loadedState(state.data.users.sort((a, b) => a.username.toLowerCase() > b.username.toLowerCase() ? 1 : -1)));
         } else {
             setUsers(loadingState());
         }

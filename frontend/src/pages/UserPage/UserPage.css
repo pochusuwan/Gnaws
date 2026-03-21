@@ -1,13 +1,26 @@
 .userTable {
     display: flex;
     flex-direction: column;
-    width: 200px;
+    text-align: start;
     gap: 8px;
 }
 
 .userRow {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
-    padding: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.userValue {
+    text-align: start;
+    font-weight: 600;
+    width: 150px;
+}
+
+.inviteCodeRow {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 20px;
 }

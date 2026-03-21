@@ -1,9 +1,9 @@
-import { User, getUserFromDB, ROLE_OWNER, createUser } from "./users";
+import { User, getUserFromDB, ROLE_OWNER, createUser, ROLE_ADMIN } from "./users";
 import { APIGatewayProxyResult } from "aws-lambda";
 import jwt from "jsonwebtoken";
-import { invalidCredential, serverError, success } from "./util";
+import { forbidden, invalidCredential, serverError, success } from "./util";
 import { dynamoClient } from "./clients";
-import { GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import { GetItemCommand, PutItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import * as bcrypt from "bcryptjs";
 
 const JWT_TTL_SECONDS = 60 * 60; // 1 hour
@@ -180,4 +180,45 @@ async function loginSuccess(user: User): Promise<APIGatewayProxyResult> {
             },
         }),
     };
+}
+
+export async function getInviteCode(requestUser: User, params: any): Promise<APIGatewayProxyResult> {
+    if (requestUser.role !== ROLE_ADMIN && requestUser.role !== ROLE_OWNER) {
+        return forbidden();
+    }
+    try {
+        return success({ code: await getSecret(INVITE_CODE_SECRET) });
+    } catch (e: any) {
+        console.error(`Failed to get invite code: ${e.message}`);
+        return serverError("Failed to get invite code");
+    }
+}
+
+export async function randomizeInviteCode(requestUser: User, params: any): Promise<APIGatewayProxyResult> {
+    if (requestUser.role !== ROLE_OWNER) {
+        return forbidden();
+    }
+
+    const newCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    try {
+        await dynamoClient.send(
+            new UpdateItemCommand({
+                TableName: SECRET_TABLE,
+                Key: {
+                    id: { S: INVITE_CODE_SECRET },
+                },
+                UpdateExpression: "SET #value = :code",
+                ExpressionAttributeNames: {
+                    "#value": "value",
+                },
+                ExpressionAttributeValues: {
+                    ":code": { S: newCode },
+                },
+            }),
+        );
+        return success({ code: newCode });
+    } catch (e: any) {
+        console.error(`Failed to update invite code ${e.message}`);
+        return serverError("Failed to update invite code");
+    }
 }

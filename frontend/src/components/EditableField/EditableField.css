@@ -1,0 +1,17 @@
+.editableField {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.editableFieldLabel {
+    width: 150px;
+    font-weight: 600;
+    text-align: start;
+}
+
+.editableFieldValue {
+    width: fit-content;
+    min-width: 50px;
+    text-align: start;
+}
