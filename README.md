@@ -1,6 +1,14 @@
-# Gnaws — Self-Hosted Game Servers on AWS
+# Gnaws - Self-Hosted Game Server Platform (AWS CDK + Web UI)
 
-> Deploy a performant, cost-efficient game server to your own AWS account in minutes. Let your friends start and stop it whenever they want. You only pay when server is running.
+> Deploy and manage game servers (Minecraft, Valheim, Palworld) on AWS with a simple web interface.  
+> A cheaper alternative to traditional game server hosting — run servers on EC2 and only pay when playing.
+
+**Gnaws** is a self-hosted game server platform that lets you spin up, stop, and manage dedicated servers on-demand without needing AWS or DevOps knowledge.
+
+Perfect for:
+- Friends who want to share a server
+- Players tired of paying $20–50/month for hosting
+- Anyone who wants full control over performance and cost
 
 ---
 
@@ -21,6 +29,8 @@ Running a game server has always been a pain:
 
 ## Features
 
+- **One-click** — Build your own infrastructure with a simple command. 
+- **Web UI** — Create and manage game servers with simple web UI.
 - **EC2 instance** — Runs on a dedicated instance type of your choosing, with no shared resources.
 - **Pay only when playing** — Server auto-stops when not in use. Typical cost: a few dollars/month vs. $30–80+ for dedicated hosting.
 - **Supported games out of the box** — Deploy popular game servers in a few clicks from a curated list.
@@ -32,7 +42,33 @@ Running a game server has always been a pain:
 
 ## How It Works
 
-TODO
+1. **Infrastructure**
+   - AWS CDK managed resources in your own AWS account.
+
+2. **Web UI**
+   - A React app is hosted on S3 and served through CloudFront
+   - This is the webpage where users create and manage servers
+
+3. **Backend**
+   - The UI sends requests to a Lambda backend
+   - It handles actions like creating, starting, and stopping servers
+   - It also manages user access and permissions
+
+4. **Game Servers (EC2)**
+   - Each game server runs on its own EC2 instance
+   - You choose the instance type based on how much performance you need
+   - Servers are not shared with anyone else
+
+5. **Server Setup**
+   - When an instance starts, a setup script installs the selected game server
+   - The server is configured and started automatically
+
+6. **Start / Stop Flow**
+   - Start → launches the EC2 instance and starts the game server  
+   - Stop → shuts down the instance so you stop paying for compute
+
+6. **Connecting to the Server**
+   - Players connect using the normal game multiplayer (EC2 IP + port)
 
 ---
 
@@ -89,6 +125,19 @@ Costs vary by region and instance type. A rough example using `t3.large` in `us-
 | **vs. rented server** | **$25-50/month** |
 
 > See [EC2 Pricing](https://aws.amazon.com/ec2/pricing/on-demand/) to estimate costs for your specific instance type and region.
+
+---
+
+## FAQ
+
+### Is this cheaper than renting a Minecraft server?
+Most likely — you only pay when the server is running on AWS EC2. Pick your server performance and cost.
+
+### Do I need AWS knowledge?
+No — deployment is automated and UI is simple.
+
+### Is performance better than hosting providers?
+Yes — you choose your EC2 instance type, so performance is predictable and not shared.
 
 ---
 
