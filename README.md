@@ -42,32 +42,23 @@ Running a game server has always been a pain:
 
 ## How It Works
 
-1. **Infrastructure**
-   - AWS CDK managed resources in your own AWS account.
-
-2. **Web UI**
+1. **Web UI**
    - A React app is hosted on S3 and served through CloudFront
    - This is the webpage where users create and manage servers
 
-3. **Backend**
+2. **Backend**
    - The UI sends requests to a Lambda backend
    - It handles actions like creating, starting, and stopping servers
-   - It also manages user access and permissions
 
-4. **Game Servers (EC2)**
+3. **Game Servers (EC2)**
    - Each game server runs on its own EC2 instance
    - You choose the instance type based on how much performance you need
-   - Servers are not shared with anyone else
 
-5. **Server Setup**
+4. **Server Setup**
    - When an instance starts, a setup script installs the selected game server
    - The server is configured and started automatically
 
-6. **Start / Stop Flow**
-   - Start → launches the EC2 instance and starts the game server  
-   - Stop → shuts down the instance so you stop paying for compute
-
-6. **Connecting to the Server**
+5. **Connecting to the Server**
    - Players connect using the normal game multiplayer (EC2 IP + port)
 
 ---
@@ -99,16 +90,6 @@ Running a game server has always been a pain:
 - Valheim
 
 > Don't see your game? SSH into the instance and install it manually
-
----
-
-## Giving Friends Access
-TODO
-Simply give your friend website url and the shared password. Assign your friends different roles:
-
-- new (Default) - View and join game servers only
-- manager - Permission to start and stop server
-- admin - All permissions: create, backup, configure, and terminate
 
 ---
 
@@ -146,7 +127,6 @@ Yes — you choose your EC2 instance type, so performance is predictable and not
 - [ ] Automatic scheduled shutdowns (e.g., stop after 20 minutes if no players)
 - [ ] Changing instance type
 - [ ] Snapshot / backup management
-- [ ] Changing password
 - [ ] More supported games
 
 ---
