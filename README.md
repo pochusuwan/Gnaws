@@ -42,24 +42,11 @@ Running a game server has always been a pain:
 
 ## How It Works
 
-1. **Web UI**
-   - A React app is hosted on S3 and served through CloudFront
-   - This is the webpage where users create and manage servers
-
-2. **Backend**
-   - The UI sends requests to a Lambda backend
-   - It handles actions like creating, starting, and stopping servers
-
-3. **Game Servers (EC2)**
-   - Each game server runs on its own EC2 instance
-   - You choose the instance type based on how much performance you need
-
-4. **Server Setup**
-   - When an instance starts, a setup script installs the selected game server
-   - The server is configured and started automatically
-
-5. **Connecting to the Server**
-   - Players connect using the normal game multiplayer (EC2 IP + port)
+- **Web UI** — React app hosted on S3 and served via CloudFront
+- **Backend** — Lambda handles requests (create, start, stop, permissions)
+- **Game Servers** — Each server runs on its own EC2 instance in a selected AWS region
+- **Setup** — Instance startup script installs the game from official sources and starts it  
+- **Connect** — Players join using the EC2 instance IP and game port
 
 ---
 
