@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Role, type NetworkDataState, type User } from "../../types";
 import "./UserPage.css";
 import { useUser } from "../../hooks/useUser";
-import { hasAdminPermission, hasOwnerPermission } from "../../utils";
+import { hasAdminPermission } from "../../utils";
+import useApiCall from "../../hooks/useApiCall";
+import { EditableField } from "../../components/EditableField/EditableField";
 
 type UserPageProps = {
     users: NetworkDataState<User[]>;
@@ -13,20 +15,24 @@ type UserPageProps = {
 export default function UserPage(props: UserPageProps) {
     const userRole = useUser().role;
     const [editingUsers, setEditingUsers] = useState<{ [username: string]: Role }>({});
-    const [ownerUser, setOwnerUser] = useState<User | undefined>(undefined);
     const [updateUsersMessage, setUpdateUsersMessage] = useState("");
+    const { call: getInviteCodeCall, state: inviteCodeState } = useApiCall<{ code: string }>("getInviteCode");
+    const { call: randomizeInviteCode, state: randomizeInviteCodeState } = useApiCall<{ code: string }>("randomizeInviteCode");
+    const [inviteCode, setInviteCode] = useState("");
     useEffect(() => {
         if (hasAdminPermission(userRole)) {
             props.loadUsers();
+            getInviteCodeCall();
         }
     }, [userRole, props.loadUsers]);
 
     useEffect(() => {
-        if (props.users.state === "Loaded") {
-            const owner = props.users.data.find((user) => hasOwnerPermission(user.role));
-            setOwnerUser(owner);
+        if (randomizeInviteCodeState.state === "Loaded") {
+            setInviteCode(randomizeInviteCodeState.data.code);
+        } else if (inviteCodeState.state === "Loaded") {
+            setInviteCode(inviteCodeState.data.code);
         }
-    }, [props.users]);
+    }, [randomizeInviteCodeState, inviteCodeState]);
 
     const onUpdate = useCallback(
         (username: string, role?: Role) => {
@@ -64,15 +70,29 @@ export default function UserPage(props: UserPageProps) {
     }
 
     return (
-        <div className="userTable">
-            {ownerUser && <UserRow user={ownerUser} disabled />}
-            {props.users.data
-                .filter((user) => !hasOwnerPermission(user.role))
-                .map((user) => (
+        <div>
+            <div style={{ textAlign: "start" }}>All users except the owner log in using a shared invite code</div>
+            <div className="inviteCodeRow">
+                <EditableField label={"Invite Code"} value={inviteCode} editing={false} onValueChange={setInviteCode} />
+                <button
+                    disabled={inviteCodeState.state !== "Loaded" || randomizeInviteCodeState.state === "Loading"}
+                    onClick={() => randomizeInviteCode()}
+                >
+                    Randomize
+                </button>
+            </div>
+            <div className="userTable">
+                <div style={{ fontWeight: "bold" }}>Set users permissions</div>
+                <div>New — View server list and IP addresses only</div>
+                <div>User — Can start and stop servers</div>
+                <div>Admin — Can start, stop, create, modify servers, and manage permissions</div>
+                <div>Owner — All permissions, including changing the invite code</div>
+                {props.users.data.map((user) => (
                     <UserRow key={user.username} user={user} onUpdate={onUpdate} editting={editingUsers[user.username] !== undefined} />
                 ))}
-            {Object.values(editingUsers).length > 0 && <button onClick={submitUpdate}>Update</button>}
-            <div>{updateUsersMessage}</div>
+                {Object.values(editingUsers).length > 0 && <button onClick={submitUpdate}>Update</button>}
+                <div>{updateUsersMessage}</div>
+            </div>
         </div>
     );
 }
@@ -97,11 +117,11 @@ function UserRow(props: RowProps) {
     );
     return (
         <div className="userRow" style={{ backgroundColor: props.editting ? "lightgreen" : "transparent" }}>
-            <div>{props.user.username}</div>
-            <select defaultValue={props.user.role} onChange={onChange} disabled={props.disabled}>
-                {Object.values(Role).filter((role) => role !== Role.Owner).map((role) => (
-                    <option key={role} value={role}>
-                        {role}
+            <div className="userValue">{props.user.username}</div>
+            <select id={props.user.username} defaultValue={props.user.role} onChange={onChange} disabled={props.user.role === Role.Owner}>
+                {Object.values(Role).map((role) => (
+                    <option key={role} value={role} disabled={role === Role.Owner}>
+                        {role.charAt(0).toUpperCase() + role.slice(1)}
                     </option>
                 ))}
             </select>

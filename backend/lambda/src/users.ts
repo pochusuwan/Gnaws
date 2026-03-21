@@ -101,7 +101,6 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
                 user.role !== ROLE_OWNER &&
                 // Cannot change self role
                 user.username != requestUser.username
-                // TODO: cannot change owner role
             ) {
                 return {
                     username: user.username,
@@ -127,11 +126,13 @@ export const updateUsers = async (requestUser: User, params: any): Promise<APIGa
                         username: { S: user.username },
                     },
                     UpdateExpression: "SET #r = :role",
+                    ConditionExpression: "#r <> :owner",
                     ExpressionAttributeNames: {
                         "#r": "role",
                     },
                     ExpressionAttributeValues: {
                         ":role": { S: user.role },
+                        ":owner": { S: ROLE_OWNER },
                     },
                 }),
             ),

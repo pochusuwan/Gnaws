@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
-import { getUserFromJwt, login, logout } from "./auth";
+import { getInviteCode, getUserFromJwt, login, logout, randomizeInviteCode } from "./auth";
 import { getUsers, updateUsers } from "./users";
 import { getServers, serverAction } from "./servers";
 import { createServer } from "./createServer";
@@ -18,7 +18,21 @@ const CREATE_SERVER_TYPE = "createServer";
 const SERVER_ACTION_TYPE = "serverAction";
 const INIT_CRATE_SERVER_TYPE = "initCreateServer";
 const CHECK_NEW_RELEASE_TYPE = "checkNewRelease";
-const ALLOWED_REQUESTS = [LOGIN_TYPE, LOGOUT_TYPE, GET_USERS_TYPE, UPDATE_USERS_TYPE, GET_SERVERS_TYPE, SERVER_ACTION_TYPE, INIT_CRATE_SERVER_TYPE, CREATE_SERVER_TYPE, CHECK_NEW_RELEASE_TYPE];
+const GET_INVITE_CODE = "getInviteCode";
+const RANDOM_INVITE_CODE = "randomizeInviteCode";
+const ALLOWED_REQUESTS = [
+    LOGIN_TYPE,
+    LOGOUT_TYPE,
+    GET_USERS_TYPE,
+    UPDATE_USERS_TYPE,
+    GET_SERVERS_TYPE,
+    SERVER_ACTION_TYPE,
+    INIT_CRATE_SERVER_TYPE,
+    CREATE_SERVER_TYPE,
+    CHECK_NEW_RELEASE_TYPE,
+    GET_INVITE_CODE,
+    RANDOM_INVITE_CODE,
+];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
     let requestType, params;
@@ -59,6 +73,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (requestType === UPDATE_USERS_TYPE) {
         return await updateUsers(user, params);
+    }
+    if (requestType === GET_INVITE_CODE) {
+        return await getInviteCode(user, params);
+    }
+    if (requestType === RANDOM_INVITE_CODE) {
+        return await randomizeInviteCode(user, params);
     }
     if (requestType === GET_SERVERS_TYPE) {
         return await getServers(user, params);

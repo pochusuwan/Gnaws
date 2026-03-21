@@ -10,7 +10,7 @@
     "devFrontend": "cd frontend && npm run dev",
     "buildFrontend": "cd frontend && npm run build && cd ..",
     "buildAll": "npm run buildFrontend && npm run build",
-    "buildAndDeploy": "npm run buildAll && cdk deploy",
+    "buildAndDeploy": "npm run buildAll && cdk deploy --method=direct",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
