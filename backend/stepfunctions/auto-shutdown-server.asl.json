@@ -1,0 +1,16 @@
+{
+  "Comment": "Auto shutdown game server if player count is 0 for specified duration",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "terminateCheck": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "End": true
+    }
+  }
+}
