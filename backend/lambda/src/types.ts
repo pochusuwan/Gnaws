@@ -36,6 +36,14 @@ export type Server = {
         status?: string;
         message?: string;
     };
+    configuration?: {
+        autoShutdownMinute?: number;
+    };
+    autoShutdown?: {
+        executionId?: string;
+        status?: string;
+        lastUpdated?: string;
+    }
 };
 
 export type Port = {

@@ -95,7 +95,7 @@ if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
 fi
 
 # Get version from tag
-VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "0.0.0")
+VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
 
 # Install, build, and deploy
 npm run installAll

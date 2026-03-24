@@ -18,6 +18,9 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as crypto from "crypto";
 import { Aspects } from "aws-cdk-lib";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
+import { Duration } from "aws-cdk-lib";
 
 // for injectin custom domain to project
 export interface GnawsStackProps extends cdk.StackProps {
@@ -48,6 +51,7 @@ export class GnawsStack extends cdk.Stack {
     private setupServerFunction: sfn.StateMachine;
     private updateServerFunction: sfn.StateMachine;
     private terminateServerFunction: sfn.StateMachine;
+    private autoShutdownServerFunction: sfn.StateMachine;
     // Controller lambda
     private apiUrl: string;
     // Network
@@ -97,6 +101,7 @@ export class GnawsStack extends cdk.Stack {
                 SETUP_SERVER_FUNCTION_ARN: this.setupServerFunction.stateMachineArn,
                 UPDATE_SERVER_FUNCTION_ARN: this.updateServerFunction.stateMachineArn,
                 TERMINATE_SERVER_FUNCTION_ARN: this.terminateServerFunction.stateMachineArn,
+                AUTO_SHUTDOWN_SERVER_FUNCTION_ARN: this.autoShutdownServerFunction.stateMachineArn,
                 INFRASTRUCTURE_VERSION_SSM_PARAM: this.infraVersionParam.parameterName,
                 BACKUP_BUCKET_NAME: this.backupBucket.bucketName,
                 VPC_ID: this.vpc.vpcId,
@@ -114,6 +119,7 @@ export class GnawsStack extends cdk.Stack {
                     "ec2:RunInstances",
                     "ec2:CreateSecurityGroup",
                     "ec2:CreateTags",
+                    "states:DescribeExecution",
                     "ssm:GetParameter",
                 ],
                 resources: ["*"],
@@ -172,6 +178,7 @@ export class GnawsStack extends cdk.Stack {
         this.setupServerFunction.grantStartExecution(backend);
         this.updateServerFunction.grantStartExecution(backend);
         this.terminateServerFunction.grantStartExecution(backend);
+        this.autoShutdownServerFunction.grantStartExecution(backend);
 
         // Http API Gateway for requests from frontend
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
@@ -192,6 +199,27 @@ export class GnawsStack extends cdk.Stack {
         const apiUrl = api.url;
         if (apiUrl === undefined) throw "No API url";
         this.apiUrl = apiUrl;
+
+        // new events.Rule(this, "GnawsWatchdogSchedule", {
+        //     schedule: events.Schedule.rate(Duration.minutes(10)),
+        //     targets: [
+        //         new targets.LambdaFunction(backend, {
+        //             event: events.RuleTargetInput.fromObject({
+        //                 type: "GnawsWatchdog",
+        //             }),
+        //         }),
+        //     ],
+        // });
+        // new events.Rule(this, "GnawsEC2StateChangeRule", {
+        //     eventPattern: {
+        //         source: ["aws.ec2"],
+        //         detailType: ["EC2 Instance State-change Notification"],
+        //         detail: {
+        //             state: ["running", "stopping"],
+        //         },
+        //     },
+        //     targets: [new targets.LambdaFunction(backend)],
+        // });
     }
 
     private buildFrontend(props?: GnawsStackProps) {
@@ -265,9 +293,7 @@ export class GnawsStack extends cdk.Stack {
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsiteHashedAsset", {
             sources: [s3deploy.Source.asset("frontend/dist")],
             destinationBucket: this.websiteBucket,
-            cacheControl: [
-                s3deploy.CacheControl.fromString("max-age=86400,public,immutable"),
-            ],
+            cacheControl: [s3deploy.CacheControl.fromString("max-age=86400,public,immutable")],
             exclude: ["index.html"],
         });
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
@@ -280,11 +306,9 @@ export class GnawsStack extends cdk.Stack {
                     }),
                 ),
             ],
-            cacheControl: [
-                s3deploy.CacheControl.fromString('no-cache'),
-            ],
+            cacheControl: [s3deploy.CacheControl.fromString("no-cache")],
             destinationBucket: this.websiteBucket,
-            include: ['index.html', 'config.json'],
+            include: ["index.html", "config.json"],
         });
     }
 
@@ -458,6 +482,17 @@ export class GnawsStack extends cdk.Stack {
         this.addTerminatePermissions(this.terminateServerFunction);
         this.workflowTable.grantWriteData(this.terminateServerFunction);
         this.serverTable.grantWriteData(this.terminateServerFunction);
+
+        this.autoShutdownServerFunction = new sfn.StateMachine(this, "GnawsAutoShutdownServer", {
+            definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/auto-shutdown-server.asl.json"),
+            timeout: cdk.Duration.hours(10),
+        });
+        this.addEC2DescribePermissions(this.autoShutdownServerFunction);
+        this.addEC2StopPermissions(this.autoShutdownServerFunction);
+        this.addStepfunctionInvokePermission(this.autoShutdownServerFunction, this.stopServerFunction);
+        this.addSsmCommandPermission(this.autoShutdownServerFunction);
+        this.workflowTable.grantWriteData(this.autoShutdownServerFunction);
+        this.serverTable.grantWriteData(this.autoShutdownServerFunction);
     }
 
     private buildNetwork() {
@@ -558,6 +593,15 @@ export class GnawsStack extends cdk.Stack {
             new iam.PolicyStatement({
                 actions: ["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation"],
                 resources: ["*"],
+            }),
+        );
+    }
+
+    private addStepfunctionInvokePermission(stateMachine: sfn.StateMachine, targetStateMachime: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["states:StartExecution"],
+                resources: [targetStateMachime.stateMachineArn],
             }),
         );
     }

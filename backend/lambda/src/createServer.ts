@@ -23,6 +23,7 @@ const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
 const EC2_PROFILE_ARN = process.env.EC2_PROFILE_ARN!;
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
+export const SERVER_NAME_TAG_PREFIX = "Gnaws-";
 
 export const createServer = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
     if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
@@ -246,7 +247,7 @@ const createEc2 = async (
                 {
                     ResourceType: "instance",
                     Tags: [
-                        { Key: "Name", Value: `Gnaws-${serverName}` },
+                        { Key: "Name", Value: `${SERVER_NAME_TAG_PREFIX}${serverName}` },
                         { Key: "OwnedBy", Value: "GnawsStack" },
                     ],
                 },

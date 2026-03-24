@@ -7,6 +7,7 @@ import { createServer } from "./createServer";
 import { initCreateServer } from "./initCreateServer";
 import { invalidCredential, serverError } from "./util";
 import { checkForNewRelease } from "./versioning";
+import { EC2_STATE_EVENT, handleEc2StateChangeEvent, watchdogEvent } from "./eventBridge";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -35,6 +36,12 @@ const ALLOWED_REQUESTS = [
 ];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
+    if ((event as any).type === "GnawsWatchdog") {
+        return await watchdogEvent();
+    }
+    if ((event as any)?.["detail-type"] === EC2_STATE_EVENT) {
+        return await handleEc2StateChangeEvent(event);
+    }
     let requestType, params;
     const request = parseRequest(event.body);
     if (request === null) {

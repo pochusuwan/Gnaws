@@ -8,6 +8,7 @@ export const BACKUP_SERVER_FUNCTION_ARN = process.env.BACKUP_SERVER_FUNCTION_ARN
 export const SETUP_SERVER_FUNCTION_ARN = process.env.SETUP_SERVER_FUNCTION_ARN!;
 export const UPDATE_SERVER_FUNCTION_ARN = process.env.UPDATE_SERVER_FUNCTION_ARN!;
 export const TERMINATE_SERVER_FUNCTION_ARN = process.env.TERMINATE_SERVER_FUNCTION_ARN!;
+export const AUTO_SHUTDOWN_SERVER_FUNCTION_ARN = process.env.AUTO_SHUTDOWN_SERVER_FUNCTION_ARN!;
 const GET_SERVER_STATUS_FUNCTION_ARN = process.env.GET_SERVER_STATUS_FUNCTION_ARN!;
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
@@ -40,7 +41,7 @@ export const getServerStatusWorkflow = async (serverName: string, instanceId: st
     }
 }
 
-export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string, additionalParams?: Record<string, string | boolean>) => {
+export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string, additionalParams?: Record<string, string | boolean | number>) => {
     const cmd = new StartExecutionCommand({
         stateMachineArn,
         input: JSON.stringify({

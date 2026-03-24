@@ -115,7 +115,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     return success({ servers });
 };
 
-const getAllServersFromDB = async (): Promise<Server[]> => {
+export const getAllServersFromDB = async (): Promise<Server[]> => {
     const command = new ScanCommand({
         TableName: SERVER_TABLE,
     });
@@ -134,7 +134,7 @@ const getServersFromDB = async (serverNames: string[]): Promise<Server[]> => {
 };
 
 // Get server from name. If not valid, return null.
-const getServerFromDB = async (name: string): Promise<Server | null> => {
+export const getServerFromDB = async (name: string): Promise<Server | null> => {
     try {
         const result = await dynamoClient.send(
             new GetItemCommand({
@@ -194,10 +194,11 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     // Acquire lock
     try {
         await aquireWorkflowLock(instanceId, action);
-    } catch (err: any) {
-        if (err.name === "ConditionalCheckFailedException") {
+    } catch (e: any) {
+        if (e.name === "ConditionalCheckFailedException") {
             return clientError("Another action in progress");
         } else {
+            console.error(`Failed to get workflow lock: ${e.message}`)
             return serverError("Failed to get workflow lock");
         }
     }
@@ -260,14 +261,13 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
 };
 
 export const aquireWorkflowLock = async (resourceId: string, action: string) => {
-    const now = Date.now();
     await dynamoClient.send(
         new PutItemCommand({
             TableName: WORKFLOW_TABLE,
             Item: {
                 resourceId: { S: resourceId },
                 workflow: { S: action },
-                startedAt: { N: now.toString() },
+                startedAt: { S: new Date().toISOString() },
             },
             ConditionExpression: "attribute_not_exists(resourceId)",
             // Always block for now if workflow exist
@@ -299,13 +299,18 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         names["#workflow"] = "workflow";
         values[":workflow"] = server.workflow;
     }
+    if (server.autoShutdown) {
+        updates.push("#autoShutdown = :autoShutdown");
+        names["#autoShutdown"] = "autoShutdown";
+        values[":autoShutdown"] = server.autoShutdown;
+    }
     await dynamoClient.send(
         new UpdateItemCommand({
             TableName: SERVER_TABLE,
             Key: { name: { S: name } },
             UpdateExpression: `SET ${updates.join(", ")}`,
             ExpressionAttributeNames: names,
-            ExpressionAttributeValues: marshall(values),
+            ExpressionAttributeValues: marshall(values, { removeUndefinedValues: true }),
         }),
     );
 };

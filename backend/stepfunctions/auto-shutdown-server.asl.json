@@ -1,0 +1,226 @@
+{
+  "Comment": "Auto shutdown game server if player count is 0 for specified duration. This timeout after 8 hours and watchdog will start new one if needed.",
+  "StartAt": "Init",
+  "States": {
+    "Init": {
+      "Type": "Pass",
+      "Result": {
+        "loopCount": {
+          "val": 0
+        }
+      },
+      "ResultPath": "$.meta",
+      "Next": "InitialWait"
+    },
+    "InitialWait": {
+      "Type": "Wait",
+      "SecondsPath": "$.initialWaitSeconds",
+      "Next": "DescribeEC2"
+    },
+    "Exit": {
+      "Type": "Pass",
+      "End": true
+    },
+    "IncrementLoop": {
+      "Type": "Pass",
+      "Parameters": {
+        "val.$": "States.MathAdd($.meta.loopCount.val, 1)"
+      },
+      "ResultPath": "$.meta.loopCount",
+      "Next": "CheckWorkflowTimeout"
+    },
+    "CheckWorkflowTimeout": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.meta.loopCount.val",
+          "NumericGreaterThanEquals": 96,
+          "Next": "Exit"
+        }
+      ],
+      "Default": "WaitNextLoop"
+    },
+    "WaitNextLoop": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "DescribeEC2"
+    },
+    "DescribeEC2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ec2:describeInstances",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)"
+      },
+      "ResultPath": "$.ec2",
+      "Next": "IsInstanceRunning"
+    },
+    "IsInstanceRunning": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.ec2.Reservations",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0]",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances",
+              "IsPresent": false
+            },
+            {
+              "Variable": "$.ec2.Reservations[0].Instances[0]",
+              "IsPresent": false
+            }
+          ],
+          "Next": "Exit"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "running",
+          "Next": "CheckGameServerStatus"
+        },
+        {
+          "Variable": "$.ec2.Reservations[0].Instances[0].State.Name",
+          "StringEquals": "pending",
+          "Next": "IncrementLoop"
+        }
+      ],
+      "Default": "Exit"
+    },
+    "CheckGameServerStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.instanceId)",
+        "DocumentName": "AWS-RunShellScript",
+        "Parameters": {
+          "commands": [
+            "/opt/gnaws/entrypoints/server_status.sh"
+          ]
+        }
+      },
+      "ResultPath": "$.command",
+      "Next": "WaitForCommand"
+    },
+    "WaitForCommand": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "GetCommandResult"
+    },
+    "GetCommandResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+      "Parameters": {
+        "CommandId.$": "$.command.Command.CommandId",
+        "InstanceId.$": "$.instanceId"
+      },
+      "Assign": {
+        "serverStatus.$": "States.StringToJson($.StandardOutputContent)"
+      },
+      "ResultPath": "$.commandResult",
+      "Next": "CheckGameServerOutput"
+    },
+    "CheckGameServerOutput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Success"
+            },
+            {
+              "Variable": "$serverStatus.last_activity_sec",
+              "NumericGreaterThanPath": "$.inactivityDurationSec"
+            }
+          ],
+          "Next": "AcquireLock"
+        }
+      ],
+      "Default": "IncrementLoop"
+    },
+    "AcquireLock": {
+      "QueryLanguage": "JSONata",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:putItem",
+      "Arguments": {
+        "TableName": "{% $states.input.workflowTable %}",
+        "Item": {
+          "resourceId": {
+            "S": "{% $states.input.instanceId %}"
+          },
+          "workflow": {
+            "S": "stop"
+          },
+          "startedAt": {
+            "S": "{% $states.context.State.EnteredTime %}"
+          }
+        },
+        "ConditionExpression": "attribute_not_exists(resourceId)"
+      },
+      "Next": "InvokeStop",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "DynamoDb.ConditionalCheckFailedException"
+          ],
+          "Output": "{% $states.input %}",
+          "Next": "IncrementLoop"
+        }
+      ],
+      "Output": "{% $states.input %}"
+    },
+    "InvokeStop": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution",
+      "Parameters": {
+        "StateMachineArn.$": "$.stopFunctionArn",
+        "Input": {
+          "serverName.$": "$.serverName",
+          "instanceId.$": "$.instanceId",
+          "workflowTable.$": "$.workflowTable",
+          "serverTable.$": "$.serverTable",
+          "backupBucketName.$": "$.backupBucketName",
+          "shouldBackup.$": "$.shouldBackup"
+        }
+      },
+      "Next": "SetAutoShutdownStatus",
+      "ResultPath": "$.invoke"
+    },
+    "SetAutoShutdownStatus": {
+      "QueryLanguage": "JSONata",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:dynamodb:updateItem",
+      "Arguments": {
+        "TableName": "{% $states.input.serverTable %}",
+        "Key": {
+          "name": {
+            "S": "{% $states.input.serverName %}"
+          }
+        },
+        "UpdateExpression": "SET #a = :autoShutdown",
+        "ExpressionAttributeNames": {
+          "#a": "autoShutdown"
+        },
+        "ExpressionAttributeValues": {
+          ":autoShutdown": {
+            "M": {
+              "status": {
+                "S": "autoStopping"
+              },
+              "lastUpdated": {
+                "S": "{% $states.context.State.EnteredTime %}"
+              }
+            }
+          }
+        }
+      },
+      "Output": "{% $states.input %}",
+      "End": true
+    }
+  }
+}
