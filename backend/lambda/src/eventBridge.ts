@@ -11,7 +11,7 @@ export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
 
 // DISABLED VIA CDK
 // Both of these event bridge are disabled because last activity detection has false positive from 
-// bots and port scanner which cause auto shutdown to not work reliably.
+// bots and port scanners which cause auto shutdown to not work reliably.
 export async function watchdogEvent(): Promise<APIGatewayProxyResult> {
     // Handle periodic event
     await setupAutoShutdown();
@@ -82,15 +82,15 @@ export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayP
         if (typeof instanceId !== "string" || typeof state !== "string") {
             return clientError("Invalid EventBridge payload");
         }
+        if (state !== "running" && state !== "stopping") {
+            return clientError("Unexpected EC2 state");
+        }
         const result = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
         const instance = result?.Reservations?.[0]?.Instances?.[0];
         const ec2NameTag = instance?.Tags?.find((t) => t.Key === "Name")?.Value;
 
         if (typeof ec2NameTag !== "string" || !ec2NameTag.startsWith(SERVER_NAME_TAG_PREFIX)) {
             return clientError("Non-gnaws EC2 instance");
-        }
-        if (state !== "running" && state !== "stopping") {
-            return clientError("Unexpected EC2 state");
         }
         const serverName = ec2NameTag.slice(SERVER_NAME_TAG_PREFIX.length);
         const executionId = state === "running" ? await startAutoShutdownIfNeeded(serverName) : undefined;
