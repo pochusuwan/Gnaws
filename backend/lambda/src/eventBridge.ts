@@ -5,15 +5,24 @@ import { ec2Client, sfnClient } from "./clients";
 import { DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { SERVER_NAME_TAG_PREFIX } from "./createServer";
 import { DescribeExecutionCommand } from "@aws-sdk/client-sfn";
-import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow } from "./workflows";
+import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 
 export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
 
+// DISABLED VIA CDK
+// Both of these event bridge are disabled because last activity detection has false positive from 
+// bots and port scanner which cause auto shutdown to not work reliably.
 export async function watchdogEvent(): Promise<APIGatewayProxyResult> {
     // Handle periodic event
     await setupAutoShutdown();
     return success({});
 }
+
+const BASE_AUTO_SHUTDOWN_INPUT = {
+    stopFunctionArn: STOP_SERVER_FUNCTION_ARN,
+    backupBucketName: process.env.BACKUP_BUCKET_NAME!,
+    shouldBackup: true,
+};
 
 async function setupAutoShutdown() {
     try {
@@ -35,17 +44,20 @@ async function setupAutoShutdown() {
             if (executionId === undefined) {
                 shouldStartWorkflow = true;
             } else {
-                const response = await sfnClient.send(new DescribeExecutionCommand({
-                    executionArn: executionId,
-                }));
+                const response = await sfnClient.send(
+                    new DescribeExecutionCommand({
+                        executionArn: executionId,
+                    }),
+                );
                 if (response.status !== "RUNNING") {
                     shouldStartWorkflow = true;
                 }
             }
             if (shouldStartWorkflow && server.ec2?.instanceId) {
                 const result = await startWorkflow(server.name, server.ec2?.instanceId, AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, {
-                    initialDelayMinutes: 10,
-                    autoShutdownMinute,
+                    ...BASE_AUTO_SHUTDOWN_INPUT,
+                    initialWaitSeconds: 10,
+                    inactivityDurationSec: autoShutdownMinute * 60,
                 });
                 await updateServerAttributes(server.name, {
                     autoShutdown: {
@@ -66,32 +78,32 @@ export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayP
     // This set server autoShutdown status and start workflow if configured
     try {
         const instanceId = event?.detail?.["instance-id"];
-        if (typeof instanceId !== "string") {
+        const state = event?.detail?.["state"];
+        if (typeof instanceId !== "string" || typeof state !== "string") {
             return clientError("Invalid EventBridge payload");
         }
         const result = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
         const instance = result?.Reservations?.[0]?.Instances?.[0];
         const ec2NameTag = instance?.Tags?.find((t) => t.Key === "Name")?.Value;
-        const instanceState = instance?.State?.Name;
 
         if (typeof ec2NameTag !== "string" || !ec2NameTag.startsWith(SERVER_NAME_TAG_PREFIX)) {
             return clientError("Non-gnaws EC2 instance");
         }
-        if (instanceState !== "running") {
+        if (state !== "running" && state !== "stopping") {
             return clientError("Unexpected EC2 state");
         }
         const serverName = ec2NameTag.slice(SERVER_NAME_TAG_PREFIX.length);
-        const executionId = await startAutoShutdownIfNeeded(serverName);
-
+        const executionId = state === "running" ? await startAutoShutdownIfNeeded(serverName) : undefined;
         await updateServerAttributes(serverName, {
             autoShutdown: {
-                status: "running",
+                status: state,
                 lastUpdated: new Date().toISOString(),
                 executionId,
             },
         });
         return success({});
     } catch (e: any) {
+        console.error(`Failed to update auto shutdown status: ${e.message}`);
         return serverError(`Failed to update auto shutdown status: ${e.message}`);
     }
 }
@@ -108,10 +120,11 @@ async function startAutoShutdownIfNeeded(serverName: string): Promise<string | u
         if (autoShutdownMinute === undefined) {
             return undefined;
         }
-        // Start with 30 minutes initial delay to prevent shutdown before any player join
         const result = await startWorkflow(serverName, instanceId, AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, {
-            initialDelayMinutes: 30,
-            autoShutdownMinute,
+            ...BASE_AUTO_SHUTDOWN_INPUT,
+            // Start with 30 minutes initial delay to prevent shutdown before any player join
+            initialWaitSeconds: 30 * 60,
+            inactivityDurationSec: autoShutdownMinute * 60,
         });
         return result?.executionId;
     } catch (e: any) {

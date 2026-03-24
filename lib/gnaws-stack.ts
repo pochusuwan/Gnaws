@@ -200,26 +200,26 @@ export class GnawsStack extends cdk.Stack {
         if (apiUrl === undefined) throw "No API url";
         this.apiUrl = apiUrl;
 
-        new events.Rule(this, "GnawsWatchdogSchedule", {
-            schedule: events.Schedule.rate(Duration.minutes(30)),
-            targets: [
-                new targets.LambdaFunction(backend, {
-                    event: events.RuleTargetInput.fromObject({
-                        type: "GnawsWatchdog",
-                    }),
-                }),
-            ],
-        });
-        new events.Rule(this, "GnawsEC2StateChangeRule", {
-            eventPattern: {
-                source: ["aws.ec2"],
-                detailType: ["EC2 Instance State-change Notification"],
-                detail: {
-                    state: ["running"],
-                },
-            },
-            targets: [new targets.LambdaFunction(backend)],
-        });
+        // new events.Rule(this, "GnawsWatchdogSchedule", {
+        //     schedule: events.Schedule.rate(Duration.minutes(10)),
+        //     targets: [
+        //         new targets.LambdaFunction(backend, {
+        //             event: events.RuleTargetInput.fromObject({
+        //                 type: "GnawsWatchdog",
+        //             }),
+        //         }),
+        //     ],
+        // });
+        // new events.Rule(this, "GnawsEC2StateChangeRule", {
+        //     eventPattern: {
+        //         source: ["aws.ec2"],
+        //         detailType: ["EC2 Instance State-change Notification"],
+        //         detail: {
+        //             state: ["running", "stopping"],
+        //         },
+        //     },
+        //     targets: [new targets.LambdaFunction(backend)],
+        // });
     }
 
     private buildFrontend(props?: GnawsStackProps) {
@@ -485,10 +485,11 @@ export class GnawsStack extends cdk.Stack {
 
         this.autoShutdownServerFunction = new sfn.StateMachine(this, "GnawsAutoShutdownServer", {
             definitionBody: sfn.DefinitionBody.fromFile("backend/stepfunctions/auto-shutdown-server.asl.json"),
-            timeout: cdk.Duration.hours(12),
+            timeout: cdk.Duration.hours(10),
         });
         this.addEC2DescribePermissions(this.autoShutdownServerFunction);
         this.addEC2StopPermissions(this.autoShutdownServerFunction);
+        this.addStepfunctionInvokePermission(this.autoShutdownServerFunction, this.stopServerFunction);
         this.addSsmCommandPermission(this.autoShutdownServerFunction);
         this.workflowTable.grantWriteData(this.autoShutdownServerFunction);
         this.serverTable.grantWriteData(this.autoShutdownServerFunction);
@@ -592,6 +593,15 @@ export class GnawsStack extends cdk.Stack {
             new iam.PolicyStatement({
                 actions: ["ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation"],
                 resources: ["*"],
+            }),
+        );
+    }
+
+    private addStepfunctionInvokePermission(stateMachine: sfn.StateMachine, targetStateMachime: sfn.StateMachine) {
+        stateMachine.role.addToPrincipalPolicy(
+            new iam.PolicyStatement({
+                actions: ["states:StartExecution"],
+                resources: [targetStateMachime.stateMachineArn],
             }),
         );
     }
