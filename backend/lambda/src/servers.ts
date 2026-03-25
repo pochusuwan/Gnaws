@@ -16,6 +16,7 @@ import { clientError, forbidden, serverError, success } from "./util";
 import { _InstanceType, DescribeInstancesCommand, ModifyVolumeCommand, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
 import { SendCommandCommand } from "@aws-sdk/client-ssm";
+import { toggleScheduledShutdown } from "./serverConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -35,6 +36,7 @@ const ACTION_SEND_SERVER_COMMAND = "send_server_command";
 const ACTION_REMOVE_LOCK = "remove_lock";
 const ACTION_INCREASE_STORAGE = "increase_storage";
 const ACTION_TERMINATE = "terminate";
+const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
@@ -50,6 +52,7 @@ const SERVER_ACTIONS: {[action: string]: string[]} = {
     [ACTION_REMOVE_LOCK]: ADMIN_USERS,
     [ACTION_INCREASE_STORAGE]: ADMIN_USERS,
     [ACTION_TERMINATE]: ADMIN_USERS,
+    [ACTION_TOGGLE_SCHEDULED_SHUTDOWN]: ADMIN_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -190,6 +193,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (action === ACTION_INCREASE_STORAGE) {
         return increaseStorage(server, params.storage);
     }
+    if (action === ACTION_TOGGLE_SCHEDULED_SHUTDOWN) {
+        return toggleScheduledShutdown(server);
+    }
 
     // Acquire lock
     try {
@@ -303,6 +309,11 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         updates.push("#autoShutdown = :autoShutdown");
         names["#autoShutdown"] = "autoShutdown";
         values[":autoShutdown"] = server.autoShutdown;
+    }
+    if (server.configuration) {
+        updates.push("#configuration = :configuration");
+        names["#configuration"] = "configuration";
+        values[":configuration"] = server.configuration;
     }
     await dynamoClient.send(
         new UpdateItemCommand({

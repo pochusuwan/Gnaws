@@ -15,7 +15,8 @@ type ServerTableProps = {
 
 enum ServerAction {
     Start = "Start",
-    Stop = "Stop"
+    Stop = "Stop",
+    AddHour = "AddHour"
 }
 
 export default function ServerTable(props: ServerTableProps) {
@@ -66,6 +67,7 @@ export default function ServerTable(props: ServerTableProps) {
                         <th>Status</th>
                         <th>Task</th>
                         <th>IP Address</th>
+                        <th>Scheduled<br />Shutdown</th>
                         <th>Player Count</th>
                         <th>Storage</th>
                         <th>Last Backup</th>
@@ -122,6 +124,24 @@ function ServerRow(props: ServerRowProps) {
         const total = parseInt(server.status?.totalStorage);
         storageString = "" + Math.round((used / GIB) * 100) / 100 + "/" + Math.round((total / GIB) * 100) / 100 + "GiB";
     }
+    let shutdownTime = "-";
+    if (server.scheduledShutdown?.shutdownTime) {
+        const date = new Date(server.scheduledShutdown?.shutdownTime);
+        const duration = date.getTime() - Date.now();
+        if (duration > 0) {
+            const h = Math.floor(duration / HOUR_IN_MS);
+            const m = Math.floor(duration % HOUR_IN_MS / 1000 / 60);
+            if (h > 0) shutdownTime = h + "h ";
+            shutdownTime += m + "min";
+        }
+    }
+    const actions = Object.values(ServerAction).filter(a => {
+        if (a === ServerAction.AddHour) {
+            return !server.configuration?.scheduledShutdownDisabled && server.scheduledShutdown?.shutdownTime !== undefined
+        } else {
+            return true;
+        }
+    });
 
     return (
         <tr onClick={() => props.onClick(server.name)}>
@@ -130,15 +150,16 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.status?.status} />
             <Cell value={currentTask} />
             <Cell value={server.status?.ipAddress} />
+            <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
             <Cell value={storageString} />
             <Cell value={timeSinceBackup} />
             <td>
                 {hasUserPermission(userRole) ? (
                     <div className="actionRow">
-                        {Object.values(ServerAction).map((action) => (
+                        {actions.map((action) => (
                             <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>
-                                {action}
+                                {action === ServerAction.AddHour ? 'Add Hour' : action}
                             </button>
                         ))}
                     </div>
