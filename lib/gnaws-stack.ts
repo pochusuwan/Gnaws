@@ -200,16 +200,16 @@ export class GnawsStack extends cdk.Stack {
         if (apiUrl === undefined) throw "No API url";
         this.apiUrl = apiUrl;
 
-        // new events.Rule(this, "GnawsWatchdogSchedule", {
-        //     schedule: events.Schedule.rate(Duration.minutes(10)),
-        //     targets: [
-        //         new targets.LambdaFunction(backend, {
-        //             event: events.RuleTargetInput.fromObject({
-        //                 type: "GnawsWatchdog",
-        //             }),
-        //         }),
-        //     ],
-        // });
+        new events.Rule(this, "GnawsWatchdogSchedule", {
+            schedule: events.Schedule.rate(Duration.minutes(10)),
+            targets: [
+                new targets.LambdaFunction(backend, {
+                    event: events.RuleTargetInput.fromObject({
+                        type: "GnawsWatchdog",
+                    }),
+                }),
+            ],
+        });
         // new events.Rule(this, "GnawsEC2StateChangeRule", {
         //     eventPattern: {
         //         source: ["aws.ec2"],

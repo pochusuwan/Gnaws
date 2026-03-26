@@ -46,6 +46,18 @@ export type Server = {
         status?: string;
         message?: string;
     };
+    configuration?: {
+        autoShutdownMinute?: number;
+        scheduledShutdownDisabled?: boolean;
+    };
+    scheduledShutdown?: {
+        shutdownTime?: string;
+    };
+    autoShutdown?: {
+        executionId?: string;
+        status?: string;
+        lastUpdated?: string;
+    };
 };
 
 export enum Protocol {

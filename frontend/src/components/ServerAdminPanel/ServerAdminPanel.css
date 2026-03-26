@@ -32,11 +32,6 @@
     margin-bottom: 8px;
 }
 
-.adminPanelButton {
-    height: 100%;
-    align-self: stretch;
-}
-
 .adminPanelRow {
     display: flex;
     flex-direction: row;

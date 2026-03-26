@@ -38,12 +38,16 @@ export type Server = {
     };
     configuration?: {
         autoShutdownMinute?: number;
+        scheduledShutdownDisabled?: boolean;
+    };
+    scheduledShutdown?: {
+        shutdownTime?: string;
     };
     autoShutdown?: {
         executionId?: string;
         status?: string;
         lastUpdated?: string;
-    }
+    };
 };
 
 export type Port = {

@@ -1,13 +1,13 @@
 import { useCallback, useState } from "react";
 import type { Server } from "../../types";
-import "./ServerActionPanel.css";
+import "./GameActionPanel.css";
 
-type ServerActionPanelProps = {
+type GameActionPanelProps = {
     server: Server;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string }) => void;
 };
 
-export default function ServerActionPanel(props: ServerActionPanelProps) {
+export default function GameActionPanel(props: GameActionPanelProps) {
     const { server, callAction } = props;
     const [command, setCommand] = useState("");
     const sendCommand = useCallback(() => {
@@ -25,7 +25,7 @@ export default function ServerActionPanel(props: ServerActionPanelProps) {
     );
 
     return (
-        <div className="serverActionPanel">
+        <div className="gameActionPanel">
             {server.game?.supportServerCommand && (
                 <div className="sendCommandRow">
                     <input

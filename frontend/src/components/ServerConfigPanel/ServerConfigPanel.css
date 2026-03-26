@@ -1,0 +1,6 @@
+.serverConfigPanelButtonGrid {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+}
