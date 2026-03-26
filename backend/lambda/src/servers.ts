@@ -13,10 +13,16 @@ import {
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
 import { clientError, forbidden, serverError, success } from "./util";
-import { _InstanceType, DescribeInstancesCommand, ModifyVolumeCommand, StartInstancesCommand, StopInstancesCommand } from "@aws-sdk/client-ec2";
+import {
+    _InstanceType,
+    DescribeInstancesCommand,
+    ModifyVolumeCommand,
+    StartInstancesCommand,
+    StopInstancesCommand,
+} from "@aws-sdk/client-ec2";
 import { Server } from "./types";
 import { SendCommandCommand } from "@aws-sdk/client-ssm";
-import { toggleScheduledShutdown } from "./serverConfig";
+import { addHourToShutdown, getNewShutdownTime, toggleScheduledShutdown } from "./serverConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -37,10 +43,11 @@ const ACTION_REMOVE_LOCK = "remove_lock";
 const ACTION_INCREASE_STORAGE = "increase_storage";
 const ACTION_TERMINATE = "terminate";
 const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
+const ACTION_ADD_HOUR = "add_hour";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
-const SERVER_ACTIONS: {[action: string]: string[]} = {
+const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_START]: ALL_USERS,
     [ACTION_STOP]: ALL_USERS,
     [ACTION_BACKUP]: ADMIN_USERS,
@@ -53,6 +60,7 @@ const SERVER_ACTIONS: {[action: string]: string[]} = {
     [ACTION_INCREASE_STORAGE]: ADMIN_USERS,
     [ACTION_TERMINATE]: ADMIN_USERS,
     [ACTION_TOGGLE_SCHEDULED_SHUTDOWN]: ADMIN_USERS,
+    [ACTION_ADD_HOUR]: ALL_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -196,6 +204,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (action === ACTION_TOGGLE_SCHEDULED_SHUTDOWN) {
         return toggleScheduledShutdown(server);
     }
+    if (action === ACTION_ADD_HOUR) {
+        return addHourToShutdown(server);
+    }
 
     // Acquire lock
     try {
@@ -204,7 +215,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         if (e.name === "ConditionalCheckFailedException") {
             return clientError("Another action in progress");
         } else {
-            console.error(`Failed to get workflow lock: ${e.message}`)
+            console.error(`Failed to get workflow lock: ${e.message}`);
             return serverError("Failed to get workflow lock");
         }
     }
@@ -259,6 +270,12 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 status: "running",
                 lastUpdated: result.startedAt.toISOString(),
             },
+            scheduledShutdown: action === ACTION_START &&
+                action === ACTION_START
+                    ? {
+                          shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
+                      }
+                    : undefined,
         });
     } catch (e) {
         return success({ message: "Started" });
@@ -315,6 +332,11 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         names["#configuration"] = "configuration";
         values[":configuration"] = server.configuration;
     }
+    if (server.scheduledShutdown) {
+        updates.push("#scheduledShutdown = :scheduledShutdown");
+        names["#scheduledShutdown"] = "scheduledShutdown";
+        values[":scheduledShutdown"] = server.scheduledShutdown;
+    }
     await dynamoClient.send(
         new UpdateItemCommand({
             TableName: SERVER_TABLE,
@@ -337,7 +359,7 @@ const removeWorkflowLock = async (instanceId: string): Promise<APIGatewayProxyRe
             }),
         );
     } catch (e) {
-        console.error(e)
+        console.error(e);
         return serverError("Failed to remove workflow lock");
     }
     return success({ message: "Workflow lock removed" });
@@ -435,7 +457,7 @@ const increaseStorage = async (server: Server, storage: any): Promise<APIGateway
             new ModifyVolumeCommand({
                 VolumeId: volumeId,
                 Size: storage,
-            })
+            }),
         );
         return success({ message: "Storage increase initiated" });
     } catch (e: any) {

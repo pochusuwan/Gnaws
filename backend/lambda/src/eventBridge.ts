@@ -8,13 +8,12 @@ import { DescribeExecutionCommand } from "@aws-sdk/client-sfn";
 import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
 
 export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
+const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
-// DISABLED VIA CDK
-// Both of these event bridge are disabled because last activity detection has false positive from 
-// bots and port scanners which cause auto shutdown to not work reliably.
 export async function watchdogEvent(): Promise<APIGatewayProxyResult> {
     // Handle periodic event
-    await setupAutoShutdown();
+    // await setupAutoShutdown();
+    await checkScheduledShutdown();
     return success({});
 }
 
@@ -73,6 +72,9 @@ async function setupAutoShutdown() {
     }
 }
 
+// DISABLED IN STACK
+// Event bridge are disabled because last activity detection has false positive from
+// bots and port scanners which cause auto shutdown to not work reliably.
 export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayProxyResult> {
     // This is called by EventBridge on EC2 state change to running
     // This set server autoShutdown status and start workflow if configured
@@ -129,5 +131,44 @@ async function startAutoShutdownIfNeeded(serverName: string): Promise<string | u
         return result?.executionId;
     } catch (e: any) {
         return undefined;
+    }
+}
+
+async function checkScheduledShutdown(): Promise<void> {
+    try {
+        const servers = await getAllServersFromDB();
+        for (const server of servers) {
+            if (server.configuration?.scheduledShutdownDisabled) {
+                continue;
+            }
+            const shutdownTime = server.scheduledShutdown?.shutdownTime;
+            if (shutdownTime === undefined || new Date(shutdownTime).getTime() > Date.now()) {
+                continue;
+            }
+
+            const instanceId = server.ec2?.instanceId;
+            if (!instanceId) {
+                continue;
+            }
+            const result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
+                backupBucketName: BACKUP_BUCKET_NAME,
+                shouldBackup: true,
+            });
+            if (result) {
+                await updateServerAttributes(server.name, {
+                    workflow: {
+                        currentTask: "stop",
+                        executionId: result.executionId,
+                        status: "running",
+                        lastUpdated: result.startedAt.toISOString(),
+                    },
+                    scheduledShutdown: {
+                        shutdownTime: undefined,
+                    }
+                });
+            }
+        }
+    } catch (e: any) {
+        console.error(`Failed to check scheduled shutdown`, e.message);
     }
 }
