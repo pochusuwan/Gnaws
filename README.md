@@ -111,10 +111,8 @@ Yes — you choose your EC2 instance type, so performance is predictable and not
 
 ## Roadmap
 
-- [ ] Automatic scheduled shutdowns (e.g., stop after 20 minutes if no players)
-- [ ] Changing instance type
-- [ ] Snapshot / backup management
 - [ ] More supported games
+- [ ] Game configuration via Web UI
 
 ---
 
