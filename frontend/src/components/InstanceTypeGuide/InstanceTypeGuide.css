@@ -1,0 +1,136 @@
+.instanceTypeRoot {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 860px;
+    padding: 0px;
+}
+
+.instanceType-section {
+    margin-bottom: 12px;
+}
+
+.instanceType-sectionLabel {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+}
+
+.instanceType-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.instanceType-card {
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.instanceType-cardFamily {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.instanceType-cardDesc {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.instanceType-cardWhen {
+    font-size: 14px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    padding: 8px 10px;
+    line-height: 1.5;
+}
+
+.instanceType-cardWhen strong {
+    display: block;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #555555;
+    margin-bottom: 2px;
+}
+
+.instanceType-warn {
+    font-size: 14px;
+    color: #7a5c00;
+    background: #fdf6e3;
+    border: 1px solid #e8d9a0;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.instanceType-tableWrap {
+    overflow-x: auto;
+    border-radius: 6px;
+    border: 1px solid #e5e5e5;
+    margin-bottom: 12px;
+}
+
+.instanceType-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.instanceType-table thead tr {
+    background: #f5f5f5;
+}
+
+.instanceType-table th {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.instanceType-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.instanceType-table tr:last-child td {
+    border-bottom: none;
+}
+
+.instanceType-table tbody tr:hover td {
+    background: #fafafa;
+}
+
+.instanceType-instanceName {
+    font-weight: 600;
+}
+
+.instanceType-note {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.instanceType-note a {
+    color: #1a1a1a;
+}
+
+@media (max-width: 640px) {
+    .instanceType-cards {
+        grid-template-columns: 1fr;
+    }
+}

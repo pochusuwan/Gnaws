@@ -1,19 +1,25 @@
 .confirmDialogRoot {
+    height: 100%;
     position: fixed;
     inset: 0;
     background-color: #0000003a;
     z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .confirmDialog {
-    margin: 20% auto;
     padding: 16px;
     min-width: 300px;
     width: fit-content;
     background: #fff;
     display: flex;
     flex-direction: column;
-    align-items: start;
+    justify-content: center;
+    align-items: center;
+    border-radius: 4px;
 }
 
 .confirmDialogButtons {
