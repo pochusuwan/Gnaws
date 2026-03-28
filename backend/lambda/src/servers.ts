@@ -22,7 +22,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { Server } from "./types";
 import { SendCommandCommand } from "@aws-sdk/client-ssm";
-import { addHourToShutdown, getNewShutdownTime, toggleScheduledShutdown } from "./serverConfig";
+import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown } from "./serverConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -42,6 +42,7 @@ const ACTION_SEND_SERVER_COMMAND = "send_server_command";
 const ACTION_REMOVE_LOCK = "remove_lock";
 const ACTION_INCREASE_STORAGE = "increase_storage";
 const ACTION_TERMINATE = "terminate";
+const ACTION_CHANGE_INSTANCE_TYPE = "change_instance_type";
 const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
 const ACTION_ADD_HOUR = "add_hour";
 
@@ -59,6 +60,7 @@ const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_REMOVE_LOCK]: ADMIN_USERS,
     [ACTION_INCREASE_STORAGE]: ADMIN_USERS,
     [ACTION_TERMINATE]: ADMIN_USERS,
+    [ACTION_CHANGE_INSTANCE_TYPE]: ADMIN_USERS,
     [ACTION_TOGGLE_SCHEDULED_SHUTDOWN]: ADMIN_USERS,
     [ACTION_ADD_HOUR]: ALL_USERS,
 };
@@ -200,6 +202,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_INCREASE_STORAGE) {
         return increaseStorage(server, params.storage);
+    }
+    if (action === ACTION_CHANGE_INSTANCE_TYPE) {
+        return changeInstanceType(server, params.instanceType);
     }
     if (action === ACTION_TOGGLE_SCHEDULED_SHUTDOWN) {
         return toggleScheduledShutdown(server);

@@ -51,8 +51,9 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
 
     const callChangeInstanceType = useCallback(async () => {
         const result = await instanceTypeConfirm();
-        if (result?.result) {
-            console.debug(result?.result);
+        const instanceType = result?.input;
+        if (instanceType) {
+            callAction("Change_Instance_Type", true, { instanceType });
         }
     }, [server, callAction]);
 

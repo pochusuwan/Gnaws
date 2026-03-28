@@ -2,6 +2,8 @@ import { APIGatewayProxyResult } from "aws-lambda";
 import { Server } from "./types";
 import { updateServerAttributes } from "./servers";
 import { clientError, serverError, success } from "./util";
+import { _InstanceType, DescribeInstanceTypesCommand, ModifyInstanceAttributeCommand } from "@aws-sdk/client-ec2";
+import { ec2Client } from "./clients";
 
 const HOUR_IN_MS = 60 * 60 * 1000;
 const MAX_SCHEDULE_SHUTDOWN = 10 * 60 * 60 * 1000;
@@ -56,5 +58,33 @@ export async function addHourToShutdown(server: Server): Promise<APIGatewayProxy
     } catch (e: any) {
         console.error(`Failed to add hour to shutdown ${e.message}`);
         return serverError("Failed to add hour to shutdown");
+    }
+}
+
+export async function changeInstanceType(server: Server, instanceType: any): Promise<APIGatewayProxyResult> {
+    if (typeof instanceType !== "string") {
+        return clientError("Invalid instanceType");
+    }
+    const instanceId = server.ec2?.instanceId;
+    if (!instanceId) {
+        return serverError("Server has no instance id");
+    }
+    try {
+        await ec2Client.send(new DescribeInstanceTypesCommand({ InstanceTypes: [instanceType as _InstanceType] }));
+    } catch (e) {
+        return clientError("Invalid instanceType");
+    }
+    try {
+        await ec2Client.send(new ModifyInstanceAttributeCommand({
+            InstanceId: instanceId,
+            InstanceType: { Value: instanceType },
+        }));
+        await updateServerAttributes(server.name, {
+            ec2: { ...server.ec2, instanceType },
+        });
+        return success({ message: "Instance type updated" });
+    } catch (e: any) {
+        console.error(`Failed to change instance type: ${e.message}`);
+        return serverError("Failed to change instance type");
     }
 }

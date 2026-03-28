@@ -134,6 +134,7 @@ export class GnawsStack extends cdk.Stack {
                     "ec2:ModifyVolume",
                     "ec2:TerminateInstances",
                     "ec2:DeleteSecurityGroup",
+                    "ec2:ModifyInstanceAttribute",
                 ],
                 resources: ["*"],
                 conditions: {
