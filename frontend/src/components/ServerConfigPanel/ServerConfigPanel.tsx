@@ -3,6 +3,7 @@ import type { Server } from "../../types";
 import "./ServerConfigPanel.css";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
+import InstanceTypeGuide from "../InstanceTypeGuide/InstanceTypeGuide";
 
 const STORAGE_COST_PER_GIB_PER_MONTH = 0.08;
 
@@ -17,6 +18,8 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
 
     // Increase storage dialog
     const { open: increaseStorageOpen, onResult: increaseStorageResult, confirm: increaseStorageConfirm } = useConfirm();
+    // Instance type dialog
+    const { open: instanceTypeOpen, onResult: instanceTypeResult, confirm: instanceTypeConfirm } = useConfirm();
 
     const callIncreaseStorage = useCallback(async () => {
         const result = await increaseStorageConfirm();
@@ -46,8 +49,22 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         );
     }, []);
 
+    const callChangeInstanceType = useCallback(async () => {
+        const result = await instanceTypeConfirm();
+        const instanceType = result?.input;
+        if (instanceType) {
+            callAction("Change_Instance_Type", true, { instanceType });
+        }
+    }, [server, callAction]);
+
     return (
         <div className="serverConfigPanelButtonGrid">
+            <AdminPanelButton
+                disabled={props.inProgress}
+                label={`${server?.configuration?.scheduledShutdownDisabled ? "Enable" : "Disable"} Scheduled Shutdown`}
+                description="Schedule an automatic shutdown at a set time. When triggered, the server will save, exit, and backup before stopping the instance. Players can extend the shutdown time by 1 hour, up to a maximum of 10 hours."
+                onClick={() => callAction("toggle_scheduled_shutdown", true)}
+            />
             <AdminPanelButton
                 disabled={props.inProgress}
                 label="Increase Storage"
@@ -56,9 +73,9 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
             />
             <AdminPanelButton
                 disabled={props.inProgress}
-                label={`${server?.configuration?.scheduledShutdownDisabled ? "Enable" : "Disable"} Scheduled Shutdown`}
-                description="Schedule an automatic shutdown at a set time. When triggered, the server will save, exit, and backup before stopping the instance. Players can extend the shutdown time by 1 hour, up to a maximum of 10 hours."
-                onClick={() => callAction("toggle_scheduled_shutdown", true)}
+                label="Change Instance Type"
+                description="Instance types define your server's CPU, memory, and hourly cost. You can change the instance type at any time, but the instance must be offline. Only upgrade if you are consistently experiencing performance issues to avoid unnecessary costs."
+                onClick={callChangeInstanceType}
             />
             {increaseStorageOpen && (
                 <ConfirmDialog
@@ -66,6 +83,15 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                     yesMessage="Confirm"
                     noMessage="Cancel"
                     onResult={increaseStorageResult}
+                    inputValue={""}
+                />
+            )}
+            {instanceTypeOpen && (
+                <ConfirmDialog
+                    message={InstanceTypeGuide}
+                    yesMessage="Confirm"
+                    noMessage="Cancel"
+                    onResult={instanceTypeResult}
                     inputValue={""}
                 />
             )}
