@@ -9,13 +9,15 @@ import PageSelector from "../../components/PageSelector/PageSelector";
 import GameActionPanel from "../GameActionPanel/GameActionPanel";
 import ServerConfigPanel from "../ServerConfigPanel/ServerConfigPanel";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
+import MonitorPanel from "../MonitorPanel/MonitorPanel";
 
 const SERVER_ACTION = "Server Action";
 const SERVER_CONFIG = "Server Config";
 const SERVER_DATA = "Server Data";
 const GAME_ACTION = "Game Action";
 const GAME_CONFIG = "Game Config";
-const PAGES = [SERVER_ACTION, SERVER_CONFIG, SERVER_DATA, GAME_ACTION, GAME_CONFIG];
+const MONITOR = "Monitor";
+const PAGES = [SERVER_ACTION, SERVER_CONFIG, SERVER_DATA, GAME_ACTION, GAME_CONFIG, MONITOR];
 
 type ServerAdminPanelProps = {
     servers: Server[];
@@ -78,7 +80,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
         } else if (state.state === "Error") {
             setMessage(state.error);
         }
-    }, [state, props.refreshServer]);
+    }, [server, state, props.refreshServer]);
 
     if (server == null) return null;
 
@@ -104,6 +106,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} inProgress={inProgress} setMessage={setMessage} />}
             {page === SERVER_DATA && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
             {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} />}
+            {page === MONITOR && <MonitorPanel server={server} />}
             {stopInstanceOpen && (
                 <ConfirmDialog
                     message={"Are you sure you want to force stop instance? Unsaved game progress may be lost."}

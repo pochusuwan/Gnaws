@@ -121,6 +121,7 @@ export class GnawsStack extends cdk.Stack {
                     "ec2:CreateTags",
                     "states:DescribeExecution",
                     "ssm:GetParameter",
+                    "ssm:GetCommandInvocation",
                 ],
                 resources: ["*"],
             }),
