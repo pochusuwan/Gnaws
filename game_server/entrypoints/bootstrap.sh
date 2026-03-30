@@ -27,6 +27,7 @@ id -u "$SERVER_USER" >/dev/null 2>&1 || \
 
 # Create systemd service
 ln -sfn "$GNAWS_ROOT/internal/gnaws.service" "/etc/systemd/system/gnaws.service"
+ln -sfn "$GNAWS_ROOT/internal/gnaws-metrics.service" "/etc/systemd/system/gnaws-metrics.service"
 
 # Read game server configurations
 . "$GAME_CONF"
