@@ -1,0 +1,12 @@
+.monitorPanel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+}
+
+.monitorGraphRow {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}

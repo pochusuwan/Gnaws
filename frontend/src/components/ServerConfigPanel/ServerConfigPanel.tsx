@@ -55,7 +55,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         if (instanceType) {
             callAction("Change_Instance_Type", true, { instanceType });
         }
-    }, [server, callAction]);
+    }, [callAction]);
 
     return (
         <div className="serverConfigPanelButtonGrid">

@@ -1,0 +1,9 @@
+[Unit]
+Description=Gnaws Metrics Collector
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/gnaws
+Restart=no
+ExecStart=/opt/gnaws/internal/metrics_collector.sh

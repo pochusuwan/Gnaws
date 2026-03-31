@@ -23,7 +23,7 @@
     "messages": [
         {
             "type": "info",
-            "text": "You're setting up a Vanilla server. For better performance and lower hosting costs, we recommend Minecraft - Paper, a highly optimized Minecraft server that is fully compatible with Vanilla worlds and clients."
+            "text": "You're setting up a Vanilla server. For better performance and lower hosting costs, we recommend Minecraft - Paper, a highly optimized Minecraft server that is fully compatible with Vanilla worlds and clients. Note that new Minecraft versions may take longer to be supported on Paper."
         }
     ]
 }

@@ -58,7 +58,20 @@ export type Server = {
         status?: string;
         lastUpdated?: string;
     };
+    metrics?: {
+        executionId?: string;
+        startedAt?: number;
+        lastCompletedAt?: number;
+        entries?: MetricEntry[];
+    }
 };
+
+export type MetricEntry = {
+    timestamp: number,
+    cpu: number,
+    memoryUsed: number,
+    memoryTotal: number,
+}
 
 export enum Protocol {
     TCP = "tcp",
