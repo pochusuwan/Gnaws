@@ -10,7 +10,7 @@ const STORAGE_COST_PER_GIB_PER_MONTH = 0.08;
 type ServerConfigPanelProps = {
     server: Server;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => void;
-    inProgress: boolean;
+    disabled: boolean;
     setMessage: (message: string) => void;
 };
 export default function ServerConfigPanel(props: ServerConfigPanelProps) {
@@ -58,43 +58,46 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     }, [callAction]);
 
     return (
-        <div className="serverConfigPanelButtonGrid">
-            <AdminPanelButton
-                disabled={props.inProgress}
-                label={`${server?.configuration?.scheduledShutdownDisabled ? "Enable" : "Disable"} Scheduled Shutdown`}
-                description="Schedule an automatic shutdown at a set time. When triggered, the server will save, exit, and backup before stopping the instance. Players can extend the shutdown time by 1 hour, up to a maximum of 10 hours."
-                onClick={() => callAction("toggle_scheduled_shutdown", true)}
-            />
-            <AdminPanelButton
-                disabled={props.inProgress}
-                label="Increase Storage"
-                description="Storage has a continuous cost even when the server is offline. Once increased, storage size cannot be decreased. After increasing, you must wait at least 15 minutes and restart the instance to apply the changes."
-                onClick={callIncreaseStorage}
-            />
-            <AdminPanelButton
-                disabled={props.inProgress}
-                label="Change Instance Type"
-                description="Instance types define your server's CPU, memory, and hourly cost. You can change the instance type at any time, but the instance must be offline. Only upgrade if you are consistently experiencing performance issues to avoid unnecessary costs."
-                onClick={callChangeInstanceType}
-            />
-            {increaseStorageOpen && (
-                <ConfirmDialog
-                    message={buildStorageConfirmationMessage}
-                    yesMessage="Confirm"
-                    noMessage="Cancel"
-                    onResult={increaseStorageResult}
-                    inputValue={""}
+        <div>
+            <div>Instance Type: {server.ec2?.instanceType}</div>
+            <div className="serverConfigPanelButtonGrid">
+                <AdminPanelButton
+                    disabled={props.disabled}
+                    label={`${server?.configuration?.scheduledShutdownDisabled ? "Enable" : "Disable"} Scheduled Shutdown`}
+                    description="Schedule an automatic shutdown at a set time. When triggered, the server will save, exit, and backup before stopping the instance. Players can extend the shutdown time by 1 hour, up to a maximum of 10 hours."
+                    onClick={() => callAction("toggle_scheduled_shutdown", true)}
                 />
-            )}
-            {instanceTypeOpen && (
-                <ConfirmDialog
-                    message={InstanceTypeGuide}
-                    yesMessage="Confirm"
-                    noMessage="Cancel"
-                    onResult={instanceTypeResult}
-                    inputValue={""}
+                <AdminPanelButton
+                    disabled={props.disabled}
+                    label="Increase Storage"
+                    description="Storage has a continuous cost even when the server is offline. Once increased, storage size cannot be decreased. After increasing, you must wait at least 15 minutes and restart the instance to apply the changes."
+                    onClick={callIncreaseStorage}
                 />
-            )}
+                <AdminPanelButton
+                    disabled={props.disabled}
+                    label="Change Instance Type"
+                    description="Instance types define your server's CPU, memory, and hourly cost. You can change the instance type at any time, but the instance must be offline. Only upgrade if you are consistently experiencing performance issues to avoid unnecessary costs."
+                    onClick={callChangeInstanceType}
+                />
+                {increaseStorageOpen && (
+                    <ConfirmDialog
+                        message={buildStorageConfirmationMessage}
+                        yesMessage="Confirm"
+                        noMessage="Cancel"
+                        onResult={increaseStorageResult}
+                        inputValue={""}
+                    />
+                )}
+                {instanceTypeOpen && (
+                    <ConfirmDialog
+                        message={InstanceTypeGuide}
+                        yesMessage="Confirm"
+                        noMessage="Cancel"
+                        onResult={instanceTypeResult}
+                        inputValue={""}
+                    />
+                )}
+            </div>
         </div>
     );
 }

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import useApiCall from "../../hooks/useApiCall";
-import { GIB, type MetricEntry, type Server } from "../../types";
+import { useEffect, useMemo } from "react";
+import { GIB, type Server } from "../../types";
 import "./MonitorPanel.css";
+import { useMetrics } from "../../hooks/useMetrics";
+import { useUser } from "../../hooks/useUser";
+import { hasAdminPermission } from "../../utils";
 
 type MonitorPanelProps = {
     server: Server;
@@ -11,24 +13,17 @@ const GRAPH_HEIGHT = 200;
 const GRAPH_PAD = 4;
 
 export default function MonitorPanel(props: MonitorPanelProps) {
-    const { call, state } = useApiCall<{ message: string; metrics: any[] }>("serverAction");
-    const [metrics, setMetrics] = useState<MetricEntry[]>([]);
-    const [message, setMessage] = useState("");
+    const { callMonitor, metrics, message } = useMetrics(props.server.name);
+    const userRole = useUser().role;
 
     useEffect(() => {
         const interval = setInterval(() => {
-            call({ serverName: props.server.name, action: "get_monitoring_metrics" });
+            if (hasAdminPermission(userRole)) {
+                callMonitor();
+            }
         }, 5500);
         return () => clearInterval(interval);
-    }, [call, props.server]);
-
-    useEffect(() => {
-        if (state.state !== "Loaded" || !state.data.metrics) return;
-        setMessage(state.data.message);
-        setMetrics((prev) => {
-            return combineMetricEntries(prev, state.data.metrics);
-        });
-    }, [state]);
+    }, [callMonitor, userRole]);
 
     const cpuPlotPoints = useMemo(() => {
         if (metrics.length <= 1) {
@@ -42,7 +37,7 @@ export default function MonitorPanel(props: MonitorPanelProps) {
             })
             .join(" ");
     }, [metrics]);
-    
+
     const memoryPlotPoints = useMemo(() => {
         if (metrics.length <= 1) {
             return "";
@@ -64,6 +59,10 @@ export default function MonitorPanel(props: MonitorPanelProps) {
         }
         return "Storage: -";
     }, [props.server]);
+
+    if (!hasAdminPermission(userRole)) {
+        return <div>No permission</div>;
+    }
 
     return (
         <div className="monitorPanel">
@@ -96,30 +95,4 @@ export default function MonitorPanel(props: MonitorPanelProps) {
             <div>{message}</div>
         </div>
     );
-}
-
-const METRIC_AGE_LIMIT = 60 * 60 * 1000;
-function combineMetricEntries(oldMetrics: MetricEntry[], newMetrics: MetricEntry[]): MetricEntry[] {
-    let i = 0;
-    let j = 0;
-    const result: MetricEntry[] = [];
-    while (i < oldMetrics.length && j < newMetrics.length) {
-        const a = oldMetrics[i];
-        const b = newMetrics[j];
-        if (a.timestamp < b.timestamp) {
-            result.push(a);
-            i++;
-        } else if (a.timestamp > b.timestamp) {
-            result.push(b);
-            j++;
-        } else {
-            result.push(b);
-            i++;
-            j++;
-        }
-    }
-    while (i < oldMetrics.length) result.push(oldMetrics[i++]);
-    while (j < newMetrics.length) result.push(newMetrics[j++]);
-    const minStart = Date.now() - METRIC_AGE_LIMIT;
-    return result.filter((m) => m.timestamp * 1000 >= minStart);
 }
