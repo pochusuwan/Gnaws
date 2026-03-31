@@ -528,7 +528,6 @@ async function getServerMonitoringMetrics(server: Server): Promise<APIGatewayPro
                 // Otherwise clear execution
                 const startedAt = existingMetrics.startedAt;
                 if (startedAt && Date.now() - startedAt < RUNNING_METRICS_TIMEOUT_MS) {
-                    /// TODO: warning message if command running longer than expected
                     const message = Date.now() - startedAt > GET_METRICS_DURATION_WARNING_MS ? "Metrics collection taking longer than expected" : undefined;
                     return success({ metrics: existingMetrics?.entries ?? [], message });
                 } else {

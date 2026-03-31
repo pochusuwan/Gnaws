@@ -13,6 +13,7 @@ const GRAPH_PAD = 4;
 export default function MonitorPanel(props: MonitorPanelProps) {
     const { call, state } = useApiCall<{ message: string; metrics: any[] }>("serverAction");
     const [metrics, setMetrics] = useState<MetricEntry[]>([]);
+    const [message, setMessage] = useState("");
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -23,6 +24,7 @@ export default function MonitorPanel(props: MonitorPanelProps) {
 
     useEffect(() => {
         if (state.state !== "Loaded" || !state.data.metrics) return;
+        setMessage(state.data.message);
         setMetrics((prev) => {
             return combineMetricEntries(prev, state.data.metrics);
         });
@@ -62,9 +64,6 @@ export default function MonitorPanel(props: MonitorPanelProps) {
         }
         return "Storage: -";
     }, [props.server]);
-    console.error(metrics[metrics.length - 1].memoryUsed)
-    console.error(metrics[metrics.length - 1].memoryTotal)
-    console.error((metrics[metrics.length - 1].memoryUsed/metrics[metrics.length - 1].memoryTotal).toFixed(1))
 
     return (
         <div className="monitorPanel">
@@ -94,6 +93,7 @@ export default function MonitorPanel(props: MonitorPanelProps) {
                     </svg>
                 </div>
             </div>
+            <div>{message}</div>
         </div>
     );
 }
