@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GIB, type Server } from "../../types";
 import "./MonitorPanel.css";
 import { useMetrics } from "../../hooks/useMetrics";
@@ -11,10 +11,12 @@ type MonitorPanelProps = {
 const GRAPH_WIDTH = 450;
 const GRAPH_HEIGHT = 200;
 const GRAPH_PAD = 4;
+const MINUTE_MS = 60 * 1000;
 
 export default function MonitorPanel(props: MonitorPanelProps) {
     const { callMonitor, metrics, message } = useMetrics(props.server.name);
     const userRole = useUser().role;
+    const [windowMs, setWindowMs] = useState(5 * MINUTE_MS);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -25,31 +27,34 @@ export default function MonitorPanel(props: MonitorPanelProps) {
         return () => clearInterval(interval);
     }, [callMonitor, userRole]);
 
+    const windowedMetrics = useMemo(() => {
+        const cutoff = Date.now() - windowMs;
+        return metrics.filter((m) => m.timestamp >= cutoff);
+    }, [metrics, windowMs]);
+
     const cpuPlotPoints = useMemo(() => {
-        if (metrics.length <= 1) {
-            return "";
-        }
-        return metrics
-            .map((e, i) => {
-                const x = GRAPH_PAD + (i / (metrics.length - 1)) * (GRAPH_WIDTH - GRAPH_PAD * 2);
+        if (windowedMetrics.length <= 1) return "";
+        const now = Date.now();
+        return windowedMetrics
+            .map((e) => {
+                const x = timestampToX(e.timestamp, now, windowMs);
                 const y = GRAPH_HEIGHT - GRAPH_PAD - (e.cpu / 100) * (GRAPH_HEIGHT - GRAPH_PAD * 2);
                 return `${x},${y}`;
             })
             .join(" ");
-    }, [metrics]);
+    }, [windowedMetrics, windowMs]);
 
     const memoryPlotPoints = useMemo(() => {
-        if (metrics.length <= 1) {
-            return "";
-        }
-        return metrics
-            .map((e, i) => {
-                const x = GRAPH_PAD + (i / (metrics.length - 1)) * (GRAPH_WIDTH - GRAPH_PAD * 2);
+        if (windowedMetrics.length <= 1) return "";
+        const now = Date.now();
+        return windowedMetrics
+            .map((e) => {
+                const x = timestampToX(e.timestamp, now, windowMs);
                 const y = GRAPH_HEIGHT - GRAPH_PAD - (e.memoryUsed / e.memoryTotal) * (GRAPH_HEIGHT - GRAPH_PAD * 2);
                 return `${x},${y}`;
             })
             .join(" ");
-    }, [metrics]);
+    }, [windowedMetrics, windowMs]);
 
     const storageMessage = useMemo(() => {
         if (props.server.status?.usedStorage && props.server.status?.totalStorage) {
@@ -67,14 +72,19 @@ export default function MonitorPanel(props: MonitorPanelProps) {
     return (
         <div className="monitorPanel">
             <div>{storageMessage}</div>
+            <div className="monitorButtonRow"> 
+                <button onClick={() => setWindowMs(5 * MINUTE_MS)}>5 Minute</button>
+                <button onClick={() => setWindowMs(30 * MINUTE_MS)}>30 Minute</button>
+                <button onClick={() => setWindowMs(60 * MINUTE_MS)}>60 Minute</button>
+            </div>
             <div className="monitorGraphRow">
                 <div>
                     <div>CPU %</div>
                     <svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT} style={{ display: "block", background: "#111", borderRadius: 4 }}>
                         {cpuPlotPoints && <polyline points={cpuPlotPoints} fill="none" stroke="#4caf50" strokeWidth={1.5} />}
-                        {metrics.length > 0 && (
+                        {windowedMetrics.length > 0 && (
                             <text x={GRAPH_WIDTH - GRAPH_PAD} y={12} fill="#4caf50" fontSize={10} textAnchor="end">
-                                {metrics[metrics.length - 1].cpu.toFixed(1)}%
+                                {windowedMetrics[windowedMetrics.length - 1].cpu.toFixed(1)}%
                             </text>
                         )}
                     </svg>
@@ -84,9 +94,9 @@ export default function MonitorPanel(props: MonitorPanelProps) {
                     <div>Memory Usage</div>
                     <svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT} style={{ display: "block", background: "#111", borderRadius: 4 }}>
                         {memoryPlotPoints && <polyline points={memoryPlotPoints} fill="none" stroke="#4caf50" strokeWidth={1.5} />}
-                        {metrics.length > 0 && (
+                        {windowedMetrics.length > 0 && (
                             <text x={GRAPH_WIDTH - GRAPH_PAD} y={12} fill="#4caf50" fontSize={10} textAnchor="end">
-                                {`${metrics[metrics.length - 1].memoryUsed} / ${metrics[metrics.length - 1].memoryTotal} MB`}
+                                {`${windowedMetrics[windowedMetrics.length - 1].memoryUsed} / ${windowedMetrics[windowedMetrics.length - 1].memoryTotal} MB`}
                             </text>
                         )}
                     </svg>
@@ -95,4 +105,9 @@ export default function MonitorPanel(props: MonitorPanelProps) {
             <div>{message}</div>
         </div>
     );
+}
+
+function timestampToX(timestamp: number, now: number, windowMs: number) {
+    const width = (GRAPH_WIDTH - GRAPH_PAD * 2)
+    return GRAPH_PAD + width * ((timestamp - (now - windowMs)) / windowMs);
 }

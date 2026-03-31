@@ -133,7 +133,7 @@ function ServerRow(props: ServerRowProps) {
     }
     const actions = Object.values(ServerAction).filter(a => {
         if (a === ServerAction.AddHour) {
-            return !server.configuration?.scheduledShutdownDisabled
+            return !server.configuration?.scheduledShutdownDisabled && server.status?.ipAddress
         } else {
             return true;
         }
