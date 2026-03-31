@@ -40,6 +40,19 @@ export default function MonitorPanel(props: MonitorPanelProps) {
             })
             .join(" ");
     }, [metrics]);
+    
+    const memoryPlotPoints = useMemo(() => {
+        if (metrics.length <= 1) {
+            return "";
+        }
+        return metrics
+            .map((e, i) => {
+                const x = GRAPH_PAD + (i / (metrics.length - 1)) * (GRAPH_WIDTH - GRAPH_PAD * 2);
+                const y = GRAPH_HEIGHT - GRAPH_PAD - (e.memoryUsed / e.memoryTotal) * (GRAPH_HEIGHT - GRAPH_PAD * 2);
+                return `${x},${y}`;
+            })
+            .join(" ");
+    }, [metrics]);
 
     const storageMessage = useMemo(() => {
         if (props.server.status?.usedStorage && props.server.status?.totalStorage) {
@@ -49,6 +62,9 @@ export default function MonitorPanel(props: MonitorPanelProps) {
         }
         return "Storage: -";
     }, [props.server]);
+    console.error(metrics[metrics.length - 1].memoryUsed)
+    console.error(metrics[metrics.length - 1].memoryTotal)
+    console.error((metrics[metrics.length - 1].memoryUsed/metrics[metrics.length - 1].memoryTotal).toFixed(1))
 
     return (
         <div className="monitorPanel">
@@ -67,12 +83,12 @@ export default function MonitorPanel(props: MonitorPanelProps) {
                 </div>
 
                 <div>
-                    <div>MEMORY TODO %</div>
+                    <div>Memory Usage</div>
                     <svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT} style={{ display: "block", background: "#111", borderRadius: 4 }}>
-                        {cpuPlotPoints && <polyline points={cpuPlotPoints} fill="none" stroke="#4caf50" strokeWidth={1.5} />}
+                        {memoryPlotPoints && <polyline points={memoryPlotPoints} fill="none" stroke="#4caf50" strokeWidth={1.5} />}
                         {metrics.length > 0 && (
                             <text x={GRAPH_WIDTH - GRAPH_PAD} y={12} fill="#4caf50" fontSize={10} textAnchor="end">
-                                {metrics[metrics.length - 1].cpu.toFixed(1)}%
+                                {`${metrics[metrics.length - 1].memoryUsed} / ${metrics[metrics.length - 1].memoryTotal} MB`}
                             </text>
                         )}
                     </svg>
