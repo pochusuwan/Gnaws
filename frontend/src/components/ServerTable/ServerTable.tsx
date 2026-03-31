@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import useApiCall from "../../hooks/useApiCall";
-import { GIB, HOUR_IN_MS, type Server } from "../../types";
+import { HOUR_IN_MS, type Server } from "../../types";
 import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
@@ -71,7 +71,6 @@ export default function ServerTable(props: ServerTableProps) {
                         <th>IP Address</th>
                         <th>Scheduled<br />Shutdown</th>
                         <th>Player Count</th>
-                        <th>Storage</th>
                         <th>Last Backup</th>
                         <th>Actions</th>
                     </tr>
@@ -122,12 +121,6 @@ function ServerRow(props: ServerRowProps) {
         const timeSince = (Date.now() - new Date(server.status.lastBackup).getTime()) / HOUR_IN_MS;
         timeSinceBackup = Math.round(timeSince * 100) / 100 + "hr";
     }
-    let storageString;
-    if (server.status?.usedStorage && server.status?.totalStorage) {
-        const used = parseInt(server.status?.usedStorage);
-        const total = parseInt(server.status?.totalStorage);
-        storageString = "" + Math.round((used / GIB) * 100) / 100 + "/" + Math.round((total / GIB) * 100) / 100 + "GiB";
-    }
     let shutdownTime = "";
     if (server.scheduledShutdown?.shutdownTime) {
         const date = new Date(server.scheduledShutdown?.shutdownTime);
@@ -156,7 +149,6 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.status?.ipAddress} />
             <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
-            <Cell value={storageString} />
             <Cell value={timeSinceBackup} />
             <td>
                 {hasUserPermission(userRole) ? (

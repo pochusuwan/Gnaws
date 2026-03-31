@@ -6,9 +6,9 @@ WAKE_FILE="$GNAWS_ROOT/metrics_wake.txt"
 METRICS_FILE="$GNAWS_ROOT/metrics.txt"
 
 # Metric collection interval in seconds
-INTERVAL=5
-MAX_ENTRIES=20
-WAKE_DURATION=60
+INTERVAL=3
+MAX_ENTRIES=5
+WAKE_DURATION=30
 
 # Initialize metrics values
 read cpu user nice system idle iowait irq softirq steal guest < /proc/stat

@@ -59,7 +59,8 @@ export type Server = {
 export type MetricEntry = {
     timestamp: number,
     cpu: number,
-    memory: number,
+    memoryUsed: number,
+    memoryTotal: number,
 }
 
 export type Port = {

@@ -272,6 +272,16 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         }
     }
     // Workflow started. Update server table
+    let scheduledShutdown = undefined;
+    if (action === ACTION_START || action === ACTION_START_INSTANCE) {
+        scheduledShutdown = {
+            shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
+        }
+    } else if (action === ACTION_STOP || action === ACTION_STOP_INSTANCE) {
+        scheduledShutdown = {
+            shutdownTime: undefined
+        }
+    }
     try {
         await updateServerAttributes(server.name, {
             workflow: {
@@ -280,12 +290,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 status: "running",
                 lastUpdated: result.startedAt.toISOString(),
             },
-            scheduledShutdown:
-                action === ACTION_START && action === ACTION_START
-                    ? {
-                          shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
-                      }
-                    : undefined,
+            scheduledShutdown
         });
     } catch (e) {
         return success({ message: "Started" });
@@ -481,9 +486,9 @@ const increaseStorage = async (server: Server, storage: any): Promise<APIGateway
 };
 
 const RUNNING_METRICS_TIMEOUT_MS = 5 * 60 * 1000;
-const GET_METRICS_TIMEOUT_MS = 10 * 1000;
+const GET_METRICS_TIMEOUT_MS = 5 * 1000;
 const GET_METRICS_DURATION_WARNING_MS = 3 * 1000;
-const MAX_METRICS_ENTRIES = 10;
+const MAX_METRICS_ENTRIES_IN_DDB = 5;
 
 async function getServerMonitoringMetrics(server: Server): Promise<APIGatewayProxyResult> {
     const instanceId = server.ec2?.instanceId;
@@ -586,12 +591,13 @@ function parseMetricEntries(output: any): MetricEntry[] {
     const lines = output.split("\n");
     for (const line of lines) {
         const parts = line.split(" ");
-        if (parts.length === 3) {
+        if (parts.length === 4) {
             const timestamp = parseInt(parts[0]);
             const cpu = parseFloat(parts[1]);
-            const memory = parseFloat(parts[2]);
-            if (!isNaN(timestamp) && !isNaN(cpu) && !isNaN(memory)) {
-                result.push({ timestamp, cpu, memory });
+            const memoryUsed = parseFloat(parts[2]);
+            const memoryTotal = parseFloat(parts[3]);
+            if (!isNaN(timestamp) && !isNaN(cpu) && !isNaN(memoryUsed) && !isNaN(memoryTotal)) {
+                result.push({ timestamp, cpu, memoryUsed, memoryTotal });
             }
         }
     }
@@ -619,5 +625,5 @@ function combineMetricEntries(oldMetrics: MetricEntry[], newMetrics: MetricEntry
     }
     while (i < oldMetrics.length) result.push(oldMetrics[i++]);
     while (j < newMetrics.length) result.push(newMetrics[j++]);
-    return result.slice(-MAX_METRICS_ENTRIES);
+    return result.slice(-MAX_METRICS_ENTRIES_IN_DDB);
 }
