@@ -20,6 +20,8 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     const { open: increaseStorageOpen, onResult: increaseStorageResult, confirm: increaseStorageConfirm } = useConfirm();
     // Instance type dialog
     const { open: instanceTypeOpen, onResult: instanceTypeResult, confirm: instanceTypeConfirm } = useConfirm();
+    // Custom subdomain dialog
+    const { open: customSubdomainOpen, onResult: customSubdomainResult, confirm: customSubdomainConfirm } = useConfirm();
 
     const callIncreaseStorage = useCallback(async () => {
         const result = await increaseStorageConfirm();
@@ -49,6 +51,27 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         );
     }, []);
 
+    const buildCustomSubdomainMessage = useCallback((input: string) => {
+        const isValid = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$/.test(input);
+        return (
+            <div>
+                <div>Enter a fully qualified subdomain you own in AWS Route 53.</div>
+                <div>Example: <code>mc.example.com</code></div>
+                <div>Must have exactly 3 parts separated by dots. Each part may only contain letters, numbers, and hyphens.</div>
+                <div>If a record for this subdomain already exists, it will be replaced. If multiple servers use the same subdomain, the last one to start will claim it.</div>
+                {input && !isValid && <div style={{ color: "#f44" }}>Invalid. Must be a fully qualified domain (e.g. mc.example.com)</div>}
+            </div>
+        );
+    }, []);
+
+    const callSetCustomSubdomain = useCallback(async () => {
+        const result = await customSubdomainConfirm();
+        const subdomain = result?.input?.trim();
+        if (subdomain && result?.result) {
+            callAction("set_custom_subdomain", true, { subdomain });
+        }
+    }, [callAction]);
+
     const callChangeInstanceType = useCallback(async () => {
         const result = await instanceTypeConfirm();
         const instanceType = result?.input;
@@ -60,10 +83,11 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     return (
         <div>
             <div>Instance Type: {server.ec2?.instanceType}</div>
+            <div>Custom Subdomain: {server.configuration?.customSubdomain ?? "-"}</div>
             <div className="serverConfigPanelButtonGrid">
                 <AdminPanelButton
                     disabled={props.disabled}
-                    label={`${server?.configuration?.scheduledShutdownDisabled ? "Enable" : "Disable"} Scheduled Shutdown`}
+                    label={`Scheduled Shutdown: ${server?.configuration?.scheduledShutdownDisabled ? "Disabled" : "Enabled"}`}
                     description="Schedule an automatic shutdown at a set time. When triggered, the server will save, exit, and backup before stopping the instance. Players can extend the shutdown time by 1 hour, up to a maximum of 10 hours."
                     onClick={() => callAction("toggle_scheduled_shutdown", true)}
                 />
@@ -79,6 +103,21 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                     description="Instance types define your server's CPU, memory, and hourly cost. You can change the instance type at any time, but the instance must be offline. Only upgrade if you are consistently experiencing performance issues to avoid unnecessary costs."
                     onClick={callChangeInstanceType}
                 />
+                <AdminPanelButton
+                    disabled={props.disabled}
+                    label="Set Custom Subdomain"
+                    description="The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can assign a subdomain (e.g. mc.example.com) so players always connect using the same address."
+                    onClick={callSetCustomSubdomain}
+                />
+                {customSubdomainOpen && (
+                    <ConfirmDialog
+                        message={buildCustomSubdomainMessage}
+                        yesMessage="Set Subdomain"
+                        noMessage="Cancel"
+                        onResult={customSubdomainResult}
+                        inputValue={server.configuration?.customSubdomain ?? ""}
+                    />
+                )}
                 {increaseStorageOpen && (
                     <ConfirmDialog
                         message={buildStorageConfirmationMessage}

@@ -29,6 +29,28 @@ export async function toggleScheduledShutdown(server: Server): Promise<APIGatewa
     }
 }
 
+export async function setServerCustomSubdomainConfig(server: Server, subdomain: any): Promise<APIGatewayProxyResult> {
+    try {
+        if (typeof subdomain !== "string") {
+            return clientError("Invalid subdomain");
+        }
+        const isValid = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$/.test(subdomain);
+        if (!isValid) {
+            return clientError("Must only contain letters, numbers, hyphens, and has 3 parts");
+        }
+        await updateServerAttributes(server.name, {
+            configuration: {
+                ...server.configuration,
+                customSubdomain: subdomain,
+            },
+        });
+        return success({ message: "success" });
+    } catch (e: any) {
+        console.error(`Failed to set custom subdomain ${e.message}`);
+        return serverError(`Failed to set custom subdomain ${e.message}`);
+    }
+}
+
 export function getNewShutdownTime(server: Server, addHour: boolean): Date | undefined {
     if (server.configuration?.scheduledShutdownDisabled) {
         return undefined;
@@ -112,7 +134,7 @@ export async function setServerCustomSubdomain(server: Server): Promise<void> {
         const zonesResult = await route53Client.send(new ListHostedZonesByNameCommand({ DNSName: hostedZoneName, MaxItems: 1 }));
         const zone = zonesResult.HostedZones?.[0];
         if (!zone || zone.Name !== hostedZoneName) {
-            throw Error(`No Route 53 hosted zone found for ${subdomain}`);
+            throw Error(`No Route 53 hosted zone found for ${hostedZoneName}`);
         }
         const hostedZoneId = zone.Id?.split("/").at(-1);
         if (!hostedZoneId) {
