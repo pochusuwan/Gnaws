@@ -4,6 +4,7 @@ import "./MonitorPanel.css";
 import { useMetrics } from "../../hooks/useMetrics";
 import { useUser } from "../../hooks/useUser";
 import { hasAdminPermission } from "../../utils";
+import Spinner from "../Spinner/Spinner";
 
 type MonitorPanelProps = {
     server: Server;
@@ -72,6 +73,7 @@ export default function MonitorPanel(props: MonitorPanelProps) {
     return (
         <div className="monitorPanel">
             <div>{storageMessage}</div>
+            {windowedMetrics.length === 0 && <Spinner />}
             <div className="monitorButtonRow"> 
                 <button onClick={() => setWindowMs(5 * MINUTE_MS)}>5 Minute</button>
                 <button onClick={() => setWindowMs(30 * MINUTE_MS)}>30 Minute</button>

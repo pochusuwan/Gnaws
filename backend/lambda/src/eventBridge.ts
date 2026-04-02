@@ -1,11 +1,13 @@
 import { APIGatewayProxyResult } from "aws-lambda";
-import { clientError, serverError, success } from "./util";
+import { clientError, success } from "./util";
 import { getAllServersFromDB, getServerFromDB, updateServerAttributes } from "./servers";
 import { ec2Client, sfnClient } from "./clients";
 import { DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { SERVER_NAME_TAG_PREFIX } from "./createServer";
 import { DescribeExecutionCommand } from "@aws-sdk/client-sfn";
 import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
+import { setServerCustomSubdomain } from "./serverConfig";
+import { Server } from "./types";
 
 export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
@@ -76,6 +78,15 @@ async function setupAutoShutdown() {
 // Event bridge are disabled because last activity detection has false positive from
 // bots and port scanners which cause auto shutdown to not work reliably.
 export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayProxyResult> {
+    const server = await updateServerState(event);
+    // await checkAutoShutdown(event);
+    if (server) {
+        await setServerCustomSubdomain(server);
+    }
+    return success({});
+}
+
+async function checkAutoShutdown(event: any) {
     // This is called by EventBridge on EC2 state change to running
     // This set server autoShutdown status and start workflow if configured
     try {
@@ -103,10 +114,8 @@ export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayP
                 executionId,
             },
         });
-        return success({});
     } catch (e: any) {
         console.error(`Failed to update auto shutdown status: ${e.message}`);
-        return serverError(`Failed to update auto shutdown status: ${e.message}`);
     }
 }
 
@@ -164,11 +173,47 @@ async function checkScheduledShutdown(): Promise<void> {
                     },
                     scheduledShutdown: {
                         shutdownTime: undefined,
-                    }
+                    },
                 });
             }
         }
     } catch (e: any) {
         console.error(`Failed to check scheduled shutdown`, e.message);
+    }
+}
+
+async function updateServerState(event: any): Promise<Server | null> {
+    try {
+        const instanceId = event?.detail?.["instance-id"];
+        const state = event?.detail?.["state"];
+        if (typeof instanceId !== "string" || typeof state !== "string") {
+            throw Error("Invalid EventBridge payload");
+        }
+        if (state !== "running" && state !== "stopping") {
+            throw Error("Unexpected EC2 state");
+        }
+        const result = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
+        const instance = result?.Reservations?.[0]?.Instances?.[0];
+        const ec2NameTag = instance?.Tags?.find((t) => t.Key === "Name")?.Value;
+
+        if (typeof ec2NameTag !== "string" || !ec2NameTag.startsWith(SERVER_NAME_TAG_PREFIX)) {
+            throw Error("Non-gnaws EC2 instance");
+        }
+        const serverName = ec2NameTag.slice(SERVER_NAME_TAG_PREFIX.length);
+        const server = await getServerFromDB(serverName);
+        if (!server) {
+            throw Error(`No server found for ${serverName}`);
+        }
+        server.ec2 = {
+            ...server.ec2,
+            ipAddress: state === "running" ? instance?.PublicIpAddress : undefined,
+        };
+        await updateServerAttributes(serverName, {
+            ec2: server.ec2,
+        });
+        return server;
+    } catch (e: any) {
+        console.error(`Invalid EC2 event`, e.message);
+        return null;
     }
 }

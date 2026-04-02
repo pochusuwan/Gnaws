@@ -28,6 +28,8 @@ type ServerAdminPanelProps = {
 export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const userRole = useUser().role;
     const [page, setPage] = useState(SERVER_ACTION);
+    const serverRef = useRef(props.server);
+    serverRef.current = props.server;
     const server = props.server;
     const { call, state } = useApiCall<{ message: string }>("serverAction");
     const [message, setMessage] = useState("");
@@ -39,11 +41,14 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
-        (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
+        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
             if (server !== null) {
                 lastAction.current = { action, refreshAfterSuccess };
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
-                call(payload);
+                await call(payload);
+                if (refreshAfterSuccess) {
+                    props.refreshServer(serverRef.current.name);
+                }
             }
         },
         [server],
@@ -76,13 +81,10 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             setMessage("Loading");
         } else if (state.state === "Loaded") {
             setMessage(`${lastAction.current?.action} ${state.data.message}`);
-            if (lastAction.current?.refreshAfterSuccess) {
-                props.refreshServer(server.name);
-            }
         } else if (state.state === "Error") {
             setMessage(state.error);
         }
-    }, [server, state, props.refreshServer]);
+    }, [state, props.refreshServer]);
 
     if (server == null) return null;
 

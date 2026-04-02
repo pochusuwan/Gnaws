@@ -3,7 +3,8 @@ import { Server } from "./types";
 import { updateServerAttributes } from "./servers";
 import { clientError, serverError, success } from "./util";
 import { _InstanceType, DescribeInstanceTypesCommand, ModifyInstanceAttributeCommand } from "@aws-sdk/client-ec2";
-import { ec2Client } from "./clients";
+import { ec2Client, route53Client } from "./clients";
+import { ChangeResourceRecordSetsCommand, ListHostedZonesByNameCommand } from "@aws-sdk/client-route-53";
 
 const HOUR_IN_MS = 60 * 60 * 1000;
 const MAX_SCHEDULE_SHUTDOWN = 10 * 60 * 60 * 1000;
@@ -14,7 +15,7 @@ export async function toggleScheduledShutdown(server: Server): Promise<APIGatewa
         server.configuration = {
             ...server.configuration,
             scheduledShutdownDisabled: !server.configuration?.scheduledShutdownDisabled,
-        }
+        };
         await updateServerAttributes(server.name, {
             configuration: server.configuration,
             scheduledShutdown: {
@@ -75,10 +76,12 @@ export async function changeInstanceType(server: Server, instanceType: any): Pro
         return clientError("Invalid instanceType");
     }
     try {
-        await ec2Client.send(new ModifyInstanceAttributeCommand({
-            InstanceId: instanceId,
-            InstanceType: { Value: instanceType },
-        }));
+        await ec2Client.send(
+            new ModifyInstanceAttributeCommand({
+                InstanceId: instanceId,
+                InstanceType: { Value: instanceType },
+            }),
+        );
         await updateServerAttributes(server.name, {
             ec2: { ...server.ec2, instanceType },
         });
@@ -86,5 +89,49 @@ export async function changeInstanceType(server: Server, instanceType: any): Pro
     } catch (e: any) {
         console.error(`Failed to change instance type: ${e.message}`);
         return serverError("Failed to change instance type");
+    }
+}
+
+export async function setServerCustomSubdomain(server: Server): Promise<void> {
+    try {
+        const subdomain = server.configuration?.customSubdomain;
+        if (!subdomain) {
+            return;
+        }
+
+        const ipAddress = server.ec2?.ipAddress;
+        if (!ipAddress) {
+            return;
+        }
+        const parts = subdomain.split(".");
+        if (parts.length < 3) {
+            throw Error(`Invalid subdomain: ${subdomain}`);
+        }
+
+        const hostedZoneName = parts.slice(-2).join(".") + ".";
+        const zonesResult = await route53Client.send(new ListHostedZonesByNameCommand({ DNSName: hostedZoneName, MaxItems: 1 }));
+        const zone = zonesResult.HostedZones?.[0];
+        if (!zone || zone.Name !== hostedZoneName) {
+            throw Error(`No Route 53 hosted zone found for ${subdomain}`);
+        }
+        const hostedZoneId = zone.Id?.split("/").at(-1);
+        if (!hostedZoneId) {
+            throw Error("Hosted zone id not found");
+        }
+        await route53Client.send(
+            new ChangeResourceRecordSetsCommand({
+                HostedZoneId: hostedZoneId,
+                ChangeBatch: {
+                    Changes: [
+                        {
+                            Action: "UPSERT",
+                            ResourceRecordSet: { Name: subdomain, Type: "A", TTL: 60, ResourceRecords: [{ Value: ipAddress }] },
+                        },
+                    ],
+                },
+            }),
+        );
+    } catch (e: any) {
+        console.error(`Failed to set custom subdomain ${e.message}`);
     }
 }

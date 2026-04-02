@@ -133,7 +133,7 @@ function ServerRow(props: ServerRowProps) {
     }
     const actions = Object.values(ServerAction).filter(a => {
         if (a === ServerAction.AddHour) {
-            return !server.configuration?.scheduledShutdownDisabled && server.status?.ipAddress
+            return !server.configuration?.scheduledShutdownDisabled && server.ec2?.ipAddress
         } else {
             return true;
         }
@@ -144,7 +144,7 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.name} loading={showSpinner} />
             <Cell value={server.status?.status} />
             <Cell value={currentTask} />
-            <Cell value={server.status?.ipAddress} />
+            <Cell value={<>{server.configuration?.customSubdomain}<br/>{server.ec2?.ipAddress}</>} />
             <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
             <Cell value={timeSinceBackup} />
@@ -167,7 +167,7 @@ function ServerRow(props: ServerRowProps) {
 
 type CellProps = {
     loading?: boolean;
-    value?: string | number;
+    value?: React.ReactNode | string | number;
 };
 function Cell(props: CellProps) {
     return (
