@@ -5,6 +5,7 @@ import "./GameActionPanel.css";
 type GameActionPanelProps = {
     server: Server;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string }) => void;
+    disabled: boolean;
 };
 
 export default function GameActionPanel(props: GameActionPanelProps) {
@@ -36,7 +37,7 @@ export default function GameActionPanel(props: GameActionPanelProps) {
                         onChange={(e) => setCommand(e.target.value)}
                         onKeyDown={sendCommandKeyDown}
                     />
-                    <button onClick={sendCommand}>Send</button>
+                    <button onClick={sendCommand} disabled={props.disabled}>Send</button>
                     <div>Send game server command to server. The server must be running.</div>
                 </div>
             )}

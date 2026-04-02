@@ -6,7 +6,7 @@ import { dynamoClient } from "./clients";
 import { GetItemCommand, PutItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import * as bcrypt from "bcryptjs";
 
-const JWT_TTL_SECONDS = 60 * 60; // 1 hour
+const JWT_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 const INVITE_CODE_SECRET = "INVITE_CODE";
 const OWNER_PASSWORD_HASH_SECRET = "OWNER_PASSWORD_HASH";

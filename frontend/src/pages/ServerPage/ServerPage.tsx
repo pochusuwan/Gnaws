@@ -3,8 +3,6 @@ import ServerTable from "../../components/ServerTable/ServerTable";
 import { type NetworkDataState, type Server } from "../../types";
 import "./ServerPage.css";
 import ServerAdminPanel from "../../components/ServerAdminPanel/ServerAdminPanel";
-import { useUser } from "../../hooks/useUser";
-import { hasAdminPermission } from "../../utils";
 
 type Props = {
     servers: NetworkDataState<Server[]>;
@@ -12,7 +10,6 @@ type Props = {
 };
 
 export default function ServerPage(props: Props) {
-    const userRole = useUser().role;
     const [focusedServerName, setFocusedServerName] = useState<string | null>(null);
     const [delayedServerName, setDelayedServerName] = useState<string | null>(null);
 
@@ -52,8 +49,7 @@ export default function ServerPage(props: Props) {
     return (
         <div className="serverPage">
             <ServerTable servers={props.servers.data} refreshServer={props.refreshServer} setFocusedServer={setFocusedServerName} />
-            {hasAdminPermission(userRole) &&
-                focusedServerName !== null &&
+            {focusedServerName !== null &&
                 (focusedServer == null ? (
                     <h2 style={{ marginBottom: "4px" }}>Loading server data...</h2>
                 ) : (

@@ -65,7 +65,6 @@ export default function ServerTable(props: ServerTableProps) {
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Type</th>
                         <th>Status</th>
                         <th>Task</th>
                         <th>IP Address</th>
@@ -134,7 +133,7 @@ function ServerRow(props: ServerRowProps) {
     }
     const actions = Object.values(ServerAction).filter(a => {
         if (a === ServerAction.AddHour) {
-            return !server.configuration?.scheduledShutdownDisabled && server.scheduledShutdown?.shutdownTime !== undefined
+            return !server.configuration?.scheduledShutdownDisabled && server.ec2?.ipAddress
         } else {
             return true;
         }
@@ -143,10 +142,9 @@ function ServerRow(props: ServerRowProps) {
     return (
         <tr onClick={() => props.onClick(server.name)}>
             <Cell value={server.name} loading={showSpinner} />
-            <Cell value={server.ec2?.instanceType} />
             <Cell value={server.status?.status} />
             <Cell value={currentTask} />
-            <Cell value={server.status?.ipAddress} />
+            <Cell value={<>{server.configuration?.customSubdomain}<br/>{server.ec2?.ipAddress}</>} />
             <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
             <Cell value={timeSinceBackup} />
@@ -169,7 +167,7 @@ function ServerRow(props: ServerRowProps) {
 
 type CellProps = {
     loading?: boolean;
-    value?: string | number;
+    value?: React.ReactNode | string | number;
 };
 function Cell(props: CellProps) {
     return (

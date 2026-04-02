@@ -22,7 +22,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { MetricEntry, Server } from "./types";
 import { GetCommandInvocationCommand, SendCommandCommand } from "@aws-sdk/client-ssm";
-import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown } from "./serverConfig";
+import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown, setServerCustomSubdomain } from "./serverConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -46,6 +46,7 @@ const ACTION_CHANGE_INSTANCE_TYPE = "change_instance_type";
 const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
 const ACTION_ADD_HOUR = "add_hour";
 const ACTION_GET_MONITORING_METRICS = "get_monitoring_metrics";
+const ACTION_SET_CUSTOM_SUBDOMAIN = "set_custom_subdomain";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
@@ -65,6 +66,7 @@ const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_TOGGLE_SCHEDULED_SHUTDOWN]: ADMIN_USERS,
     [ACTION_ADD_HOUR]: ALL_USERS,
     [ACTION_GET_MONITORING_METRICS]: ADMIN_USERS,
+    [ACTION_SET_CUSTOM_SUBDOMAIN]: ADMIN_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -217,6 +219,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (action === ACTION_GET_MONITORING_METRICS) {
         return getServerMonitoringMetrics(server);
     }
+    if (action === ACTION_SET_CUSTOM_SUBDOMAIN) {
+        return setServerCustomSubdomain(server, params.subdomain);
+    }
 
     // Acquire lock
     try {
@@ -276,11 +281,11 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (action === ACTION_START || action === ACTION_START_INSTANCE) {
         scheduledShutdown = {
             shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
-        }
+        };
     } else if (action === ACTION_STOP || action === ACTION_STOP_INSTANCE) {
         scheduledShutdown = {
-            shutdownTime: undefined
-        }
+            shutdownTime: undefined,
+        };
     }
     try {
         await updateServerAttributes(server.name, {
@@ -290,7 +295,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 status: "running",
                 lastUpdated: result.startedAt.toISOString(),
             },
-            scheduledShutdown
+            scheduledShutdown,
         });
     } catch (e) {
         return success({ message: "Started" });
@@ -528,7 +533,10 @@ async function getServerMonitoringMetrics(server: Server): Promise<APIGatewayPro
                 // Otherwise clear execution
                 const startedAt = existingMetrics.startedAt;
                 if (startedAt && Date.now() - startedAt < RUNNING_METRICS_TIMEOUT_MS) {
-                    const message = Date.now() - startedAt > GET_METRICS_DURATION_WARNING_MS ? "Metrics collection taking longer than expected" : undefined;
+                    const message =
+                        Date.now() - startedAt > GET_METRICS_DURATION_WARNING_MS
+                            ? "Metrics collection taking longer than expected"
+                            : undefined;
                     return success({ metrics: existingMetrics?.entries ?? [], message });
                 } else {
                     next.executionId = undefined;
@@ -596,7 +604,7 @@ function parseMetricEntries(output: any): MetricEntry[] {
             const memoryUsed = parseFloat(parts[2]);
             const memoryTotal = parseFloat(parts[3]);
             if (!isNaN(timestamp) && !isNaN(cpu) && !isNaN(memoryUsed) && !isNaN(memoryTotal)) {
-                result.push({ timestamp, cpu, memoryUsed, memoryTotal });
+                result.push({ timestamp: timestamp * 1000, cpu, memoryUsed, memoryTotal });
             }
         }
     }

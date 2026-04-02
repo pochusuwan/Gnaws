@@ -168,6 +168,12 @@ export class GnawsStack extends cdk.Stack {
                 resources: [this.ec2Role.roleArn],
             }),
         );
+        backend.addToRolePolicy(
+            new iam.PolicyStatement({
+                actions: ["route53:ListHostedZonesByName", "route53:ChangeResourceRecordSets"],
+                resources: ["*"],
+            }),
+        );
         this.userTable.grantFullAccess(backend);
         this.serverTable.grantFullAccess(backend);
         this.workflowTable.grantFullAccess(backend);
@@ -212,16 +218,16 @@ export class GnawsStack extends cdk.Stack {
                 }),
             ],
         });
-        // new events.Rule(this, "GnawsEC2StateChangeRule", {
-        //     eventPattern: {
-        //         source: ["aws.ec2"],
-        //         detailType: ["EC2 Instance State-change Notification"],
-        //         detail: {
-        //             state: ["running", "stopping"],
-        //         },
-        //     },
-        //     targets: [new targets.LambdaFunction(backend)],
-        // });
+        new events.Rule(this, "GnawsEC2StateChangeRule", {
+            eventPattern: {
+                source: ["aws.ec2"],
+                detailType: ["EC2 Instance State-change Notification"],
+                detail: {
+                    state: ["running", "stopping"],
+                },
+            },
+            targets: [new targets.LambdaFunction(backend)],
+        });
     }
 
     private buildFrontend(props?: GnawsStackProps) {

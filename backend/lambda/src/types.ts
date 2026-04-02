@@ -16,12 +16,12 @@ export type Server = {
         instanceType?: string;
         securityGroupId?: string;
         status?: string;
+        ipAddress?: string;
         message?: string;
     };
     status?: {
         status?: string;
         message?: string;
-        ipAddress?: string;
         totalStorage?: string;
         usedStorage?: string;
         playerCount?: number;
@@ -39,6 +39,7 @@ export type Server = {
     configuration?: {
         autoShutdownMinute?: number;
         scheduledShutdownDisabled?: boolean;
+        customSubdomain?: string;
     };
     scheduledShutdown?: {
         shutdownTime?: string;
