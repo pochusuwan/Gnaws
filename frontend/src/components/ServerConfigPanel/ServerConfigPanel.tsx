@@ -112,7 +112,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                 {customSubdomainOpen && (
                     <ConfirmDialog
                         message={buildCustomSubdomainMessage}
-                        yesMessage="Set Subdomain"
+                        yesMessage="Confirm"
                         noMessage="Cancel"
                         onResult={customSubdomainResult}
                         inputValue={server.configuration?.customSubdomain ?? ""}

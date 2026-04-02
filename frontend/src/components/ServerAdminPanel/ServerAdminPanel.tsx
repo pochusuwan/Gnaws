@@ -33,7 +33,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const server = props.server;
     const { call, state } = useApiCall<{ message: string }>("serverAction");
     const [message, setMessage] = useState("");
-    const lastAction = useRef<{ action: string; refreshAfterSuccess: boolean }>(null);
+    const lastAction = useRef<string>(null);
 
     // Terminate server action dialog
     const { open: terminateOpen, onResult: terminateResult, confirm: terminateConfirm } = useConfirm();
@@ -43,7 +43,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const callAction = useCallback(
         async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
             if (server !== null) {
-                lastAction.current = { action, refreshAfterSuccess };
+                lastAction.current = action;
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
                 await call(payload);
                 if (refreshAfterSuccess) {
@@ -65,7 +65,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
         const result = await terminateConfirm();
         if (result?.result) {
             if (result?.input === server.name) {
-                lastAction.current = { action: "Terminate", refreshAfterSuccess: false };
+                lastAction.current = "Terminate";
                 const payload = { serverName: server.name, action: "terminate" };
                 call(payload);
             } else {
@@ -80,7 +80,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
         if (state.state === "Loading") {
             setMessage("Loading");
         } else if (state.state === "Loaded") {
-            setMessage(`${lastAction.current?.action} ${state.data.message}`);
+            setMessage(`${lastAction.current} ${state.data.message}`);
         } else if (state.state === "Error") {
             setMessage(state.error);
         }

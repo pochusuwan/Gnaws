@@ -6,7 +6,7 @@ import { DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { SERVER_NAME_TAG_PREFIX } from "./createServer";
 import { DescribeExecutionCommand } from "@aws-sdk/client-sfn";
 import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
-import { setServerCustomSubdomain } from "./serverConfig";
+import { createRoute53RecordForServer } from "./serverConfig";
 import { Server } from "./types";
 
 export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
@@ -74,14 +74,16 @@ async function setupAutoShutdown() {
     }
 }
 
-// DISABLED IN STACK
-// Event bridge are disabled because last activity detection has false positive from
-// bots and port scanners which cause auto shutdown to not work reliably.
 export async function handleEc2StateChangeEvent(event: any): Promise<APIGatewayProxyResult> {
     const server = await updateServerState(event);
+    
+    // Disabled because last activity detection has false positive from
+    // bots and port scanners which cause auto shutdown to not work reliably.
+    // Some games also do not support player count
     // await checkAutoShutdown(event);
+
     if (server) {
-        await setServerCustomSubdomain(server);
+        await createRoute53RecordForServer(server);
     }
     return success({});
 }

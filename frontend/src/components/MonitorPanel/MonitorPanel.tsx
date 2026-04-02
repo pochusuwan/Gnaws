@@ -24,7 +24,7 @@ export default function MonitorPanel(props: MonitorPanelProps) {
             if (hasAdminPermission(userRole)) {
                 callMonitor();
             }
-        }, 5500);
+        }, 5200);
         return () => clearInterval(interval);
     }, [callMonitor, userRole]);
 

@@ -22,7 +22,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { MetricEntry, Server } from "./types";
 import { GetCommandInvocationCommand, SendCommandCommand } from "@aws-sdk/client-ssm";
-import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown, setServerCustomSubdomainConfig } from "./serverConfig";
+import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown, setServerCustomSubdomain } from "./serverConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -220,7 +220,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         return getServerMonitoringMetrics(server);
     }
     if (action === ACTION_SET_CUSTOM_SUBDOMAIN) {
-        return setServerCustomSubdomainConfig(server, params.subdomain);
+        return setServerCustomSubdomain(server, params.subdomain);
     }
 
     // Acquire lock

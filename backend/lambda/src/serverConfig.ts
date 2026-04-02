@@ -29,7 +29,7 @@ export async function toggleScheduledShutdown(server: Server): Promise<APIGatewa
     }
 }
 
-export async function setServerCustomSubdomainConfig(server: Server, subdomain: any): Promise<APIGatewayProxyResult> {
+export async function setServerCustomSubdomain(server: Server, subdomain: any): Promise<APIGatewayProxyResult> {
     try {
         if (typeof subdomain !== "string") {
             return clientError("Invalid subdomain");
@@ -114,7 +114,7 @@ export async function changeInstanceType(server: Server, instanceType: any): Pro
     }
 }
 
-export async function setServerCustomSubdomain(server: Server): Promise<void> {
+export async function createRoute53RecordForServer(server: Server): Promise<void> {
     try {
         const subdomain = server.configuration?.customSubdomain;
         if (!subdomain) {
@@ -136,7 +136,7 @@ export async function setServerCustomSubdomain(server: Server): Promise<void> {
         if (!zone || zone.Name !== hostedZoneName) {
             throw Error(`No Route 53 hosted zone found for ${hostedZoneName}`);
         }
-        const hostedZoneId = zone.Id?.split("/").at(-1);
+        const hostedZoneId = zone.Id?.split("/")?.at(-1);
         if (!hostedZoneId) {
             throw Error("Hosted zone id not found");
         }
