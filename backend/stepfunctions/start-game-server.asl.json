@@ -228,9 +228,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": [
-            "/opt/gnaws/entrypoints/start_server.sh"
-          ]
+          "commands.$": "States.Array(States.Format('/opt/gnaws/entrypoints/start_server.sh --gameConfig {}', $.gameConfig))"
         }
       },
       "ResultPath": "$.command",
