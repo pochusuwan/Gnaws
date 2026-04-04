@@ -7,6 +7,7 @@ import {
     BACKUP_SERVER_FUNCTION_ARN,
     getServerStatusWorkflow,
     START_SERVER_FUNCTION_ARN,
+    startSetupWorkflow,
     startWorkflow,
     STOP_SERVER_FUNCTION_ARN,
     TERMINATE_SERVER_FUNCTION_ARN,
@@ -47,6 +48,7 @@ const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
 const ACTION_ADD_HOUR = "add_hour";
 const ACTION_GET_MONITORING_METRICS = "get_monitoring_metrics";
 const ACTION_SET_CUSTOM_SUBDOMAIN = "set_custom_subdomain";
+const ACTION_REINSTALL = "reinstall";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
@@ -67,6 +69,7 @@ const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_ADD_HOUR]: ALL_USERS,
     [ACTION_GET_MONITORING_METRICS]: ADMIN_USERS,
     [ACTION_SET_CUSTOM_SUBDOMAIN]: ADMIN_USERS,
+    [ACTION_REINSTALL]: ADMIN_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -250,6 +253,17 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_UPDATE) {
         result = await startWorkflow(server.name, instanceId, UPDATE_SERVER_FUNCTION_ARN);
+    }
+    if (action === ACTION_REINSTALL) {
+        let versionOverride = undefined;
+        if (typeof params?.versionOverride === "string") {
+            versionOverride = params?.versionOverride;
+        }
+        if (server.game?.id) {
+            result = await startSetupWorkflow(server.name, instanceId, server.game?.id, versionOverride);
+        } else {
+            return serverError("Failed to reinstall. Missing game id");
+        }
     }
     if (action === ACTION_TERMINATE) {
         const securityGroupId = server.ec2?.securityGroupId;

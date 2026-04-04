@@ -41,7 +41,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
-        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
+        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => {
             if (server !== null) {
                 lastAction.current = action;
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
@@ -136,7 +136,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
 type ServerActionProps = {
     disabled: boolean;
-    callAction: (action: string, refreshAfterSuccess: boolean) => void;
+    callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => void;
     callStopInstance: () => void;
     callTerminateAction: () => void;
 };
@@ -179,6 +179,12 @@ function ServerActionButtons(props: ServerActionProps) {
                 label="Remove workflow lock"
                 description="Clear the workflow lock if the server is stuck after a failed action. The lock prevents multiple operations from running at once. Removing it does not change the server state."
                 onClick={() => callAction("Remove_Lock", false)}
+            />
+            <AdminPanelButton
+                disabled={disabled}
+                label="Reinstall Server"
+                description="Reinstalls system scripts and game dependencies without touching your save files. Use this to fix a broken or misbehaving server. Make sure the instance is running and the game server is stopped before running. Create a backup before repairing."
+                onClick={() => callAction("Reinstall", true, { versionOverride: undefined })}
             />
             <AdminPanelButton
                 disabled={disabled}

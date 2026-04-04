@@ -17,7 +17,7 @@ type Terms = {
     accepted: boolean;
 };
 
-// Create server with specific version of game bundle release. E.g. "v0.0.15"
+// Create server with specific version of game bundle release. E.g. "infra-0.0.11_games-0.0.3"
 const VERSION_OVERRIDE: string | undefined = undefined;
 
 export default function CreateServerPage(props: CreateServerPageProps) {
