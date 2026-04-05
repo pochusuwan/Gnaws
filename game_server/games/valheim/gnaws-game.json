@@ -48,7 +48,7 @@
             "minLength": 5,
             "maxLength": 20,
             "displayName": "Password",
-            "description": "Password required to join. Leave empty for no password. Minimum 5 characters."
+            "description": "Password to join the server. Minimum 5 characters. Leave empty for no password. A public server without a password will be set to private."
         },
         {
             "id": "isPublic",

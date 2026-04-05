@@ -23,7 +23,14 @@ import {
 } from "@aws-sdk/client-ec2";
 import { MetricEntry, Server } from "./types";
 import { GetCommandInvocationCommand, SendCommandCommand } from "@aws-sdk/client-ssm";
-import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown, setServerCustomSubdomain } from "./serverConfig";
+import {
+    addHourToShutdown,
+    changeInstanceType,
+    getNewShutdownTime,
+    toggleScheduledShutdown,
+    setServerCustomSubdomain,
+} from "./serverConfig";
+import { getStoredLatestVersion } from "./versioning";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -255,12 +262,19 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         result = await startWorkflow(server.name, instanceId, UPDATE_SERVER_FUNCTION_ARN);
     }
     if (action === ACTION_REINSTALL) {
-        let versionOverride = undefined;
-        if (typeof params?.versionOverride === "string") {
-            versionOverride = params?.versionOverride;
-        }
         if (server.game?.id) {
-            result = await startSetupWorkflow(server.name, instanceId, server.game?.id, versionOverride);
+            const releaseVersion = await getStoredLatestVersion();
+            if (releaseVersion) {
+                result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion);
+                await updateServerAttributes(server.name, {
+                    game: {
+                        ...server.game,
+                        releaseVersion,
+                    },
+                });
+            } else {
+                return serverError("Failed to reinstall. Missing game release version");
+            }
         } else {
             return serverError("Failed to reinstall. Missing game id");
         }
@@ -375,6 +389,11 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         updates.push("#metrics = :metrics");
         names["#metrics"] = "metrics";
         values[":metrics"] = server.metrics;
+    }
+    if (server.game) {
+        updates.push("#game = :game");
+        names["#game"] = "game";
+        values[":game"] = server.game;
     }
     await dynamoClient.send(
         new UpdateItemCommand({

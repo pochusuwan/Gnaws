@@ -1,11 +1,11 @@
 import { createWriteStream, promises as fs } from "fs";
 import { pipeline } from "stream/promises";
 import * as tar from "tar";
-import { Game, Message, Port, TermsOfService } from "./types";
+import { Configuration, Game, Message, Port, TermsOfService } from "./types";
 import { dynamoClient } from "./clients";
 import { BatchWriteItemCommand, GetItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { getLatestGamesVersion } from "./versioning";
+import { getStoredLatestVersion } from "./versioning";
 
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const GAME_TABLE = process.env.GAME_TABLE_NAME!;
@@ -21,7 +21,7 @@ const HEADERS = {
     "User-Agent": "aws-lambda",
 };
 
-export async function getGames(): Promise<{ games?: Game[]; message?: string }> {
+export async function getGames(): Promise<{ games?: Game[]; message?: string; version?: string }> {
     // Fetch games list and sync to DDB from latest release on github.
     // Latest release version tag is already fetched.
     // Check current game version to see if update is needed.
@@ -32,27 +32,27 @@ export async function getGames(): Promise<{ games?: Game[]; message?: string }> 
     try {
         shouldCheck = await shouldCheckForLatestRelease();
     } catch (e: any) {
-        console.debug(`Failed to get update games lock ${e.message}`)
+        console.debug(`Failed to get update games lock ${e.message}`);
         errorMessage = "Failed to update games list.";
     }
     if (shouldCheck) {
         // Attempt to sync games from latest release and return games
         try {
             // Get latest release version
-            const latestGamesVersion = await getLatestGamesVersion();
-            if (latestGamesVersion) {
+            const latestVersion = await getStoredLatestVersion();
+            if (latestVersion) {
                 // Get fetched games version
                 const syncedVersion = await getSyncedGamesVersion();
-                if (syncedVersion !== latestGamesVersion.version) {
-                    games = await syncGamesList(latestGamesVersion.releaseVersion);
-                    await setGameListStatusSuccess(latestGamesVersion.version);
-                    return { games };
+                if (!syncedVersion || !isSameGameVersion(latestVersion, syncedVersion)) {
+                    games = await syncGamesList(latestVersion);
+                    await setGameListStatusSuccess(latestVersion);
+                    return { games, version: latestVersion };
                 }
             } else {
                 errorMessage = "Failed to update games list.";
             }
         } catch (e: any) {
-            console.error(`Failed to update games list ${e.message}`)
+            console.error(`Failed to update games list ${e.message}`);
             errorMessage = "Failed to update games list.";
         }
         // Update not needed or failed. Set lock status
@@ -63,7 +63,7 @@ export async function getGames(): Promise<{ games?: Game[]; message?: string }> 
                 setGameListStatusSuccess();
             }
         } catch (e: any) {
-            console.error(`Failed to set game list status ${e.message}`)
+            console.error(`Failed to set game list status ${e.message}`);
             // Ok to fail. It can retry after timeout.
         }
     }
@@ -73,10 +73,17 @@ export async function getGames(): Promise<{ games?: Game[]; message?: string }> 
             TableName: GAME_TABLE,
         });
         const result = await dynamoClient.send(command);
-        return {
-            games: (result.Items?.map((item) => unmarshall(item)) as Game[]) ?? [],
-            message: errorMessage,
-        };
+        const games = (result.Items?.map((item) => unmarshall(item)) as Game[]) ?? [];
+        const version = await getSyncedGamesVersion();
+        if (version && games.length) {
+            return {
+                games,
+                version,
+                message: errorMessage,
+            };
+        } else {
+            return { message: "No games found." };
+        }
     } catch (e) {
         return { message: "Failed to get games." };
     }
@@ -168,6 +175,44 @@ async function parseGameFiles(): Promise<Game[]> {
                 });
             }
 
+            const configurations: Configuration[] = [];
+            const cfg = parsed.configurations;
+            if (Array.isArray(cfg)) {
+                cfg.forEach((c) => {
+                    if (
+                        typeof c.id !== "string" ||
+                        typeof c.type !== "string" ||
+                        typeof c.displayName !== "string" ||
+                        c.displayName.length === 0 ||
+                        typeof c.description !== "string" ||
+                        c.description.length === 0
+                    ) {
+                        return;
+                    }
+                    const base: any = {
+                        id: c.id,
+                        type: c.type,
+                        displayName: c.displayName,
+                        description: c.description,
+                    };
+                    if (base.type === "alphanumeric") {
+                        if (typeof c.minLength === "number") base.minLength = c.minLength;
+                        if (typeof c.maxLength === "number") base.maxLength = c.maxLength;
+                        if (typeof c.default === "string") base.default = c.default;
+                        configurations.push(base);
+                    } else if (base.type === "numeric") {
+                        if (typeof c.minValue === "number") base.minValue = c.minValue;
+                        if (typeof c.maxValue === "number") base.maxValue = c.maxValue;
+                        if (typeof c.default === "number") base.default = c.default;
+                        configurations.push(base);
+                    } else if (base.type === "boolean") {
+                        if (typeof c.default !== "boolean") return;
+                        base.default = c.default;
+                        configurations.push(base);
+                    }
+                });
+            }
+
             games.push({
                 id,
                 displayName,
@@ -180,6 +225,7 @@ async function parseGameFiles(): Promise<Game[]> {
                 termsOfService,
                 messages,
                 supportServerCommand: parsed.supportServerCommand === true,
+                configurations,
             });
         } catch (e) {
             console.debug(`Failed to read game: ${file} ${e}`);
@@ -313,4 +359,16 @@ export async function getGameFromDB(gameId: string): Promise<Game | null> {
     } catch (e) {
         return null;
     }
+}
+
+function isSameGameVersion(version: string, syncedVersion: string): boolean {
+    const latestGameVersion = getGameVersion(version);
+    const syncedGameVersion = getGameVersion(syncedVersion);
+    return latestGameVersion !== null && syncedGameVersion !== null && latestGameVersion === syncedGameVersion;
+}
+
+function getGameVersion(version: string): string | null {
+    const v = version.split("_");
+    if (v.length !== 2) return null;
+    return v[1];
 }

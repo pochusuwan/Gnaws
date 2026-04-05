@@ -15,7 +15,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -n "$GAME_CONFIG" ]]; then
-    echo "$GAME_CONFIG" | base64 --decode | jq -r 'to_entries[] | "\(.key)=\(.value)"' > "$GNAWS_ROOT/gnaws-game.conf"
+    echo "$GAME_CONFIG" | base64 --decode | jq -r 'to_entries[] | "CONFIG_\(.key)=\(.value | @sh)"' > "$GNAWS_ROOT/gnaws-game.conf"
 fi
 
 # Start systemd gnaws service from file in internal folder

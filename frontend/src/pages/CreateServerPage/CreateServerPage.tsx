@@ -24,6 +24,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     const userRole = useUser().role;
     const [serverName, setServerName] = useState("");
     const [game, setGame] = useState("");
+    const [version, setVersion] = useState("");
     const [instanceType, setInstanceType] = useState("");
     const [storage, setStorage] = useState(4);
     const [ports, setPorts] = useState<Port[]>([]);
@@ -44,6 +45,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     useEffect(() => {
         if (props.games.state === "Loaded" && game === "" && props.games.data.initialGame !== "") {
             setGame(props.games.data.initialGame);
+            setVersion(props.games.data.version);
         }
     }, [props.games, game, setGame]);
 
@@ -132,7 +134,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             return;
         }
         setMessage("Creating");
-        createServerCall({ serverName, gameId: game, instanceType, storage, ports, versionOverride: VERSION_OVERRIDE });
+        createServerCall({ serverName, gameId: game, instanceType, storage, ports, releaseVersion: VERSION_OVERRIDE ?? version });
     }, [serverName, game, instanceType, storage, ports]);
 
     // Update states from create server response
@@ -156,6 +158,8 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     if (props.games.state === "Error") return <div>Failed to load games: {props.games.error}</div>;
 
     if (props.games.state !== "Loaded") return <div>Loading games...</div>;
+
+    if (props.games.data.version === "") return <div>Failed to load games. Invalid version</div>;
 
     const selectedGame = props.games.data.games[game];
     const allTermsAccepted = terms.every((t) => t.accepted);

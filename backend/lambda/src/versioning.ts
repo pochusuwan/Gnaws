@@ -16,6 +16,9 @@ const HEADERS = {
     "User-Agent": "aws-lambda",
 };
 
+// Force the system to fetch a specific version. This is used to test pre-release games.
+const FETCH_VERSION_OVERRIDE: string | undefined = undefined;
+
 export async function checkForNewRelease(user: User, params: any): Promise<APIGatewayProxyResult> {
     if (user.role !== ROLE_OWNER && user.role !== ROLE_ADMIN) {
         return forbidden();
@@ -91,7 +94,7 @@ async function getLatestReleaseTag(): Promise<string> {
         throw new Error(`Failed to get latest release: ${res.status}`);
     }
 
-    return ((await res.json()) as any).tag_name;
+    return FETCH_VERSION_OVERRIDE ?? ((await res.json()) as any).tag_name;
 }
 
 async function saveLatestReleaseVersion(version: string): Promise<boolean> {
@@ -114,17 +117,7 @@ async function saveLatestReleaseVersion(version: string): Promise<boolean> {
     return true;
 }
 
-export async function getLatestGamesVersion(): Promise<{ releaseVersion: string; version: string } | null> {
-    const releaseVersion = await getStoredLatestVersion();
-    const v = releaseVersion?.split("_");
-    if (releaseVersion == null || v?.length !== 2) return null;
-    return {
-        releaseVersion,
-        version: v[1],
-    };
-}
-
-async function getStoredLatestVersion(): Promise<string | null> {
+export async function getStoredLatestVersion(): Promise<string | null> {
     try {
         const result = await dynamoClient.send(
             new GetItemCommand({

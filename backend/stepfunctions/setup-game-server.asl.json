@@ -180,7 +180,7 @@
         "InstanceIds": "{% [$states.input.instanceId] %}",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": "{% ['set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/' & ($states.input.versionOverride ? ('download/' & $states.input.versionOverride) : 'latest/download') & '/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/entrypoints/bootstrap.sh ' & $states.input.gameId] %}"
+          "commands": "{% ['set -eu && mkdir -p /opt && rm -rf /opt/gnaws && curl -fL -o /opt/game_server.tar.gz https://github.com/pochusuwan/Gnaws/releases/' & ($states.input.releaseVersion ? ('download/' & $states.input.releaseVersion) : 'latest/download') & '/game_server.tar.gz && tar -xzf /opt/game_server.tar.gz -C /opt && mv /opt/game_server /opt/gnaws && /opt/gnaws/entrypoints/bootstrap.sh ' & $states.input.gameId] %}"
         }
       },
       "Output": "{% $merge([$states.input, $states.result]) %}",

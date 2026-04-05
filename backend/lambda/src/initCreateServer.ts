@@ -38,7 +38,11 @@ export async function initCreateServer(user: User, params: any): Promise<APIGate
         return serverError("Failed to initialize Amazon image id");
     }
 
-    return success(gamesResult);
+    if (gamesResult.games.length && gamesResult.version) {
+        return success(gamesResult);
+    } else {
+        return serverError(gamesResult.message ?? "Failed to get games. Unknown error");
+    }
 }
 
 async function updateAmazonImageId() {

@@ -10,6 +10,7 @@ export type Server = {
         name: string;
         messages?: Message[];
         supportServerCommand?: boolean;
+        releaseVersion: string;
     };
     ec2?: {
         instanceId?: string;
@@ -78,6 +79,28 @@ export type Message = {
     type: string;
     text: string;
 };
+type BaseConfiguration = {
+    id: string;
+    displayName: string;
+    description: string;
+}
+export type AlphanumericConfig = BaseConfiguration & {
+    type: "alphanumeric";
+    minLength?: number;
+    maxLength?: number;
+    default?: string;
+}
+export type NumericConfig = BaseConfiguration & {
+    type: "numeric";
+    minValue?: number;
+    maxValue?: number;
+    default?: number;
+}
+export type BooleanConfig = BaseConfiguration & {
+    type: "boolean";
+    default: boolean;
+}
+export type Configuration = AlphanumericConfig | NumericConfig | BooleanConfig;
 export type Game = {
     id: string;
     displayName: string;
@@ -90,4 +113,5 @@ export type Game = {
     termsOfService?: TermsOfService[];
     messages?: Message[];
     supportServerCommand?: boolean;
+    configurations?: Configuration[];
 };
