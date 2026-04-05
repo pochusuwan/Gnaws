@@ -213,6 +213,19 @@
       "Type": "Choice",
       "Choices": [
         {
+          "And": [
+            {
+              "Variable": "$.commandResult.Status",
+              "StringEquals": "Success"
+            },
+            {
+              "Variable": "$.installOnly",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "Success"
+        },
+        {
           "Variable": "$.commandResult.Status",
           "StringEquals": "Success",
           "Next": "StartGameServer"
@@ -254,9 +267,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": [
-            "/opt/gnaws/entrypoints/start_server.sh"
-          ]
+          "commands.$": "States.Array(States.Format('/opt/gnaws/entrypoints/start_server.sh --gameConfig {}', $.gameConfig))"
         }
       },
       "ResultPath": "$.command",
@@ -274,9 +285,7 @@
         "InstanceIds.$": "States.Array($.instanceId)",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands": [
-            "/opt/gnaws/entrypoints/server_status.sh"
-          ]
+          "commands": ["/opt/gnaws/entrypoints/server_status.sh"]
         }
       },
       "ResultPath": "$.command",

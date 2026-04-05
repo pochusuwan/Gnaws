@@ -18,6 +18,7 @@ import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
 import { getImageIdFromDB } from "./initCreateServer";
 import { getGameFromDB } from "./games";
+import { buildGameConfigPayload } from "./gameConfig";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -82,6 +83,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
         return clientError("Invalid ports");
     }
     // Add server to DDB with conditional check
+    // TODO: parse server config
     const server: Server = {
         name: serverName,
         ec2: {},
@@ -135,7 +137,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             }
         }
         if (!res.errorMessage) {
-            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, releaseVersion);
+            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, releaseVersion, buildGameConfigPayload(server), false);
             if (result) {
                 // Workflow started. Update server table
                 try {
