@@ -11,6 +11,10 @@ export type Server = {
         messages?: Message[];
         supportServerCommand?: boolean;
         releaseVersion: string;
+        configurations?: {
+            id: string;
+            value: string | number | boolean;
+        }[]
     };
     ec2?: {
         instanceId?: string;

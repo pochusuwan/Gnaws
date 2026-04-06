@@ -137,7 +137,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             }
         }
         if (!res.errorMessage) {
-            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, releaseVersion, buildGameConfigPayload(server), false);
+            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, releaseVersion, await buildGameConfigPayload(server), false);
             if (result) {
                 // Workflow started. Update server table
                 try {

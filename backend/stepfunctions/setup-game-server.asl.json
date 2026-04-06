@@ -261,16 +261,17 @@
       "Default": "InvalidSetupCommandStatus"
     },
     "StartGameServer": {
+      "QueryLanguage": "JSONata",
       "Type": "Task",
       "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
-      "Parameters": {
-        "InstanceIds.$": "States.Array($.instanceId)",
+      "Arguments": {
+        "InstanceIds": "{% [$states.input.instanceId] %}",
         "DocumentName": "AWS-RunShellScript",
         "Parameters": {
-          "commands.$": "States.Array(States.Format('/opt/gnaws/entrypoints/start_server.sh --gameConfig {}', $.gameConfig))"
+          "commands": "{% ['/opt/gnaws/entrypoints/start_server.sh ' & ($states.input.gameConfig ? ('--gameConfig ' & $states.input.gameConfig) : '')] %}"
         }
       },
-      "ResultPath": "$.command",
+      "Output": "{% $merge([$states.input, $states.result]) %}",
       "Next": "WaitGameServerOnline"
     },
     "WaitGameServerOnline": {

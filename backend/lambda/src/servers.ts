@@ -248,7 +248,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
 
     let result;
     if (action === ACTION_START) {
-        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN, { gameConfig: buildGameConfigPayload(server) });
+        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN, { gameConfig: await buildGameConfigPayload(server) });
     }
     if (action === ACTION_STOP) {
         result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
@@ -266,7 +266,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         if (server.game?.id) {
             const releaseVersion = await getStoredLatestVersion();
             if (releaseVersion) {
-                result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, buildGameConfigPayload(server), true);
+                result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, await buildGameConfigPayload(server), true);
                 await updateServerAttributes(server.name, {
                     game: {
                         ...server.game,
