@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "../../hooks/useUser";
-import { Protocol, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
+import { Protocol, type Configuration, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
 import type { GamesData } from "../../hooks/useGames";
 import "./CreateServerPage.css";
 import useApiCall from "../../hooks/useApiCall";
@@ -29,10 +29,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     const [storage, setStorage] = useState(4);
     const [ports, setPorts] = useState<Port[]>([]);
     const [message, setMessage] = useState("");
-    const [instanceTypeRec, setInstanceTypeRec] = useState("");
-    const [instanceTypeMinRec, setInstanceTypeMinRec] = useState("");
     const [terms, setTerms] = useState<Terms[]>([]);
-    const { call: createServerCall, state: createServerResponse } = useApiCall<{ message: string, serverName: string }>("createServer");
+    const [configValues, setConfigValues] = useState<Record<string, string | number | boolean>>({});
+    const { call: createServerCall, state: createServerResponse } = useApiCall<{ message: string; serverName: string }>("createServer");
 
     // Load games on page load
     useEffect(() => {
@@ -53,10 +52,13 @@ export default function CreateServerPage(props: CreateServerPageProps) {
         setInstanceType(game.ec2.instanceType);
         setStorage(game.ec2.storage);
         setPorts(game.ec2.ports.map((p) => ({ ...p })));
-        setInstanceTypeRec(game.ec2.instanceType);
-        setInstanceTypeMinRec(game.ec2.minimumInstanceType);
         const terms = game.termsOfService ?? [];
         setTerms(terms.map((term) => ({ term, accepted: false })));
+        const defaults: Record<string, string | number | boolean> = {};
+        (game.configurations ?? []).forEach((c) => {
+            if (c.default !== undefined) defaults[c.id] = c.default;
+        });
+        setConfigValues(defaults);
     }, []);
 
     // On game select change, set data
@@ -134,8 +136,16 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             return;
         }
         setMessage("Creating");
-        createServerCall({ serverName, gameId: game, instanceType, storage, ports, releaseVersion: VERSION_OVERRIDE ?? version });
-    }, [serverName, game, instanceType, storage, ports]);
+        createServerCall({
+            serverName,
+            gameId: game,
+            instanceType,
+            storage,
+            ports,
+            releaseVersion: VERSION_OVERRIDE ?? version,
+            configurations: configValues,
+        });
+    }, [configValues, serverName, game, instanceType, storage, ports]);
 
     // Update states from create server response
     useEffect(() => {
@@ -184,7 +194,8 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                 <div>Instance Type:</div>
                 <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
                 <div>
-                    {instanceTypeMinRec} (2-4 players) {instanceTypeRec} (5-8 players) recommended. This can be changed later.
+                    {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players) recommended. This
+                    can be changed later.
                 </div>
 
                 <div>Storage:</div>
@@ -192,7 +203,11 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                 <div>GiB. Can be increased later but cannot be decreased.</div>
             </div>
             {ports.map((port, i) => (
-                <div className="createServerPortGrid" key={i} style={{ backgroundColor: i < selectedGame.ec2.ports.length ? "#bebebe63" : undefined }}>
+                <div
+                    className="createServerPortGrid"
+                    key={i}
+                    style={{ backgroundColor: i < selectedGame?.ec2.ports.length ? "#bebebe63" : undefined }}
+                >
                     <div>Port {i + 1}:</div>
                     <input type="number" value={port.port} onChange={(e) => onPortNumberChange(e.target.value, i)} />
                     <select value={port.protocol} onChange={(e) => onPortProtocolChange(e.target.value, i)}>
@@ -204,17 +219,20 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     </select>
                 </div>
             ))}
-            <div>Modify pre-configured ports will require manual server modification.</div>
-            <button className="createServerPageButton" onClick={addPortClick}>
-                Add Port
-            </button>
+            <div className="createServerRow">
+                <button className="createServerPageButton" onClick={addPortClick}>
+                    Add Port
+                </button>
+                <div>Modify pre-configured ports will require manual server modification.</div>
+            </div>
             <div className="createServerPageDivider"></div>
+            <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {selectedGame?.messages !== undefined && selectedGame.messages.length > 0 && (
                 <div>
                     <div>Additional Infomation:</div>
                     <ul className="createServerPageList">
-                        {selectedGame.messages.map((m) => (
-                            <li>{m.text}</li>
+                        {selectedGame.messages.map((m, i) => (
+                            <li key={i}>{m.text}</li>
                         ))}
                     </ul>
                 </div>
@@ -226,12 +244,16 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                         {terms
                             .filter((t) => t.term.type === "checkbox")
                             .map((t, i) => (
-                                <div>
+                                <div key={i}>
                                     <a href={t.term.url} target="_blank" rel="noopener noreferrer">
                                         {t.term.name}
                                     </a>
                                     <div className="createServerRow">
-                                        <input type="checkbox" checked={t.accepted} onChange={(e) => onTermCheckboxChange(e.target.checked, i)} />
+                                        <input
+                                            type="checkbox"
+                                            checked={t.accepted}
+                                            onChange={(e) => onTermCheckboxChange(e.target.checked, i)}
+                                        />
                                         <div>I AGREE</div>
                                     </div>
                                 </div>
@@ -239,10 +261,76 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     </ul>
                 </div>
             )}
-            <button className="createServerPageButton" onClick={createServerClick} disabled={createServerResponse.state === "Loading" || !allTermsAccepted}>
+            <button
+                className="createServerPageButton"
+                onClick={createServerClick}
+                disabled={createServerResponse.state === "Loading" || !allTermsAccepted}
+            >
                 Create Server
             </button>
             <div>{message}</div>
         </div>
+    );
+}
+
+type CreateServerConfigurationsProps = {
+    game: Game;
+    configValues: Record<string, string | number | boolean>;
+    setConfigValues: (values: Record<string, string | number | boolean>) => void;
+};
+function CreateServerConfigurations({ game, configValues, setConfigValues }: CreateServerConfigurationsProps) {
+    const configurations = game?.configurations ?? [];
+    if (configurations.length === 0) return null;
+
+    const onChange = (id: string, value: string | number | boolean) => setConfigValues({ ...configValues, [id]: value });
+
+    return (
+        <div>
+            <div style={{ fontWeight: "bold", marginBottom: "12px" }}>Game Configuration</div>
+            <div className="createServerGrid">
+                {configurations.map((c: Configuration) => (
+                    <ConfigurationInput key={c.id} config={c} value={configValues[c.id]} onChange={(v) => onChange(c.id, v)} />
+                ))}
+            </div>
+            <div className="createServerPageDivider"></div>
+        </div>
+    );
+}
+
+type ConfigurationInputProps = {
+    config: Configuration;
+    value: string | number | boolean | undefined;
+    onChange: (value: string | number | boolean) => void;
+};
+function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps) {
+    if (config.type === "boolean") {
+        return (
+            <>
+                <div>{config.displayName}:</div>
+                <input type="checkbox" checked={(value as boolean) ?? !config.default} onChange={(e) => onChange(e.target.checked)} />
+                <div>{config.description}</div>
+            </>
+        );
+    }
+    let hint: string = "";
+    if (config.type === "alphanumeric") {
+        if (config.minLength !== undefined && config.maxLength !== undefined) hint = `${config.minLength}–${config.maxLength} characters.`;
+        else if (config.minLength !== undefined) hint = `Min ${config.minLength} characters.`;
+        else if (config.maxLength !== undefined) hint = `Max ${config.maxLength} characters.`;
+    } else if (config.type === "numeric") {
+        if (config.minValue !== undefined && config.maxValue !== undefined) hint = `${config.minValue}–${config.maxValue}.`;
+        else if (config.minValue !== undefined) hint = `Min ${config.minValue}.`;
+        else if (config.maxValue !== undefined) hint = `Max ${config.maxValue}.`;
+    }
+    return (
+        <>
+            <div>{config.displayName}:</div>
+            <input
+                type={config.type === "numeric" ? "number" : "text"}
+                value={(value as string | number) ?? config.default ?? ""}
+                onChange={(e) => onChange(config.type === "numeric" ? parseFloat(e.target.value) : e.target.value)}
+            />
+            <div>{config.description} {hint}</div>
+        </>
     );
 }

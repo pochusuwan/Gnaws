@@ -18,7 +18,8 @@ import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
 import { getImageIdFromDB } from "./initCreateServer";
 import { getGameFromDB } from "./games";
-import { buildGameConfigPayload } from "./gameConfig";
+import { buildGameConfigPayload, parseCreateServerConfig } from "./gameConfig";
+import { getNewShutdownTime } from "./serverConfig";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -82,6 +83,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (ports.length !== params.ports.length) {
         return clientError("Invalid ports");
     }
+    let configurations;
+    try {
+        configurations = parseCreateServerConfig(game, params.configurations);
+    } catch (e: any) {
+        return clientError(`Invalid configurations: ${e.message}`);
+    }
     // Add server to DDB with conditional check
     // TODO: parse server config
     const server: Server = {
@@ -92,8 +99,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             name: game.displayName,
             messages: game.messages,
             supportServerCommand: game.supportServerCommand,
-            releaseVersion
+            releaseVersion,
+            configurations
         },
+    };
+    server.scheduledShutdown = {
+        shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
     };
     try {
         await dynamoClient.send(

@@ -3,6 +3,10 @@ export type Request = {
     params: any;
 };
 
+export type ServerGameConfig = {
+    id: string;
+    value: string | number | boolean;
+}
 export type Server = {
     name: string;
     game?: {
@@ -11,10 +15,7 @@ export type Server = {
         messages?: Message[];
         supportServerCommand?: boolean;
         releaseVersion: string;
-        configurations?: {
-            id: string;
-            value: string | number | boolean;
-        }[]
+        configurations?: ServerGameConfig[]
     };
     ec2?: {
         instanceId?: string;

@@ -1,4 +1,4 @@
-import { AlphanumericConfig, NumericConfig, Server } from "./types";
+import { AlphanumericConfig, Game, NumericConfig, Server, ServerGameConfig } from "./types";
 import { getGameFromDB } from "./games";
 
 export async function buildGameConfigPayload(server: Server): Promise<string | undefined> {
@@ -41,4 +41,46 @@ function validateNumericConfig(config: NumericConfig, value: any) {
     if (config.minValue !== undefined && value < config.minValue) return false;
     if (config.maxValue !== undefined && value > config.maxValue) return false;
     return true;
+}
+
+export function parseCreateServerConfig(game: Game, configurations: any): ServerGameConfig[] {
+    if (typeof configurations !== "object" || configurations === null) {
+        throw Error("invalid configuration object");
+    }
+
+    const parsedConfig: ServerGameConfig[] = [];
+    game.configurations?.forEach((c) => {
+        const configValue = configurations[c.id];
+        if (configValue === undefined) {
+            if (c.type === "boolean") {
+                parsedConfig.push({
+                    id: c.id,
+                    value: c.default
+                })
+            }
+            // No other config types are required or have default value
+        } else {
+            if (c.type === "alphanumeric") {
+                if (typeof configValue !== "string" || !/^[a-zA-Z0-9_-]*$/.test(configValue)) throw Error(`configuration ${c.displayName} must only contain a-z A-z 0-9`);
+                // Empty string value is valid. Don't add to parsed config.
+                if (configValue.length === 0) return;
+                if (c.minLength !== undefined && configValue.length < c.minLength) throw Error(`configuration ${c.displayName} must be at least ${c.minLength} characters long`);
+                if (c.maxLength !== undefined && configValue.length > c.maxLength) throw Error(`configuration ${c.displayName} must be at most ${c.maxLength} characters long`);
+                parsedConfig.push({
+                    id: c.id,
+                    value: configValue
+                })
+            } else if (c.type === "numeric") {
+                // TODO
+                if (typeof configValue !== "number") throw Error(`configuration ${c.displayName} must be a number`);
+            } else {
+                if (typeof configValue !== "boolean") throw Error(`configuration ${c.displayName} must be a boolean`);
+                parsedConfig.push({
+                    id: c.id,
+                    value: configValue
+                })
+            }
+        }
+    });
+    return parsedConfig;
 }
