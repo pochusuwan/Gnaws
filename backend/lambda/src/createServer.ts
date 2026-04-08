@@ -18,7 +18,7 @@ import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
 import { getImageIdFromDB } from "./initCreateServer";
 import { getGameFromDB } from "./games";
-import { buildGameConfigPayload, parseCreateServerConfig } from "./gameConfig";
+import { buildGameConfigPayload, buildGameServerConfig } from "./gameConfig";
 import { getNewShutdownTime } from "./serverConfig";
 
 const VPC_ID = process.env.VPC_ID!;
@@ -85,12 +85,11 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     }
     let configurations;
     try {
-        configurations = parseCreateServerConfig(game, params.configurations);
+        configurations = buildGameServerConfig(game, params.configurations);
     } catch (e: any) {
         return clientError(`Invalid configurations: ${e.message}`);
     }
     // Add server to DDB with conditional check
-    // TODO: parse server config
     const server: Server = {
         name: serverName,
         ec2: {},

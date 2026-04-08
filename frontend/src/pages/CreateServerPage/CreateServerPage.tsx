@@ -4,7 +4,7 @@ import { Protocol, type Configuration, type Game, type NetworkDataState, type Po
 import type { GamesData } from "../../hooks/useGames";
 import "./CreateServerPage.css";
 import useApiCall from "../../hooks/useApiCall";
-import { hasAdminPermission } from "../../utils";
+import { buildConfigHint, hasAdminPermission } from "../../utils";
 
 type CreateServerPageProps = {
     games: NetworkDataState<GamesData>;
@@ -307,20 +307,10 @@ function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps
         return (
             <>
                 <div>{config.displayName}:</div>
-                <input type="checkbox" checked={(value as boolean) ?? !config.default} onChange={(e) => onChange(e.target.checked)} />
+                <input style={{ justifySelf: "start" }} type="checkbox" checked={(value as boolean) ?? config.default} onChange={(e) => onChange(e.target.checked)} />
                 <div>{config.description}</div>
             </>
         );
-    }
-    let hint: string = "";
-    if (config.type === "alphanumeric") {
-        if (config.minLength !== undefined && config.maxLength !== undefined) hint = `${config.minLength}–${config.maxLength} characters.`;
-        else if (config.minLength !== undefined) hint = `Min ${config.minLength} characters.`;
-        else if (config.maxLength !== undefined) hint = `Max ${config.maxLength} characters.`;
-    } else if (config.type === "numeric") {
-        if (config.minValue !== undefined && config.maxValue !== undefined) hint = `${config.minValue}–${config.maxValue}.`;
-        else if (config.minValue !== undefined) hint = `Min ${config.minValue}.`;
-        else if (config.maxValue !== undefined) hint = `Max ${config.maxValue}.`;
     }
     return (
         <>
@@ -330,7 +320,7 @@ function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps
                 value={(value as string | number) ?? config.default ?? ""}
                 onChange={(e) => onChange(config.type === "numeric" ? parseFloat(e.target.value) : e.target.value)}
             />
-            <div>{config.description} {hint}</div>
+            <div>{config.description} {buildConfigHint(config)}</div>
         </>
     );
 }

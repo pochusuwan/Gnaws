@@ -6,6 +6,9 @@ import { dynamoClient } from "./clients";
 import { BatchWriteItemCommand, GetItemCommand, ScanCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { getStoredLatestVersion } from "./versioning";
+import { ROLE_ADMIN, ROLE_OWNER, User } from "./users";
+import { APIGatewayProxyResult } from "aws-lambda";
+import { clientError, forbidden, serverError, success } from "./util";
 
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
 const GAME_TABLE = process.env.GAME_TABLE_NAME!;
@@ -20,6 +23,20 @@ const GAMES_DIR = "/game_server/games";
 const HEADERS = {
     "User-Agent": "aws-lambda",
 };
+
+export async function getGame(user: User, params: any): Promise<APIGatewayProxyResult> {
+    if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
+        return forbidden();
+    }
+    if (typeof params?.gameId !== "string") {
+        return clientError("Invalid request");
+    }
+    const game = await getGameFromDB(params?.gameId);
+    if (!game) {
+        return serverError("Game not found");
+    }
+    return success({ game })
+}
 
 export async function getGames(): Promise<{ games?: Game[]; message?: string; version?: string }> {
     // Fetch games list and sync to DDB from latest release on github.

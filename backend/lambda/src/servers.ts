@@ -264,6 +264,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_REINSTALL) {
         if (server.game?.id) {
+            // TODO: update game configurations
             const releaseVersion = await getStoredLatestVersion();
             if (releaseVersion) {
                 result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, await buildGameConfigPayload(server), true);

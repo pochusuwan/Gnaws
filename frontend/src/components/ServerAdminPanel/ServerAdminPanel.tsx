@@ -11,6 +11,7 @@ import ServerConfigPanel from "../ServerConfigPanel/ServerConfigPanel";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
 import MonitorPanel from "../MonitorPanel/MonitorPanel";
 import { useUser } from "../../hooks/useUser";
+import GameConfigPanel from "../GameConfigPanel/GameConfigPanel";
 
 const SERVER_ACTION = "Server Action";
 const SERVER_CONFIG = "Server Config";
@@ -110,6 +111,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} setMessage={setMessage} />}
             {page === SERVER_DATA && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
             {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
+            {page === GAME_CONFIG && <GameConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
             {page === MONITOR && <MonitorPanel server={server} />}
             {stopInstanceOpen && (
                 <ConfirmDialog

@@ -5,7 +5,7 @@ export type Request = {
 
 export type ServerGameConfig = {
     id: string;
-    value: string | number | boolean;
+    value?: string | number | boolean;
 }
 export type Server = {
     name: string;

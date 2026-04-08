@@ -14,7 +14,7 @@ export async function buildGameConfigPayload(server: Server): Promise<string | u
     const configObj: { [k: string]: string | number | boolean } = {};
     server.game?.configurations?.forEach((c) => {
         const config = configurations[c.id];
-        if (config) {
+        if (config && c.value !== undefined) {
             if (config.type === "alphanumeric" && validateAlphanumericConfig(config, c.value)) {
                 configObj[config.id] = c.value;
             } else if (config.type === "numeric" && validateNumericConfig(config, c.value)) {
@@ -43,7 +43,12 @@ function validateNumericConfig(config: NumericConfig, value: any) {
     return true;
 }
 
-export function parseCreateServerConfig(game: Game, configurations: any): ServerGameConfig[] {
+/**
+ * Build server game config object for initial server creation
+ * All available config for current version of the game should be added to the server so it can be updated
+ * Optional config will have no value in the server object
+ */
+export function buildGameServerConfig(game: Game, configurations: any): ServerGameConfig[] {
     if (typeof configurations !== "object" || configurations === null) {
         throw Error("invalid configuration object");
     }
@@ -52,24 +57,33 @@ export function parseCreateServerConfig(game: Game, configurations: any): Server
     game.configurations?.forEach((c) => {
         const configValue = configurations[c.id];
         if (configValue === undefined) {
-            if (c.type === "boolean") {
+            if (c.type === "alphanumeric" || c.type === "numeric" || c.type === "boolean") {
                 parsedConfig.push({
                     id: c.id,
-                    value: c.default
-                })
+                    value: c.default,
+                });
             }
-            // No other config types are required or have default value
         } else {
             if (c.type === "alphanumeric") {
-                if (typeof configValue !== "string" || !/^[a-zA-Z0-9_-]*$/.test(configValue)) throw Error(`configuration ${c.displayName} must only contain a-z A-z 0-9`);
-                // Empty string value is valid. Don't add to parsed config.
-                if (configValue.length === 0) return;
-                if (c.minLength !== undefined && configValue.length < c.minLength) throw Error(`configuration ${c.displayName} must be at least ${c.minLength} characters long`);
-                if (c.maxLength !== undefined && configValue.length > c.maxLength) throw Error(`configuration ${c.displayName} must be at most ${c.maxLength} characters long`);
-                parsedConfig.push({
-                    id: c.id,
-                    value: configValue
-                })
+                if (typeof configValue !== "string") {
+                    throw Error(`configuration ${c.displayName} must be a text`);
+                } else if (configValue.length === 0) {
+                    // If empty, use default value
+                    parsedConfig.push({
+                        id: c.id,
+                        value: c.default,
+                    });
+                } else {
+                    if (!/^[a-zA-Z0-9_-]+$/.test(configValue)) throw Error(`configuration ${c.displayName} must only contain a-z A-z 0-9`);
+                    if (c.minLength !== undefined && configValue.length < c.minLength)
+                        throw Error(`configuration ${c.displayName} must be at least ${c.minLength} characters long`);
+                    if (c.maxLength !== undefined && configValue.length > c.maxLength)
+                        throw Error(`configuration ${c.displayName} must be at most ${c.maxLength} characters long`);
+                    parsedConfig.push({
+                        id: c.id,
+                        value: configValue,
+                    });
+                }
             } else if (c.type === "numeric") {
                 // TODO
                 if (typeof configValue !== "number") throw Error(`configuration ${c.displayName} must be a number`);
@@ -77,8 +91,8 @@ export function parseCreateServerConfig(game: Game, configurations: any): Server
                 if (typeof configValue !== "boolean") throw Error(`configuration ${c.displayName} must be a boolean`);
                 parsedConfig.push({
                     id: c.id,
-                    value: configValue
-                })
+                    value: configValue,
+                });
             }
         }
     });
