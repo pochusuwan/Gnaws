@@ -19,5 +19,49 @@
             "url": "https://aka.ms/MinecraftEULA",
             "type": "checkbox"
         }
+    ],
+    "configurations": [
+        {
+            "id": "levelSeed",
+            "type": "alphanumeric",
+            "maxLength": 64,
+            "displayName": "World Seed",
+            "description": "The seed for the generated world. Leave empty for random seed.",
+            "isCreationOnly": true
+        },
+        {
+            "id": "difficulty",
+            "type": "enum",
+            "values": ["peaceful", "easy", "normal", "hard"],
+            "default": "easy",
+            "displayName": "Difficulty",
+            "description": "The difficulty of the server."
+        },
+        {
+            "id": "isHardcore",
+            "type": "boolean",
+            "default": false,
+            "displayName": "Hardcore",
+            "description": "Whether to enable hardcore mode on created worlds.",
+            "isCreationOnly": true
+        },
+        {
+            "id": "viewDistance",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "displayName": "View Distance",
+            "description": "The amount of world data the server sends the client. This determines the server-side viewing distance. Leave empty to use default value.",
+            "minValue": 3,
+            "maxValue": 32
+        },
+        {
+            "id": "spawnProtection",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "displayName": "Spawn Protection",
+            "description": "Set spawn protection area. Set 0 to disable spawn protection. Leave empty to use default value.",
+            "minValue": 0,
+            "maxValue": 256
+        }
     ]
 }
