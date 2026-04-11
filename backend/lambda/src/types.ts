@@ -9,7 +9,7 @@ export type ServerGameConfig = {
 }
 export type Server = {
     name: string;
-    game?: {
+    game: {
         id: string;
         name: string;
         messages?: Message[];
@@ -17,7 +17,7 @@ export type Server = {
         releaseVersion: string;
         configurations?: ServerGameConfig[]
     };
-    ec2?: {
+    ec2: {
         instanceId?: string;
         instanceType?: string;
         securityGroupId?: string;

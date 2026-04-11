@@ -4,6 +4,13 @@
     gap: 12px;
 }
 
+.gameConfigRow {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+}
+
+
 .gameConfigGrid {
     display: grid;
     grid-template-columns: 150px 200px 1fr;

@@ -9,6 +9,7 @@ import { invalidCredential, serverError } from "./util";
 import { checkForNewRelease } from "./versioning";
 import { EC2_STATE_EVENT, handleEc2StateChangeEvent, watchdogEvent } from "./eventBridge";
 import { getGame } from "./games";
+import { saveGameConfig } from "./gameConfig";
 
 const MAX_BODY = 10_000;
 const LOGIN_TYPE = "login";
@@ -22,6 +23,7 @@ const INIT_CRATE_SERVER_TYPE = "initCreateServer";
 const CHECK_NEW_RELEASE_TYPE = "checkNewRelease";
 const GET_INVITE_CODE = "getInviteCode";
 const GET_GAME = "getGame";
+const SAVE_GAME_CONFIG = "saveGameConfig";
 const RANDOM_INVITE_CODE = "randomizeInviteCode";
 const ALLOWED_REQUESTS = [
     LOGIN_TYPE,
@@ -36,6 +38,7 @@ const ALLOWED_REQUESTS = [
     GET_INVITE_CODE,
     RANDOM_INVITE_CODE,
     GET_GAME,
+    SAVE_GAME_CONFIG,
 ];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
@@ -107,6 +110,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
     if (requestType === GET_GAME) {
         return await getGame(user, params);
+    }
+    if (requestType === SAVE_GAME_CONFIG) {
+        return await saveGameConfig(user, params);
     }
 
     return {

@@ -25,6 +25,7 @@ type ServerAdminPanelProps = {
     servers: Server[];
     refreshServer: (serverName: string) => void;
     server: Server;
+    replaceServerData: (server: Server) => void;
 };
 export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const userRole = useUser().role;
@@ -111,7 +112,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} setMessage={setMessage} />}
             {page === SERVER_DATA && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
             {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
-            {page === GAME_CONFIG && <GameConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
+            {page === GAME_CONFIG && <GameConfigPanel server={server} replaceServerData={props.replaceServerData}/>}
             {page === MONITOR && <MonitorPanel server={server} />}
             {stopInstanceOpen && (
                 <ConfirmDialog

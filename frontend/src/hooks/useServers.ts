@@ -108,8 +108,17 @@ export const useServers = (user: User | null) => {
             }
         };
     }, []);
+    
+    const replaceServerData = useCallback((newServer: Server) => {
+        setServers((prev) => {
+            if (prev.state === "Loaded") {
+                return loadedState(prev.data.map((s) => s.name === newServer.name ? newServer : s))
+            }
+            return prev;
+        });
+    }, [])
 
-    return { servers, refreshServer };
+    return { servers, refreshServer, replaceServerData };
 };
 
 function computeRefreshTargets(servers: Server[], serverWithRunningTask: Set<String>) {

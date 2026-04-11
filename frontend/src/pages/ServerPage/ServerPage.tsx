@@ -7,6 +7,7 @@ import ServerAdminPanel from "../../components/ServerAdminPanel/ServerAdminPanel
 type Props = {
     servers: NetworkDataState<Server[]>;
     refreshServer: (serverName: string) => void;
+    replaceServerData: (server: Server) => void;
 };
 
 export default function ServerPage(props: Props) {
@@ -55,7 +56,7 @@ export default function ServerPage(props: Props) {
                 ) : (
                     <>
                         <div className="pageDivider" />
-                        <ServerAdminPanel server={focusedServer} refreshServer={props.refreshServer} servers={props.servers.data} />
+                        <ServerAdminPanel server={focusedServer} refreshServer={props.refreshServer} replaceServerData={props.replaceServerData} servers={props.servers.data} />
                     </>
                 ))}
         </div>

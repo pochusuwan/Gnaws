@@ -7,15 +7,14 @@ import { buildConfigHint, hasAdminPermission } from "../../utils";
 
 type GameConfigPanelProps = {
     server: Server;
-    callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => void;
-    disabled: boolean;
+    replaceServerData: (server: Server) => void;
 };
 
-export default function GameConfigPanel({ server }: GameConfigPanelProps) {
+export default function GameConfigPanel({ server, replaceServerData }: GameConfigPanelProps) {
     const { call: callGetGame, state: gameState } = useApiCall<{ game: Game }>("getGame");
     const { call: callSave, state: saveState  } = useApiCall<{ server: Server }>("saveGameConfig");
-    const [editting, setEditting] = useState(false);
     const [configValues, setConfigValues] = useState<Record<string, string | number | boolean>>({});
+    const [editting, setEditting] = useState(false);
     const userRole = useUser().role;
 
     useEffect(() => {
@@ -27,7 +26,7 @@ export default function GameConfigPanel({ server }: GameConfigPanelProps) {
     useEffect(() => {
         const values: Record<string, string | number | boolean> = {};
         server.game?.configurations?.forEach((c) => {
-            if (c.value) {
+            if (c.value !== undefined) {
                 values[c.id] = c.value;
             }
         });
@@ -47,12 +46,15 @@ export default function GameConfigPanel({ server }: GameConfigPanelProps) {
 
     const onButtonClick = useCallback(async () => {
         if (editting) {
-            await callSave();
-            setEditting(false);
+            const result = await callSave({ serverName: server.name, config: configValues });
+            if (result?.server) {
+                replaceServerData(result?.server);
+                setEditting(false);
+            }
         } else {
             setEditting(true);
         }
-    }, [editting]);
+    }, [editting, configValues]);
 
     const gameConfigs = server.game?.configurations ?? [];
     if (gameConfigs.length === 0) {
@@ -61,9 +63,12 @@ export default function GameConfigPanel({ server }: GameConfigPanelProps) {
 
     return (
         <div className="gameConfigPanel">
-            <button className="gameConfigButton" onClick={onButtonClick} disabled={saveState.state !== "Loading" && !hasAdminPermission(userRole)}>
-                {editting ? "Save" : "Edit"}
-            </button>
+            <div className="gameConfigRow">
+                <button className="gameConfigButton" onClick={onButtonClick} disabled={saveState.state === "Loading" || !hasAdminPermission(userRole)}>
+                    {editting ? "Save" : "Edit"}
+                </button>
+                <div>{saveState.state === "Error" ? saveState.error : saveState.state === "Loaded" ? "saved" : ""}</div>
+            </div>
             <div className="gameConfigGrid">
                 {gameConfigs.map((c) => (
                     <ConfigurationInput
