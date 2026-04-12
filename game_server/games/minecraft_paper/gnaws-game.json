@@ -30,19 +30,11 @@
             "isCreationOnly": true
         },
         {
-            "id": "difficulty",
-            "type": "enum",
-            "values": ["peaceful", "easy", "normal", "hard"],
-            "default": "easy",
-            "displayName": "Difficulty",
-            "description": "The difficulty of the server."
-        },
-        {
             "id": "isHardcore",
             "type": "boolean",
             "default": false,
             "displayName": "Hardcore",
-            "description": "Whether to enable hardcore mode on created worlds.",
+            "description": "Enables hardcore mode.",
             "isCreationOnly": true
         },
         {
@@ -50,7 +42,7 @@
             "type": "numeric",
             "isIntegerOnly": true,
             "displayName": "View Distance",
-            "description": "The amount of world data the server sends the client. This determines the server-side viewing distance. Leave empty to use default value.",
+            "description": "Server-side render distance in chunks. Higher values increase CPU and memory usage. Leave empty for default.",
             "minValue": 3,
             "maxValue": 32
         },
@@ -59,7 +51,7 @@
             "type": "numeric",
             "isIntegerOnly": true,
             "displayName": "Spawn Protection",
-            "description": "Set spawn protection area. Set 0 to disable spawn protection. Leave empty to use default value.",
+            "description": "Set spawn protection area. Set to 0 to disable. Leave empty for default.",
             "minValue": 0,
             "maxValue": 256
         }
