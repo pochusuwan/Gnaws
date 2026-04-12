@@ -64,6 +64,29 @@ export function buildGameServerConfig(game: Game, configurations: any): ServerGa
     return parsedConfig;
 }
 
+export async function buildGameServerConfigForReinstall(gameId?: string, configs?: ServerGameConfig[]): Promise<ServerGameConfig[] | undefined> {
+    let game;
+    if (gameId) {
+        game = await getGameFromDB(gameId);
+    }
+    if (!game) {
+        console.error("Game not found for server");
+        return configs;
+    }
+
+    const currentConfig = Object.fromEntries(configs?.map((c) => [c.id, c]) ?? []);
+    return game.configurations?.map((c) => {
+        if (currentConfig[c.id] !== undefined) {
+            return currentConfig[c.id];
+        } else {
+            return {
+                id: c.id,
+                value: c.default
+            }
+        }
+    }) ?? [];
+}
+
 export async function saveGameConfig(user: User, params: any): Promise<APIGatewayProxyResult> {
     if (user.role !== ROLE_ADMIN && user.role !== ROLE_OWNER) {
         return forbidden();

@@ -31,7 +31,7 @@ import {
     setServerCustomSubdomain,
 } from "./serverConfig";
 import { getStoredLatestVersion } from "./versioning";
-import { buildGameConfigPayload } from "./gameConfig";
+import { buildGameConfigPayload, buildGameServerConfigForReinstall } from "./gameConfig";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -264,15 +264,16 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_REINSTALL) {
         if (server.game?.id) {
-            // TODO: update game configurations
             const releaseVersion = await getStoredLatestVersion();
             if (releaseVersion) {
+                server.game = {
+                    ...server.game,
+                    releaseVersion,
+                    configurations: await buildGameServerConfigForReinstall(server.game?.id, server.game.configurations)
+                }
                 result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, await buildGameConfigPayload(server), true);
                 await updateServerAttributes(server.name, {
-                    game: {
-                        ...server.game,
-                        releaseVersion,
-                    },
+                    game: server.game,
                 });
             } else {
                 return serverError("Failed to reinstall. Missing game release version");

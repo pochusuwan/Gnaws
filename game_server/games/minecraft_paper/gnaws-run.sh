@@ -28,7 +28,6 @@ set_property() {
 
 touch "$PROPERTIES_FILE"
 set_property "level-seed" CONFIG_levelSeed
-set_property "difficulty" CONFIG_difficulty
 set_property "hardcore" CONFIG_isHardcore
 set_property "view-distance" CONFIG_viewDistance
 set_property "spawn-protection" CONFIG_spawnProtection
