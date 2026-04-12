@@ -1,4 +1,4 @@
-import { Role, type Server } from "./types";
+import { Role, type Configuration, type Server } from "./types";
 
 export function serverRefreshingStatus(server: Server): boolean {
     const statusLastRequest = server.status?.lastRequest;
@@ -29,4 +29,17 @@ export function hasAdminPermission(role: Role): boolean {
 
 export function hasOwnerPermission(role: Role): boolean {
     return role === Role.Owner;
+}
+
+export function buildConfigHint(config: Configuration): string {
+    if (config.type === "alphanumeric") {
+        if (config.minLength !== undefined && config.maxLength !== undefined) return `${config.minLength}–${config.maxLength} characters.`;
+        else if (config.minLength !== undefined) return `Min ${config.minLength} characters.`;
+        else if (config.maxLength !== undefined) return `Max ${config.maxLength} characters.`;
+    } else if (config.type === "numeric") {
+        if (config.minValue !== undefined && config.maxValue !== undefined) return `${config.minValue}–${config.maxValue}.`;
+        else if (config.minValue !== undefined) return `Min ${config.minValue}.`;
+        else if (config.maxValue !== undefined) return `Max ${config.maxValue}.`;
+    } 
+    return "";
 }

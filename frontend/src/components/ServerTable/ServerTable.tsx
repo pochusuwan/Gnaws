@@ -144,7 +144,7 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.name} loading={showSpinner} />
             <Cell value={server.status?.status} />
             <Cell value={currentTask} />
-            <Cell value={<>{server.configuration?.customSubdomain}<br/>{server.ec2?.ipAddress}</>} />
+            <Cell value={<>{server.configuration?.customSubdomain}{server.configuration?.customSubdomain && <br/>}{server.ec2?.ipAddress}</>} />
             <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
             <Cell value={timeSinceBackup} />

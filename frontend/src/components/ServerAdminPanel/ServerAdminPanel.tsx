@@ -11,6 +11,7 @@ import ServerConfigPanel from "../ServerConfigPanel/ServerConfigPanel";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
 import MonitorPanel from "../MonitorPanel/MonitorPanel";
 import { useUser } from "../../hooks/useUser";
+import GameConfigPanel from "../GameConfigPanel/GameConfigPanel";
 
 const SERVER_ACTION = "Server Action";
 const SERVER_CONFIG = "Server Config";
@@ -24,6 +25,7 @@ type ServerAdminPanelProps = {
     servers: Server[];
     refreshServer: (serverName: string) => void;
     server: Server;
+    replaceServerData: (server: Server) => void;
 };
 export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const userRole = useUser().role;
@@ -41,7 +43,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
-        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number }) => {
+        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => {
             if (server !== null) {
                 lastAction.current = action;
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
@@ -110,6 +112,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} setMessage={setMessage} />}
             {page === SERVER_DATA && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
             {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
+            {page === GAME_CONFIG && <GameConfigPanel server={server} replaceServerData={props.replaceServerData}/>}
             {page === MONITOR && <MonitorPanel server={server} />}
             {stopInstanceOpen && (
                 <ConfirmDialog
@@ -136,7 +139,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
 type ServerActionProps = {
     disabled: boolean;
-    callAction: (action: string, refreshAfterSuccess: boolean) => void;
+    callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => void;
     callStopInstance: () => void;
     callTerminateAction: () => void;
 };
@@ -179,6 +182,12 @@ function ServerActionButtons(props: ServerActionProps) {
                 label="Remove workflow lock"
                 description="Clear the workflow lock if the server is stuck after a failed action. The lock prevents multiple operations from running at once. Removing it does not change the server state."
                 onClick={() => callAction("Remove_Lock", false)}
+            />
+            <AdminPanelButton
+                disabled={disabled}
+                label="Reinstall Server"
+                description="Reinstalls system scripts and game dependencies without touching your save files. Use this to fix a broken or misbehaving server. Make sure the instance is running and the game server is stopped before reinstalling. Create a backup before reinstalling."
+                onClick={() => callAction("Reinstall", true)}
             />
             <AdminPanelButton
                 disabled={disabled}

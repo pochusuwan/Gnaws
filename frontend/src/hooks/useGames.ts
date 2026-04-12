@@ -4,13 +4,14 @@ import useApiCall from "./useApiCall";
 
 export type GamesData = {
     games: { [id: string]: Game };
+    version: string;
     initialGame: string;
 };
 
 export const useGames = (user: User | null) => {
     const initialized = useRef(false);
     const [games, setGames] = useState<NetworkDataState<GamesData>>(loadingState());
-    const { call, state } = useApiCall<{ games: Game[] }>("initCreateServer");
+    const { call, state } = useApiCall<{ games: Game[]; version: string }>("initCreateServer");
 
     const loadGames = useCallback(() => {
         if (!initialized.current) {
@@ -27,7 +28,7 @@ export const useGames = (user: User | null) => {
             if (gamesResponse.length > 0) {
                 const games: { [id: string]: Game } = {};
                 gamesResponse.forEach((game) => (games[game.id] = game));
-                setGames(loadedState({ games, initialGame: gamesResponse[0].id }));
+                setGames(loadedState({ games, initialGame: gamesResponse[0].id, version: state.data.version }));
             } else {
                 setGames(errorState("No games available"));
             }

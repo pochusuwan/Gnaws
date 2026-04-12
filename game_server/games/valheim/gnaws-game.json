@@ -20,15 +20,42 @@
             }
         ]
     },
-    "termsOfService": [{
-        "name": "SteamCMD License Agreement",
-        "url": "https://store.steampowered.com/subscriber_agreement/",
-        "type": "checkbox"
-    }],
+    "termsOfService": [
+        {
+            "name": "SteamCMD License Agreement",
+            "url": "https://store.steampowered.com/subscriber_agreement/",
+            "type": "checkbox"
+        }
+    ],
     "messages": [
         {
             "type": "info",
-            "text": "First-time server startup may take up to 10 minutes to generate the world."
+            "text": "First-time server startup may take up to 10 minutes to generate the world. The server status may show as online before the world has finished generating."
+        }
+    ],
+    "configurations": [
+        {
+            "id": "serverName",
+            "type": "alphanumeric",
+            "minLength": 1,
+            "maxLength": 20,
+            "displayName": "Server Name",
+            "description": "The name shown in the Valheim server browser."
+        },
+        {
+            "id": "serverPassword",
+            "type": "alphanumeric",
+            "minLength": 5,
+            "maxLength": 20,
+            "displayName": "Password",
+            "description": "Password to join the server. Minimum 5 characters. Leave empty for no password. A public server without a password will be set to private."
+        },
+        {
+            "id": "isPublic",
+            "type": "boolean",
+            "default": false,
+            "displayName": "Public",
+            "description": "When enabled, the server appears in the public server browser. When disabled, it's hidden and only joinable via direct IP."
         }
     ]
 }

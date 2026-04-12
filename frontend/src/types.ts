@@ -13,15 +13,21 @@ export type User = {
     role: Role;
 };
 
+export type ServerGameConfig = {
+    id: string;
+    value?: string | number | boolean;
+}
 export type Server = {
     name: string;
-    game?: {
+    game: {
         id: string;
         name: string;
         messages?: Message[];
         supportServerCommand?: boolean;
+        releaseVersion: string;
+        configurations?: ServerGameConfig[]
     };
-    ec2?: {
+    ec2: {
         instanceId?: string;
         instanceType?: string;
         securityGroupId?: string;
@@ -91,6 +97,35 @@ export type Message = {
     type: string;
     text: string;
 };
+type BaseConfiguration = {
+    id: string;
+    displayName: string;
+    description: string;
+    isCreationOnly?: boolean;
+}
+export type AlphanumericConfig = BaseConfiguration & {
+    type: "alphanumeric";
+    minLength?: number;
+    maxLength?: number;
+    default?: string;
+}
+export type NumericConfig = BaseConfiguration & {
+    type: "numeric";
+    minValue?: number;
+    maxValue?: number;
+    default?: number;
+    isIntegerOnly?: boolean;
+}
+export type BooleanConfig = BaseConfiguration & {
+    type: "boolean";
+    default: boolean;
+}
+export type EnumConfig = BaseConfiguration & {
+    type: "enum";
+    values: string[];
+    default: string;
+}
+export type Configuration = AlphanumericConfig | NumericConfig | BooleanConfig | EnumConfig;
 export type Game = {
     id: string;
     displayName: string;
@@ -102,6 +137,7 @@ export type Game = {
     };
     termsOfService?: TermsOfService[];
     messages?: Message[];
+    configurations?: Configuration[];
 };
 
 export type EmptyState = {

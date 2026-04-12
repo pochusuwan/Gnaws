@@ -22,7 +22,7 @@ const PAGES = [SERVERS_PAGE, USERS_PAGE, CREATE_SERVER_PAGE];
 export default function App() {
     const [page, setPage] = useState(SERVERS_PAGE);
     const [user, setUser] = useState<User | null>(null);
-    const { servers, refreshServer } = useServers(user);
+    const { servers, refreshServer, replaceServerData } = useServers(user);
     const { users, loadUsers, updateUsers } = useUsers(user);
     const { games, loadGames } = useGames(user);
     const { call: checkNewReleaseCall, state: checkNewReleaseState } = useApiCall<{ hasInfraUpdate: boolean }>("checkNewRelease");
@@ -46,7 +46,7 @@ export default function App() {
                 <div className="app">
                     <LoggedIn clearUser={() => setUser(null)} hasUpdate={hasUpdate} />
                     <PageSelector pages={PAGES} current={page} onSelect={setPage} />
-                    {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} />}
+                    {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} replaceServerData={replaceServerData} />}
                     {page === USERS_PAGE && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
                     {page === CREATE_SERVER_PAGE && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer} />}
                 </div>

@@ -106,7 +106,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                 <AdminPanelButton
                     disabled={props.disabled}
                     label="Set Custom Subdomain"
-                    description="The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can assign a subdomain (e.g. mc.example.com) so players always connect using the same address."
+                    description="The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can assign a subdomain (e.g. mc.example.com) so players always connect using the same address. Instance restart required to take effect."
                     onClick={callSetCustomSubdomain}
                 />
                 {customSubdomainOpen && (

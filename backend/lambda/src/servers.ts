@@ -7,6 +7,7 @@ import {
     BACKUP_SERVER_FUNCTION_ARN,
     getServerStatusWorkflow,
     START_SERVER_FUNCTION_ARN,
+    startSetupWorkflow,
     startWorkflow,
     STOP_SERVER_FUNCTION_ARN,
     TERMINATE_SERVER_FUNCTION_ARN,
@@ -22,7 +23,16 @@ import {
 } from "@aws-sdk/client-ec2";
 import { MetricEntry, Server } from "./types";
 import { GetCommandInvocationCommand, SendCommandCommand } from "@aws-sdk/client-ssm";
-import { addHourToShutdown, changeInstanceType, getNewShutdownTime, toggleScheduledShutdown, setServerCustomSubdomain } from "./serverConfig";
+import {
+    addHourToShutdown,
+    changeInstanceType,
+    getNewShutdownTime,
+    toggleScheduledShutdown,
+    setServerCustomSubdomain,
+} from "./serverConfig";
+import { getStoredLatestVersion } from "./versioning";
+import { buildGameConfigPayload, buildGameServerConfigForReinstall } from "./gameConfig";
+import { getGames } from "./games";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -47,6 +57,7 @@ const ACTION_TOGGLE_SCHEDULED_SHUTDOWN = "toggle_scheduled_shutdown";
 const ACTION_ADD_HOUR = "add_hour";
 const ACTION_GET_MONITORING_METRICS = "get_monitoring_metrics";
 const ACTION_SET_CUSTOM_SUBDOMAIN = "set_custom_subdomain";
+const ACTION_REINSTALL = "reinstall";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
@@ -67,6 +78,7 @@ const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_ADD_HOUR]: ALL_USERS,
     [ACTION_GET_MONITORING_METRICS]: ADMIN_USERS,
     [ACTION_SET_CUSTOM_SUBDOMAIN]: ADMIN_USERS,
+    [ACTION_REINSTALL]: ADMIN_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -237,7 +249,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
 
     let result;
     if (action === ACTION_START) {
-        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN);
+        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN, { gameConfig: await buildGameConfigPayload(server) });
     }
     if (action === ACTION_STOP) {
         result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
@@ -250,6 +262,32 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_UPDATE) {
         result = await startWorkflow(server.name, instanceId, UPDATE_SERVER_FUNCTION_ARN);
+    }
+    if (action === ACTION_REINSTALL) {
+        if (server.game?.id) {
+            try {
+                await getGames();
+            } catch (e: any) {
+                console.error(`Failed to update games: ${e.message}`)
+                return serverError("Failed to reinstall. Failed update games list.");
+            }
+            const releaseVersion = await getStoredLatestVersion();
+            if (releaseVersion) {
+                server.game = {
+                    ...server.game,
+                    releaseVersion,
+                    configurations: await buildGameServerConfigForReinstall(server.game?.id, server.game.configurations)
+                }
+                result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, await buildGameConfigPayload(server), true);
+                await updateServerAttributes(server.name, {
+                    game: server.game,
+                });
+            } else {
+                return serverError("Failed to reinstall. Missing game release version");
+            }
+        } else {
+            return serverError("Failed to reinstall. Missing game id");
+        }
     }
     if (action === ACTION_TERMINATE) {
         const securityGroupId = server.ec2?.securityGroupId;
@@ -361,6 +399,11 @@ export const updateServerAttributes = async (name: string, server: Partial<Serve
         updates.push("#metrics = :metrics");
         names["#metrics"] = "metrics";
         values[":metrics"] = server.metrics;
+    }
+    if (server.game) {
+        updates.push("#game = :game");
+        names["#game"] = "game";
+        values[":game"] = server.game;
     }
     await dynamoClient.send(
         new UpdateItemCommand({

@@ -41,7 +41,7 @@ export const getServerStatusWorkflow = async (serverName: string, instanceId: st
     }
 }
 
-export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string, additionalParams?: Record<string, string | boolean | number>) => {
+export const startWorkflow = async (serverName: string, instanceId: string, stateMachineArn: string, additionalParams?: Record<string, string | boolean | number | undefined>) => {
     const cmd = new StartExecutionCommand({
         stateMachineArn,
         input: JSON.stringify({
@@ -68,16 +68,18 @@ export const startWorkflow = async (serverName: string, instanceId: string, stat
     }
 };
 
-export const startSetupWorkflow = async (serverName: string, instanceId: string, gameId: string, versionOverride: string | undefined) => {
+export const startSetupWorkflow = async (serverName: string, instanceId: string, gameId: string, releaseVersion: string | undefined, gameConfig: string | undefined, installOnly: boolean) => {
     const cmd = new StartExecutionCommand({
         stateMachineArn: SETUP_SERVER_FUNCTION_ARN,
         input: JSON.stringify({
             serverName,
             instanceId,
             gameId,
-            versionOverride,
+            releaseVersion,
             workflowTable: WORKFLOW_TABLE,
             serverTable: SERVER_TABLE,
+            installOnly,
+            gameConfig
         }),
     });
     try {

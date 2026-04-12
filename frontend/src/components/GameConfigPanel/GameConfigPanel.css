@@ -1,0 +1,33 @@
+.gameConfigPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gameConfigRow {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+}
+
+.gameConfigGrid {
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.gameConfigGrid td {
+    padding: 4px 12px 4px 0;
+    vertical-align: middle;
+}
+
+.gameConfigGrid td:first-child {
+    width: 150px;
+}
+
+.gameConfigGrid td:nth-child(2) {
+    width: 200px;
+}
+
+.gameConfigButton {
+    width: 80px;
+}

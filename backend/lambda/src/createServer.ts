@@ -18,6 +18,8 @@ import { aquireWorkflowLock, updateServerAttributes } from "./servers";
 import { startSetupWorkflow } from "./workflows";
 import { getImageIdFromDB } from "./initCreateServer";
 import { getGameFromDB } from "./games";
+import { buildGameConfigPayload, buildGameServerConfig } from "./gameConfig";
+import { getNewShutdownTime } from "./serverConfig";
 
 const VPC_ID = process.env.VPC_ID!;
 const SUBNET_ID = process.env.SUBNET_ID!;
@@ -46,9 +48,9 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (typeof instanceType !== "string") {
         return clientError("Invalid instanceType");
     }
-    let versionOverride = undefined;
-    if (typeof params?.versionOverride === "string") {
-        versionOverride = params?.versionOverride;
+    let releaseVersion = undefined;
+    if (typeof params?.releaseVersion === "string") {
+        releaseVersion = params?.releaseVersion;
     }
     try {
         await ec2Client.send(
@@ -81,6 +83,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (ports.length !== params.ports.length) {
         return clientError("Invalid ports");
     }
+    let configurations;
+    try {
+        configurations = buildGameServerConfig(game, params.configurations);
+    } catch (e: any) {
+        return clientError(`Invalid configurations: ${e.message}`);
+    }
     // Add server to DDB with conditional check
     const server: Server = {
         name: serverName,
@@ -90,7 +98,12 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             name: game.displayName,
             messages: game.messages,
             supportServerCommand: game.supportServerCommand,
+            releaseVersion,
+            configurations
         },
+    };
+    server.scheduledShutdown = {
+        shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
     };
     try {
         await dynamoClient.send(
@@ -134,7 +147,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             }
         }
         if (!res.errorMessage) {
-            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, versionOverride);
+            const result = await startSetupWorkflow(server.name, res.instanceId, gameId, releaseVersion, await buildGameConfigPayload(server), false);
             if (result) {
                 // Workflow started. Update server table
                 try {
