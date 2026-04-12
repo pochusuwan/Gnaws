@@ -211,6 +211,7 @@ async function parseGameFiles(): Promise<Game[]> {
                         type: c.type,
                         displayName: c.displayName,
                         description: c.description,
+                        isCreationOnly: typeof c.isCreationOnly === "boolean" ? c.isCreationOnly : undefined,
                     };
                     if (base.type === "alphanumeric") {
                         if (typeof c.minLength === "number") base.minLength = c.minLength;
@@ -221,10 +222,26 @@ async function parseGameFiles(): Promise<Game[]> {
                         if (typeof c.minValue === "number") base.minValue = c.minValue;
                         if (typeof c.maxValue === "number") base.maxValue = c.maxValue;
                         if (typeof c.default === "number") base.default = c.default;
+                        if (typeof c.isIntegerOnly === "boolean") base.isIntegerOnly = c.isIntegerOnly;
                         configurations.push(base);
                     } else if (base.type === "boolean") {
                         if (typeof c.default !== "boolean") return;
                         base.default = c.default;
+                        configurations.push(base);
+                    } else if (base.type === "enum") {
+                        if (typeof c.default !== "string") return;
+                        if (!Array.isArray(c.values)) return;
+
+                        let defaultPresent = false;
+                        const values: string[] = c.values.filter((v: any) => {
+                            if (typeof v !== "string") return false;
+                            if (c.default === v) defaultPresent = true;
+                            return true;
+                        });
+                        if (values.length !== c.values.length) return;
+                        if (!defaultPresent) return;
+                        base.default = c.default;
+                        base.values = values;
                         configurations.push(base);
                     }
                 });
@@ -259,7 +276,7 @@ async function replaceGamesInDDB(games: Game[]): Promise<void> {
 
         const requestItems = batch.map((game) => ({
             PutRequest: {
-                Item: marshall(game),
+                Item: marshall(game, { removeUndefinedValues: true }),
             },
         }));
 

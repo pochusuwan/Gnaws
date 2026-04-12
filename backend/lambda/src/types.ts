@@ -88,6 +88,7 @@ type BaseConfiguration = {
     id: string;
     displayName: string;
     description: string;
+    isCreationOnly?: boolean;
 }
 export type AlphanumericConfig = BaseConfiguration & {
     type: "alphanumeric";
@@ -100,12 +101,18 @@ export type NumericConfig = BaseConfiguration & {
     minValue?: number;
     maxValue?: number;
     default?: number;
+    isIntegerOnly?: boolean;
 }
 export type BooleanConfig = BaseConfiguration & {
     type: "boolean";
     default: boolean;
 }
-export type Configuration = AlphanumericConfig | NumericConfig | BooleanConfig;
+export type EnumConfig = BaseConfiguration & {
+    type: "enum";
+    values: string[];
+    default: string;
+}
+export type Configuration = AlphanumericConfig | NumericConfig | BooleanConfig | EnumConfig;
 export type Game = {
     id: string;
     displayName: string;

@@ -7,10 +7,21 @@
 }
 
 .createServerGrid {
-    display: grid;
-    grid-template-columns: 150px 200px 1fr;
-    gap: 8px 12px;
-    align-items: center;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.createServerGrid td {
+    padding: 4px 12px 4px 0;
+    vertical-align: middle;
+}
+
+.createServerGrid td:first-child {
+    width: 150px;
+}
+
+.createServerGrid td:nth-child(2) {
+    width: 200px;
 }
 
 .createServerPortGrid {

@@ -48,7 +48,7 @@ export function buildGameServerConfig(game: Game, configurations: any): ServerGa
     game.configurations?.forEach((c) => {
         const configValue = configurations[c.id];
         if (configValue === undefined) {
-            if (c.type === "alphanumeric" || c.type === "numeric" || c.type === "boolean") {
+            if (c.type === "alphanumeric" || c.type === "numeric" || c.type === "boolean" || c.type === "enum") {
                 parsedConfig.push({
                     id: c.id,
                     value: c.default,
@@ -93,7 +93,7 @@ export async function saveGameConfig(user: User, params: any): Promise<APIGatewa
         newConfig = currentConfig.map((oldConfig) => {
             const config = configurations[oldConfig.id];
             const newValue = configInput[oldConfig.id];
-            if (config && newValue !== undefined) {
+            if (config && config.isCreationOnly !== true && newValue !== undefined) {
                 return {
                     id: oldConfig.id,
                     value: validateConfigValue(config, newValue, oldConfig.value)
@@ -130,8 +130,37 @@ function validateConfigValue(config: Configuration, configValue: any, prev: stri
             return configValue;
         }
     } else if (config.type === "numeric") {
-        // TODO
-        if (typeof configValue !== "number") throw Error(`configuration ${config.displayName} must be a number`);
+        if (configValue === "" || configValue === null || configValue === undefined) {
+            return prev ?? config.default;
+        }
+        const num = Number(configValue);
+        if (Number.isNaN(num)) {
+            throw Error(`configuration ${config.displayName} must be a number`);
+        }
+        if (config.isIntegerOnly && !Number.isInteger(num)) {
+            throw Error(`configuration ${config.displayName} must be a whole number`);
+        }
+        if (config.minValue !== undefined && num < config.minValue) {
+            throw Error(`configuration ${config.displayName} must be at least ${config.minValue}`);
+        }
+
+        if (config.maxValue !== undefined && num > config.maxValue) {
+            throw Error(`configuration ${config.displayName} must be at most ${config.maxValue}`);
+        }
+        return num;
+    } else if (config.type === "enum") {
+        if (typeof configValue !== "string") {
+            throw Error(`configuration ${config.displayName} must be a valid option`);
+        } else if (configValue.length === 0) {
+            // If empty, use default value
+            return prev ?? config.default;
+        } else {
+            if (!config.values.includes(configValue)) {
+                throw Error(
+                    `configuration ${config.displayName} must be one of: ${config.values.join(", ")}`
+                );
+            }
+        }
         return configValue;
     } else {
         if (typeof configValue !== "boolean") throw Error(`configuration ${config.displayName} must be a boolean`);

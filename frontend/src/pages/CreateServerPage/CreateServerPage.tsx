@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "../../hooks/useUser";
-import { Protocol, type Configuration, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
+import { type Configuration, type Game, type NetworkDataState, type Port, type TermsOfService } from "../../types";
 import type { GamesData } from "../../hooks/useGames";
 import "./CreateServerPage.css";
 import useApiCall from "../../hooks/useApiCall";
@@ -73,31 +73,31 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
     // Update states from UI
     const onGameChange = useCallback((gameId: string) => setGame(gameId), [props.games, setGame]);
-    const addPortClick = useCallback(() => {
-        setPorts([
-            ...ports,
-            {
-                port: 22,
-                protocol: Protocol.TCP,
-            },
-        ]);
-    }, [ports]);
-    const onPortNumberChange = useCallback(
-        (value: string, index: number) => {
-            const newPorts = [...ports];
-            newPorts[index].port = parseInt(value);
-            setPorts(newPorts);
-        },
-        [ports],
-    );
-    const onPortProtocolChange = useCallback(
-        (value: string, index: number) => {
-            const newPorts = [...ports];
-            newPorts[index].protocol = value as Protocol;
-            setPorts(newPorts);
-        },
-        [ports],
-    );
+    // const addPortClick = useCallback(() => {
+    //     setPorts([
+    //         ...ports,
+    //         {
+    //             port: 22,
+    //             protocol: Protocol.TCP,
+    //         },
+    //     ]);
+    // }, [ports]);
+    // const onPortNumberChange = useCallback(
+    //     (value: string, index: number) => {
+    //         const newPorts = [...ports];
+    //         newPorts[index].port = parseInt(value);
+    //         setPorts(newPorts);
+    //     },
+    //     [ports],
+    // );
+    // const onPortProtocolChange = useCallback(
+    //     (value: string, index: number) => {
+    //         const newPorts = [...ports];
+    //         newPorts[index].protocol = value as Protocol;
+    //         setPorts(newPorts);
+    //     },
+    //     [ports],
+    // );
     const onTermCheckboxChange = useCallback(
         (checked: boolean, index: number) => {
             const newTerms = [...terms];
@@ -176,32 +176,49 @@ export default function CreateServerPage(props: CreateServerPageProps) {
 
     return (
         <div className="createServerPage">
-            <div className="createServerGrid">
-                <div>Server Name:</div>
-                <input type="text" value={serverName} onChange={(e) => setServerName(e.target.value)} />
-                <div>Valid characters: a-z, A-Z, 0-9, _-</div>
-
-                <div>Game:</div>
-                <select value={game} onChange={(e) => onGameChange(e.target.value)}>
-                    {Object.values(props.games.data.games).map((game) => (
-                        <option key={game.id} value={game.id}>
-                            {game.displayName}
-                        </option>
-                    ))}
-                </select>
-                <div>Select game to install</div>
-
-                <div>Instance Type:</div>
-                <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
-                <div>
-                    {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players) recommended. This
-                    can be changed later.
-                </div>
-
-                <div>Storage:</div>
-                <input type="number" value={storage} onChange={(e) => setStorage(parseInt(e.target.value))} />
-                <div>GiB. Can be increased later but cannot be decreased.</div>
-            </div>
+            <table className="createServerGrid">
+                <tbody>
+                    <tr>
+                        <td>Server Name:</td>
+                        <td>
+                            <input type="text" value={serverName} onChange={(e) => setServerName(e.target.value)} />
+                        </td>
+                        <td>Valid characters: a-z, A-Z, 0-9, _-</td>
+                    </tr>
+                    <tr>
+                        <td>Game:</td>
+                        <td>
+                            <select value={game} onChange={(e) => onGameChange(e.target.value)}>
+                                {Object.values(props.games.data.games).map((game) => (
+                                    <option key={game.id} value={game.id}>
+                                        {game.displayName}
+                                    </option>
+                                ))}
+                            </select>
+                        </td>
+                        <td>Select game to install</td>
+                    </tr>
+                    <tr>
+                        <td>Instance Type:</td>
+                        <td>
+                            <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
+                        </td>
+                        <td>
+                            {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players)
+                            recommended. This can be changed later.
+                        </td>
+                    </tr>
+                    {/* <tr>
+                        <td>Storage:</td>
+                        <td>
+                            <input type="number" value={storage} onChange={(e) => setStorage(parseInt(e.target.value))} />
+                        </td>
+                        <td>GiB. Can be increased later but cannot be decreased.</td>
+                    </tr> */}
+                </tbody>
+            </table>
+            {/* 
+            Hide ports. User dont need to see this.
             {ports.map((port, i) => (
                 <div
                     className="createServerPortGrid"
@@ -224,7 +241,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     Add Port
                 </button>
                 <div>Modify pre-configured ports will require manual server modification.</div>
-            </div>
+            </div> */}
             <div className="createServerPageDivider"></div>
             <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {selectedGame?.messages !== undefined && selectedGame.messages.length > 0 && (
@@ -284,14 +301,27 @@ function CreateServerConfigurations({ game, configValues, setConfigValues }: Cre
 
     const onChange = (id: string, value: string | number | boolean) => setConfigValues({ ...configValues, [id]: value });
 
+    const nonCreateOnly = configurations.filter((c) => c.isCreationOnly !== true);
+    const createOnly = configurations.filter((c) => c.isCreationOnly === true);
     return (
         <div>
             <div style={{ fontWeight: "bold", marginBottom: "12px" }}>Game Configuration</div>
-            <div className="createServerGrid">
-                {configurations.map((c: Configuration) => (
-                    <ConfigurationInput key={c.id} config={c} value={configValues[c.id]} onChange={(v) => onChange(c.id, v)} />
-                ))}
-            </div>
+            <table className="createServerGrid">
+                <tbody>
+                    {nonCreateOnly.map((c: Configuration) => (
+                        <ConfigurationInput key={c.id} config={c} value={configValues[c.id]} onChange={(v) => onChange(c.id, v)} />
+                    ))}
+                    {createOnly.length > 0 && (
+                        <tr style={{ backgroundColor: "#e0e0e0" }}>
+                            <td colSpan={3}>Cannot be changed after creation:</td>
+                        </tr>
+                    )}
+
+                    {createOnly.map((c: Configuration) => (
+                        <ConfigurationInput key={c.id} config={c} value={configValues[c.id]} onChange={(v) => onChange(c.id, v)} />
+                    ))}
+                </tbody>
+            </table>
             <div className="createServerPageDivider"></div>
         </div>
     );
@@ -305,22 +335,56 @@ type ConfigurationInputProps = {
 function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps) {
     if (config.type === "boolean") {
         return (
-            <>
-                <div>{config.displayName}:</div>
-                <input style={{ justifySelf: "start" }} type="checkbox" checked={(value as boolean) ?? config.default} onChange={(e) => onChange(e.target.checked)} />
-                <div>{config.description}</div>
-            </>
+            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+                <td>{config.displayName}:</td>
+                <td>
+                    <input
+                        id={config.id}
+                        style={{ justifySelf: "start" }}
+                        type="checkbox"
+                        checked={(value as boolean) ?? config.default}
+                        onChange={(e) => onChange(e.target.checked)}
+                    />
+                </td>
+                <td>
+                    {config.description} {buildConfigHint(config)}
+                </td>
+            </tr>
+        );
+    }
+    if (config.type === "enum") {
+        return (
+            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+                <td>{config.displayName}:</td>
+                <td>
+                    <select id={config.id} value={(value as string) ?? config.default} onChange={(e) => onChange(e.target.value)}>
+                        {config.values.map((v) => (
+                            <option key={v} value={v}>
+                                {v}
+                            </option>
+                        ))}
+                    </select>
+                </td>
+                <td>
+                    {config.description} {buildConfigHint(config)}
+                </td>
+            </tr>
         );
     }
     return (
-        <>
-            <div>{config.displayName}:</div>
-            <input
-                type={config.type === "numeric" ? "number" : "text"}
-                value={(value as string | number) ?? config.default ?? ""}
-                onChange={(e) => onChange(config.type === "numeric" ? parseFloat(e.target.value) : e.target.value)}
-            />
-            <div>{config.description} {buildConfigHint(config)}</div>
-        </>
+        <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+            <td>{config.displayName}:</td>
+            <td>
+                <input
+                    id={config.id}
+                    type={config.type === "numeric" ? "number" : "text"}
+                    value={(value as string | number) ?? config.default ?? ""}
+                    onChange={(e) => onChange(config.type === "numeric" ? parseFloat(e.target.value) : e.target.value)}
+                />
+            </td>
+            <td>
+                {config.description} {buildConfigHint(config)}
+            </td>
+        </tr>
     );
 }

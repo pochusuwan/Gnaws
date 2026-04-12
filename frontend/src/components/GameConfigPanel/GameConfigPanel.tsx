@@ -12,7 +12,7 @@ type GameConfigPanelProps = {
 
 export default function GameConfigPanel({ server, replaceServerData }: GameConfigPanelProps) {
     const { call: callGetGame, state: gameState } = useApiCall<{ game: Game }>("getGame");
-    const { call: callSave, state: saveState  } = useApiCall<{ server: Server }>("saveGameConfig");
+    const { call: callSave, state: saveState } = useApiCall<{ server: Server }>("saveGameConfig");
     const [configValues, setConfigValues] = useState<Record<string, string | number | boolean>>({});
     const [editting, setEditting] = useState(false);
     const userRole = useUser().role;
@@ -64,7 +64,11 @@ export default function GameConfigPanel({ server, replaceServerData }: GameConfi
     return (
         <div className="gameConfigPanel">
             <div className="gameConfigRow">
-                <button className="gameConfigButton" onClick={onButtonClick} disabled={saveState.state === "Loading" || !hasAdminPermission(userRole)}>
+                <button
+                    className="gameConfigButton"
+                    onClick={onButtonClick}
+                    disabled={saveState.state === "Loading" || !hasAdminPermission(userRole)}
+                >
                     {editting ? "Save" : "Edit"}
                 </button>
                 <div>{saveState.state === "Error" ? saveState.error : saveState.state === "Loaded" ? "saved" : ""}</div>
@@ -94,18 +98,19 @@ type ConfigurationInputProps = {
 };
 function ConfigurationInput({ id, config, value, onChange, editting }: ConfigurationInputProps) {
     if (config) {
+        const isInputState = editting && config.isCreationOnly !== true;
         let valContent;
 
         if (config.type === "alphanumeric") {
-            if (editting) {
-                valContent = <input type={"text"} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} />;
+            if (isInputState) {
+                valContent = <input id={id} type={"text"} value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value)} />;
             } else {
                 valContent = <div>{value}</div>;
             }
         } else if (config.type === "numeric") {
-            if (editting) {
+            if (isInputState) {
                 valContent = (
-                    <input type={"number"} value={(value as number) ?? ""} onChange={(e) => onChange(parseFloat(e.target.value))} />
+                    <input id={id} type={"number"} value={(value as number) ?? ""} onChange={(e) => onChange(parseFloat(e.target.value))} />
                 );
             } else {
                 valContent = <div>{value}</div>;
@@ -113,28 +118,46 @@ function ConfigurationInput({ id, config, value, onChange, editting }: Configura
         } else if (config.type === "boolean") {
             valContent = (
                 <input
+                    id={id}
                     type="checkbox"
                     style={{ justifySelf: "start" }}
                     checked={(value as boolean) ?? config.default}
                     onChange={(e) => onChange(e.target.checked)}
-                    disabled={!editting}
+                    disabled={!isInputState}
                 />
+            );
+        } else if (config.type === "enum") {
+            valContent = (
+                <select
+                    id={config.id}
+                    value={(value as string) ?? config.default}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={!isInputState}
+                >
+                    {config.values.map((v) => (
+                        <option key={v} value={v}>
+                            {v}
+                        </option>
+                    ))}
+                </select>
             );
         }
         return (
-            <>
-                <div>{config.displayName}:</div>
-                {valContent}
-                <div>
+            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+                <td>{config.displayName}:</td>
+                <td>{valContent}</td>
+                <td>
                     {config.description} {buildConfigHint(config)}
-                </div>
-            </>
+                </td>
+            </tr>
         );
     } else {
+        // Game config is not loaded or no permission. Simple view and edit only
         let valContent;
         if (typeof value === "boolean") {
             valContent = (
                 <input
+                    id={id}
                     type="checkbox"
                     style={{ justifySelf: "start" }}
                     checked={value}
@@ -144,17 +167,17 @@ function ConfigurationInput({ id, config, value, onChange, editting }: Configura
             );
         } else {
             if (editting) {
-                valContent = <input type="text" value={value} onChange={(e) => onChange(e.target.checked)} />;
+                valContent = <input id={id} type="text" value={value} onChange={(e) => onChange(e.target.checked)} />;
             } else {
                 valContent = <div>{value}</div>;
             }
         }
         return (
-            <>
-                <div>{id}:</div>
-                {valContent}
-                <div></div>
-            </>
+            <tr>
+                <td>{id}:</td>
+                <td>{valContent}</td>
+                <td></td>
+            </tr>
         );
     }
 }
