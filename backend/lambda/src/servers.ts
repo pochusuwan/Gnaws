@@ -32,6 +32,7 @@ import {
 } from "./serverConfig";
 import { getStoredLatestVersion } from "./versioning";
 import { buildGameConfigPayload, buildGameServerConfigForReinstall } from "./gameConfig";
+import { getGames } from "./games";
 
 const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
@@ -264,6 +265,12 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_REINSTALL) {
         if (server.game?.id) {
+            try {
+                await getGames();
+            } catch (e: any) {
+                console.error(`Failed to update games: ${e.message}`)
+                return serverError("Failed to reinstall. Failed update games list.");
+            }
             const releaseVersion = await getStoredLatestVersion();
             if (releaseVersion) {
                 server.game = {

@@ -204,7 +204,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                             <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
                         </td>
                         <td>
-                            {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players)
+                            Set server CPU and memory. {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players)
                             recommended. This can be changed later.
                         </td>
                     </tr>

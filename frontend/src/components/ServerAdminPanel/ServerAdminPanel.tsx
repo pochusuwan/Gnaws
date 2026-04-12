@@ -186,7 +186,7 @@ function ServerActionButtons(props: ServerActionProps) {
             <AdminPanelButton
                 disabled={disabled}
                 label="Reinstall Server"
-                description="Reinstalls system scripts and game dependencies without touching your save files. Use this to fix a broken or misbehaving server. Make sure the instance is running and the game server is stopped before running. Create a backup before repairing."
+                description="Reinstalls system scripts and game dependencies without touching your save files. Use this to fix a broken or misbehaving server. Make sure the instance is running and the game server is stopped before reinstalling. Create a backup before reinstalling."
                 onClick={() => callAction("Reinstall", true)}
             />
             <AdminPanelButton

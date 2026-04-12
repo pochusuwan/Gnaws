@@ -30,7 +30,7 @@
     "messages": [
         {
             "type": "info",
-            "text": "First-time server startup may take up to 10 minutes to generate the world."
+            "text": "First-time server startup may take up to 10 minutes to generate the world. The server status may show as online before the world has finished generating."
         }
     ],
     "configurations": [

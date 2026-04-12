@@ -62,7 +62,7 @@
       "Type": "Pass",
       "Assign": {
         "status": "success",
-        "message": "Setup game server successfully and server running"
+        "message": "Setup game server successfully."
       },
       "Next": "WriteToServerDDB"
     },

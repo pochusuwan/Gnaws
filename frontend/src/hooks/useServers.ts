@@ -3,7 +3,7 @@ import { loadedState, loadingState, type NetworkDataState, type Server, type Use
 import useApiCall from "./useApiCall";
 import { serverHasRunningTask, serverRefreshingStatus } from "../utils";
 
-const AUTO_REFRESH_LIMIT = 60;
+const AUTO_REFRESH_LIMIT = 120;
 
 export const useServers = (user: User | null) => {
     const [servers, setServers] = useState<NetworkDataState<Server[]>>(loadingState());
