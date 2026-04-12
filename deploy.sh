@@ -4,59 +4,86 @@ set -euo pipefail
 # This script is used to deploy and update to the selected AWS region. 
 # This is meant to run from CloudShell from within Gnaws directory.
 
+# Detect update flag
+IS_UPDATE=false
+for arg in "$@"; do
+    if [[ "$arg" == "-u" ]]; then
+        IS_UPDATE=true
+        break
+    fi
+done
+
 # Get AWS account id
 if ! AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text); then
     echo "AWS authentication failed"
     exit 1
 fi
 
-# Selecting AWS region
+# Get deployed regions (comma-separated)
 DEPLOYED_REGIONS=$(aws ssm get-parameter --region us-east-1 --name "/gnaws/regions" --query Parameter.Value --output text 2>/dev/null || echo "")
-REGIONS=(
-    "us-east-1       (N. Virginia)"
-    "us-west-2       (Oregon)"
-    "eu-west-1       (Ireland)"
-    "ap-southeast-1  (Singapore)"
-    "ap-northeast-1  (Tokyo)"
-    "ap-southeast-2  (Sydney)"
-    "eu-central-1    (Frankfurt)"
-    "us-east-2       (Ohio)"
-)
-echo "Select a region (choose the one closest to you or your friends for lowest latency):"
-for i in "${!REGIONS[@]}"; do
-    echo "  $((i+1))) ${REGIONS[$i]}"
-done
-echo "  $((${#REGIONS[@]}+1))) Enter manually"
-if [ -n "$DEPLOYED_REGIONS" ]; then
-    echo "  Select deployed regions to update infrastructure: $DEPLOYED_REGIONS"
-fi
+IFS=',' read -r -a DEPLOYED_ARRAY <<< "$DEPLOYED_REGIONS"
 
-read -p "Enter number (1-$((${#REGIONS[@]}+1))): " CHOICE
-if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$((${#REGIONS[@]}+1))" ]; then
-    echo "Invalid selection"
-    exit 1
-fi
+if [ "$IS_UPDATE" = true ] && [ -n "$DEPLOYED_REGIONS" ]; then
+    # Select region to update
+    if [ "${#DEPLOYED_ARRAY[@]}" -eq 1 ]; then
+        AWS_REGION="${DEPLOYED_ARRAY[0]}"
+        echo "Updating existing region: $AWS_REGION"
+    else
+        echo "Select a region to update:"
+        for i in "${!DEPLOYED_ARRAY[@]}"; do
+            echo "  $((i+1))) ${DEPLOYED_ARRAY[$i]}"
+        done
 
-if [ "$CHOICE" -eq "$((${#REGIONS[@]}+1))" ]; then
-    read -p "Enter region name (e.g. us-east-1): " AWS_REGION
+        read -r -p "Enter number (1-${#DEPLOYED_ARRAY[@]}): " CHOICE
+
+        if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "${#DEPLOYED_ARRAY[@]}" ]; then
+            echo "Invalid selection"
+            exit 1
+        fi
+        AWS_REGION="${DEPLOYED_ARRAY[$((CHOICE-1))]}"
+    fi
 else
-    SELECTED=${REGIONS[$((CHOICE-1))]}
-    AWS_REGION="${SELECTED%% *}"
+    IS_UPDATE=false
+    # Select region to deploy
+    REGIONS=(
+        "us-east-1       (N. Virginia)"
+        "us-west-2       (Oregon)"
+        "eu-west-1       (Ireland)"
+        "ap-southeast-1  (Singapore)"
+        "ap-northeast-1  (Tokyo)"
+        "ap-southeast-2  (Sydney)"
+        "eu-central-1    (Frankfurt)"
+        "us-east-2       (Ohio)"
+    )
+    echo "Select a region (choose the one closest to you or your friends for lowest latency):"
+    for i in "${!REGIONS[@]}"; do
+        echo "  $((i+1))) ${REGIONS[$i]}"
+    done
+    echo "  $((${#REGIONS[@]}+1))) Enter manually"
+
+    read -r -p "Enter number (1-$((${#REGIONS[@]}+1))): " CHOICE
+
+    if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$((${#REGIONS[@]}+1))" ]; then
+        echo "Invalid selection"
+        exit 1
+    fi
+
+    if [ "$CHOICE" -eq "$((${#REGIONS[@]}+1))" ]; then
+        read -r -p "Enter region name (e.g. us-east-1): " AWS_REGION
+    else
+        SELECTED=${REGIONS[$((CHOICE-1))]}
+        AWS_REGION="${SELECTED%% *}"
+    fi
 fi
+
+# Validate region
 if ! aws sts get-caller-identity --region "$AWS_REGION" >/dev/null 2>&1; then
     echo "Invalid or inaccessible region: $AWS_REGION"
     exit 1
 fi
 
 # Enter owner username or skip if this is an update
-SKIP_USERNAME=false
-for arg in "$@"; do
-    if [[ "$arg" == "-u" ]]; then
-        SKIP_USERNAME=true
-        break
-    fi
-done
-if [ "$SKIP_USERNAME" = false ]; then
+if [ "$IS_UPDATE" = false ]; then
     echo ""
     echo "Choose a username for the server owner account."
     echo "This will be the owner account used to manage the servers."
