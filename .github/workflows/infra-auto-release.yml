@@ -1,14 +1,20 @@
-name: Release infrastructure
+name: Release (infra + game)
 
 on:
   push:
     branches:
       - main
+      - develop
     paths:
       - "backend/**"
       - "frontend/**"
       - "bin/**"
       - "lib/**"
+      - "game_server/**"
+
+concurrency:
+  group: versioning
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -23,18 +29,46 @@ jobs:
       - name: Fetch tags
         run: git fetch --tags
 
-      - name: Create tag
+      - name: Detect changes
+        id: changes
+        run: |
+          git diff --name-only HEAD~1 > files.txt
+
+          grep -qE "^(backend|frontend|bin|lib)/" files.txt && echo "infra=true" >> $GITHUB_OUTPUT || echo "infra=false" >> $GITHUB_OUTPUT
+          grep -qE "^game_server/" files.txt && echo "game=true" >> $GITHUB_OUTPUT || echo "game=false" >> $GITHUB_OUTPUT
+
+      - name: Compute tag
         id: tag
         run: |
-          LATEST=$(git tag --sort=-creatordate | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          BRANCH="${GITHUB_REF##*/}"
+
+          # Get latest stable (non-rc) tag
+          LATEST=$(git tag --sort=-creatordate \
+            | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -n1)
+
           INFRA_VERSION=$(echo $LATEST | grep -oP '(?<=infra-)[\d.]+')
           GAMES_VERSION=$(echo $LATEST | grep -oP '(?<=games-)[\d.]+')
 
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$INFRA_VERSION"
-          PATCH=$((PATCH + 1))
+          IFS='.' read -r IMAJ IMIN IPAT <<< "$INFRA_VERSION"
+          IFS='.' read -r GMAJ GMIN GPAT <<< "$GAMES_VERSION"
 
-          TAG="infra-${MAJOR}.${MINOR}.${PATCH}_games-${GAMES_VERSION}"
+          # bump versions based on changes
+          if [ "${{ steps.changes.outputs.infra }}" = "true" ]; then
+            IPAT=$((IPAT + 1))
+          fi
 
+          if [ "${{ steps.changes.outputs.game }}" = "true" ]; then
+            GPAT=$((GPAT + 1))
+          fi
+
+          TAG="infra-${IMAJ}.${IMIN}.${IPAT}_games-${GMAJ}.${GMIN}.${GPAT}"
+
+          if [ "$BRANCH" = "develop" ]; then
+            TAG="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "Creating tag: $TAG"
           git tag "$TAG"
           git push origin "$TAG"
 
@@ -49,6 +83,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Release ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ github.ref_name == 'develop' }}
           files: game_server.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
