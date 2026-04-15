@@ -315,16 +315,6 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         }
     }
     // Workflow started. Update server table
-    let scheduledShutdown = undefined;
-    if (action === ACTION_START || action === ACTION_START_INSTANCE) {
-        scheduledShutdown = {
-            shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
-        };
-    } else if (action === ACTION_STOP || action === ACTION_STOP_INSTANCE) {
-        scheduledShutdown = {
-            shutdownTime: undefined,
-        };
-    }
     try {
         await updateServerAttributes(server.name, {
             workflow: {
@@ -333,7 +323,6 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 status: "running",
                 lastUpdated: result.startedAt.toISOString(),
             },
-            scheduledShutdown,
         });
     } catch (e) {
         return success({ message: "Started" });

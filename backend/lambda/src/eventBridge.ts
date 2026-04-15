@@ -6,7 +6,7 @@ import { DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { SERVER_NAME_TAG_PREFIX } from "./createServer";
 import { DescribeExecutionCommand } from "@aws-sdk/client-sfn";
 import { AUTO_SHUTDOWN_SERVER_FUNCTION_ARN, startWorkflow, STOP_SERVER_FUNCTION_ARN } from "./workflows";
-import { createRoute53RecordForServer } from "./serverConfig";
+import { createRoute53RecordForServer, getNewShutdownTime } from "./serverConfig";
 import { Server } from "./types";
 
 export const EC2_STATE_EVENT = "EC2 Instance State-change Notification";
@@ -210,8 +210,12 @@ async function updateServerState(event: any): Promise<Server | null> {
             ...server.ec2,
             ipAddress: state === "running" ? instance?.PublicIpAddress : undefined,
         };
+        server.scheduledShutdown = {
+            shutdownTime: state === "running" ? getNewShutdownTime(server, false)?.toISOString() : undefined,
+        }
         await updateServerAttributes(serverName, {
             ec2: server.ec2,
+            scheduledShutdown: server.scheduledShutdown,
         });
         return server;
     } catch (e: any) {

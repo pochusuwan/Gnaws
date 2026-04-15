@@ -166,10 +166,10 @@ function mergeServersResponse(currentServers: NetworkDataState<Server[]>, newRes
                 return s;
             });
 
-            const updated = [...merged, ...Object.values(newMap)];
+            const updated = [...merged, ...Object.values(newMap)].sort((a, b) => (a.name > b.name ? 1 : -1));
             return loadedState(updated);
         } else {
-            return loadedState(newResponse.data.servers);
+            return loadedState(newResponse.data.servers.sort((a, b) => (a.name > b.name ? 1 : -1)));
         }
     }
 

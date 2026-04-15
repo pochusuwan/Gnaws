@@ -102,9 +102,6 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             configurations
         },
     };
-    server.scheduledShutdown = {
-        shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
-    };
     try {
         await dynamoClient.send(
             new PutItemCommand({
