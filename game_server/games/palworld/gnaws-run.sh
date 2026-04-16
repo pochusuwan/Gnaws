@@ -11,10 +11,8 @@ if [[ -f "$SCRIPT_DIR/gnaws-game.conf" ]]; then
     . "$SCRIPT_DIR/gnaws-game.conf"
 fi
 
-# Copy default if missing
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    cp "$DEFAULT_FILE" "$CONFIG_FILE"
-fi
+# Copy default config file. If you want to manually set value, modify the default file.
+cp "$DEFAULT_FILE" "$CONFIG_FILE"
 
 set_property() {
     local key="$1"
