@@ -57,7 +57,6 @@ set_property() {
     fi
 }
 
-set_property "ServerName" CONFIG_ServerName string
 set_property "ServerPassword" CONFIG_ServerPassword string
 set_property "AdminPassword" CONFIG_AdminPassword string
 

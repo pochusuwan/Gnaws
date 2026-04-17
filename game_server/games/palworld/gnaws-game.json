@@ -25,13 +25,6 @@
     ],
     "configurations": [
         {
-            "id": "ServerName",
-            "type": "alphanumeric",
-            "maxLength": 64,
-            "displayName": "ServerName",
-            "description": "The name shown in the server browser."
-        },
-        {
             "id": "ServerPassword",
             "type": "alphanumeric",
             "minLength": 1,
