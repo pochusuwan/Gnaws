@@ -1,6 +1,6 @@
 # Gnaws - Self-Hosted Game Server Platform (AWS CDK + Web UI)
 
-> Deploy and manage game servers (Minecraft, Valheim, Palworld) on AWS with a simple web interface.  
+> Deploy and manage game servers (Minecraft, Valheim, Palworld, and more) on AWS with a simple web interface.  
 > A cheaper alternative to traditional game server hosting — run servers on EC2 and only pay when playing.
 
 **Gnaws** is a self-hosted game server platform that lets you spin up, stop, and manage dedicated servers without needing AWS or DevOps knowledge.
@@ -37,6 +37,7 @@ Running a game server has always been a pain:
 - **Bring your own game** — SSH into the instance and install anything you want.
 - **Friend access controls** — Assign roles so trusted friends can start/stop the server.
 - **Your account, your data** — Everything lives in your AWS account. No third-party platform.
+- **Game configuration** — Configure supported game configuration with simple web UI.
 
 ---
 
@@ -106,13 +107,6 @@ No — deployment is automated and UI is simple.
 
 ### Is performance better than hosting providers?
 Yes — you choose your EC2 instance type, so performance is predictable and not shared.
-
----
-
-## Roadmap
-
-- [ ] More supported games
-- [ ] Game configuration via Web UI
 
 ---
 
