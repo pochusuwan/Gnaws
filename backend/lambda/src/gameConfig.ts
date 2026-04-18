@@ -52,12 +52,14 @@ export function buildGameServerConfig(game: Game, configurations: any): ServerGa
                 parsedConfig.push({
                     id: c.id,
                     value: c.default,
+                    isAdminOnly: c.isAdminOnly,
                 });
             }
         } else {
             parsedConfig.push({
                 id: c.id,
                 value: validateConfigValue(c, configValue),
+                isAdminOnly: c.isAdminOnly,
             });
         }
     });
@@ -76,12 +78,14 @@ export async function buildGameServerConfigForReinstall(gameId?: string, configs
 
     const currentConfig = Object.fromEntries(configs?.map((c) => [c.id, c]) ?? []);
     return game.configurations?.map((c) => {
+        // If exist, keep existing config. Otherwise, create new config with default value
         if (currentConfig[c.id] !== undefined) {
             return currentConfig[c.id];
         } else {
             return {
                 id: c.id,
-                value: c.default
+                value: c.default,
+                isAdminOnly: c.isAdminOnly,
             }
         }
     }) ?? [];
@@ -119,7 +123,8 @@ export async function saveGameConfig(user: User, params: any): Promise<APIGatewa
             if (config && config.isCreationOnly !== true && newValue !== undefined) {
                 return {
                     id: oldConfig.id,
-                    value: validateConfigValue(config, newValue)
+                    value: validateConfigValue(config, newValue),
+                    isAdminOnly: oldConfig.isAdminOnly,
                 }
             } else {
                 // Old config is not available in game config or no new value provided, keep old one

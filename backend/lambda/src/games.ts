@@ -212,6 +212,7 @@ async function parseGameFiles(): Promise<Game[]> {
                         displayName: c.displayName,
                         description: c.description,
                         isCreationOnly: typeof c.isCreationOnly === "boolean" ? c.isCreationOnly : undefined,
+                        isAdminOnly: typeof c.isAdminOnly === "boolean" ? c.isAdminOnly : undefined,
                     };
                     if (base.type === "alphanumeric") {
                         if (typeof c.minLength === "number") base.minLength = c.minLength;

@@ -38,9 +38,8 @@
             "minLength": 1,
             "maxLength": 20,
             "displayName": "AdminPassword",
-            "description": "Password to become server admin to enable in-game commands. Leave empty to disable server admin.",
-            "configVersion": 2,
-            "hideValue": true
+            "description": "Password to become server admin to enable in-game commands. Leave empty to disable server admin. Only admins will be able to see this config value.",
+            "isAdminOnly": true
         },
         {
             "id": "BaseCampMaxNumInGuild",

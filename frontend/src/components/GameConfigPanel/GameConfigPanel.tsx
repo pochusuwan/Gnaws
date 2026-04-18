@@ -71,7 +71,7 @@ export default function GameConfigPanel({ server, replaceServerData }: GameConfi
                 >
                     {editting ? "Save" : "Edit"}
                 </button>
-                <div>{saveState.state === "Error" ? saveState.error : saveState.state === "Loaded" ? "saved" : ""}</div>
+                <div>{saveState.state === "Error" ? saveState.error : saveState.state === "Loaded" ? "Saved. Game server restart required to take effect" : ""}</div>
             </div>
             <div className="gameConfigGrid">
                 {gameConfigs.map((c) => (
