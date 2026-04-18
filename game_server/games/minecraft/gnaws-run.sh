@@ -13,8 +13,8 @@ set_property() {
     local key="$1"
     local config_var="$2"
 
-    local value="${!config_var:-}"
-    [[ -z "$value" ]] && return
+    # If empty or unset, set to nothing which will use game default
+    local value="${!config_var-}"
 
     local escaped_value
     escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')

@@ -13,7 +13,7 @@ import {
     TERMINATE_SERVER_FUNCTION_ARN,
     UPDATE_SERVER_FUNCTION_ARN,
 } from "./workflows";
-import { clientError, forbidden, serverError, success } from "./util";
+import { clientError, forbidden, sanatizeServer, serverError, success } from "./util";
 import {
     _InstanceType,
     DescribeInstancesCommand,
@@ -106,7 +106,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     }
 
     if (!refreshStatus) {
-        return success({ servers });
+        return success({ servers: servers.map((s) => sanatizeServer(s, user.role === ROLE_ADMIN || user.role === ROLE_OWNER)) });
     }
 
     const now = new Date();
@@ -141,7 +141,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     if (!isSuccess) {
         return serverError("Failed to get servers status");
     }
-    return success({ servers });
+    return success({ servers: servers.map((s) => sanatizeServer(s, user.role === ROLE_ADMIN || user.role === ROLE_OWNER)) });
 };
 
 export const getAllServersFromDB = async (): Promise<Server[]> => {
@@ -315,16 +315,6 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
         }
     }
     // Workflow started. Update server table
-    let scheduledShutdown = undefined;
-    if (action === ACTION_START || action === ACTION_START_INSTANCE) {
-        scheduledShutdown = {
-            shutdownTime: getNewShutdownTime(server, false)?.toISOString(),
-        };
-    } else if (action === ACTION_STOP || action === ACTION_STOP_INSTANCE) {
-        scheduledShutdown = {
-            shutdownTime: undefined,
-        };
-    }
     try {
         await updateServerAttributes(server.name, {
             workflow: {
@@ -333,7 +323,6 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 status: "running",
                 lastUpdated: result.startedAt.toISOString(),
             },
-            scheduledShutdown,
         });
     } catch (e) {
         return success({ message: "Started" });

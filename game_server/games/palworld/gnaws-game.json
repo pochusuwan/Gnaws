@@ -22,5 +22,98 @@
             "type": "info",
             "text": "Palworld progress is saved periodically, not on exit. Wait a few minutes for autosave or manually save before stopping the server to prevent progress loss."
         }
+    ],
+    "configurations": [
+        {
+            "id": "ServerPassword",
+            "type": "alphanumeric",
+            "minLength": 1,
+            "maxLength": 20,
+            "displayName": "ServerPassword",
+            "description": "Password to join the server. Leave empty for no password."
+        },
+        {
+            "id": "AdminPassword",
+            "type": "alphanumeric",
+            "minLength": 1,
+            "maxLength": 20,
+            "displayName": "AdminPassword",
+            "description": "Password to become server admin to enable in-game commands. Leave empty to disable server admin. Only admins will be able to see this config value.",
+            "isAdminOnly": true
+        },
+        {
+            "id": "BaseCampMaxNumInGuild",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "displayName": "BaseCampMaxNumInGuild",
+            "description": "Maximum number of bases per guild. Increasing this value raises processing load.",
+            "minValue": 1,
+            "maxValue": 10
+        },
+        {
+            "id": "BaseCampWorkerMaxNum",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "displayName": "BaseCampWorkerMaxNum",
+            "description": "Maximum number of Pals per base. Increasing this value raises processing load.",
+            "minValue": 1,
+            "maxValue": 50
+        },
+        {
+            "id": "BuildObjectDeteriorationDamageRate",
+            "type": "numeric",
+            "displayName": "BuildObjectDeteriorationDamageRate",
+            "description": "Building decay speed multiplier.",
+            "minValue": 0
+        },
+        {
+            "id": "DayTimeSpeedRate",
+            "type": "numeric",
+            "displayName": "DayTimeSpeedRate",
+            "description": "Daytime progression speed.",
+            "minValue": 0
+        },
+        {
+            "id": "NightTimeSpeedRate",
+            "type": "numeric",
+            "displayName": "NightTimeSpeedRate",
+            "description": "Nighttime progression speed.",
+            "minValue": 0
+        },
+        {
+            "id": "ExpRate",
+            "type": "numeric",
+            "displayName": "ExpRate",
+            "description": "EXP gain multiplier.",
+            "minValue": 0
+        },
+        {
+            "id": "PalEggDefaultHatchingTime",
+            "type": "numeric",
+            "displayName": "PalEggDefaultHatchingTime",
+            "description": "Time to hatch a Huge Egg in hours. Other egg types require less time.",
+            "minValue": 0
+        },
+        {
+            "id": "PalCaptureRate",
+            "type": "numeric",
+            "displayName": "PalCaptureRate",
+            "description": "Capture rate multiplier.",
+            "minValue": 0
+        },
+        {
+            "id": "PalSpawnNumRate",
+            "type": "numeric",
+            "displayName": "PalSpawnNumRate",
+            "description": "Pal spawn rate. Increasing this value raises processing load.",
+            "minValue": 0
+        },
+        {
+            "id": "EnemyDropItemRate",
+            "type": "numeric",
+            "displayName": "EnemyDropItemRate",
+            "description": "Dropped item quantity multiplier.",
+            "minValue": 0
+        }
     ]
 }

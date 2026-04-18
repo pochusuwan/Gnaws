@@ -102,6 +102,7 @@ type BaseConfiguration = {
     displayName: string;
     description: string;
     isCreationOnly?: boolean;
+    isAdminOnly?: boolean;
 }
 export type AlphanumericConfig = BaseConfiguration & {
     type: "alphanumeric";

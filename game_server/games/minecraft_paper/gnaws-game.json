@@ -42,7 +42,7 @@
             "type": "numeric",
             "isIntegerOnly": true,
             "displayName": "View Distance",
-            "description": "Server-side render distance in chunks. Higher values increase CPU and memory usage. Leave empty for default recommended.",
+            "description": "Server-side render distance in chunks. Higher values increase CPU and memory usage.",
             "minValue": 3,
             "maxValue": 32
         },
@@ -51,7 +51,7 @@
             "type": "numeric",
             "isIntegerOnly": true,
             "displayName": "Spawn Protection",
-            "description": "Set spawn protection area. Set to 0 to disable. Leave empty for default.",
+            "description": "Set spawn protection area. Set to 0 to disable.",
             "minValue": 0,
             "maxValue": 256
         }

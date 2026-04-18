@@ -6,6 +6,7 @@ export type Request = {
 export type ServerGameConfig = {
     id: string;
     value?: string | number | boolean;
+    isAdminOnly?: boolean;
 }
 export type Server = {
     name: string;
@@ -89,6 +90,7 @@ type BaseConfiguration = {
     displayName: string;
     description: string;
     isCreationOnly?: boolean;
+    isAdminOnly?: boolean;
 }
 export type AlphanumericConfig = BaseConfiguration & {
     type: "alphanumeric";

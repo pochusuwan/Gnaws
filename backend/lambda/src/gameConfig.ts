@@ -20,7 +20,7 @@ export async function buildGameConfigPayload(server: Server): Promise<string | u
         const config = configurations[c.id];
         if (config) {
             try {
-                const configValue = validateConfigValue(config, c.value, undefined);
+                const configValue = validateConfigValue(config, c.value);
                 if (configValue !== undefined) {
                     configObj[config.id] = configValue;
                 }
@@ -52,12 +52,14 @@ export function buildGameServerConfig(game: Game, configurations: any): ServerGa
                 parsedConfig.push({
                     id: c.id,
                     value: c.default,
+                    isAdminOnly: c.isAdminOnly,
                 });
             }
         } else {
             parsedConfig.push({
                 id: c.id,
-                value: validateConfigValue(c, configValue, undefined),
+                value: validateConfigValue(c, configValue),
+                isAdminOnly: c.isAdminOnly,
             });
         }
     });
@@ -76,12 +78,14 @@ export async function buildGameServerConfigForReinstall(gameId?: string, configs
 
     const currentConfig = Object.fromEntries(configs?.map((c) => [c.id, c]) ?? []);
     return game.configurations?.map((c) => {
+        // If exist, keep existing config. Otherwise, create new config with default value
         if (currentConfig[c.id] !== undefined) {
             return currentConfig[c.id];
         } else {
             return {
                 id: c.id,
-                value: c.default
+                value: c.default,
+                isAdminOnly: c.isAdminOnly,
             }
         }
     }) ?? [];
@@ -119,7 +123,8 @@ export async function saveGameConfig(user: User, params: any): Promise<APIGatewa
             if (config && config.isCreationOnly !== true && newValue !== undefined) {
                 return {
                     id: oldConfig.id,
-                    value: validateConfigValue(config, newValue, oldConfig.value)
+                    value: validateConfigValue(config, newValue),
+                    isAdminOnly: oldConfig.isAdminOnly,
                 }
             } else {
                 // Old config is not available in game config or no new value provided, keep old one
@@ -137,13 +142,13 @@ export async function saveGameConfig(user: User, params: any): Promise<APIGatewa
     return success({ server })
 }
 
-function validateConfigValue(config: Configuration, configValue: any, prev: string | number | boolean | undefined): string | number | boolean | undefined {
+function validateConfigValue(config: Configuration, configValue: any): string | number | boolean | undefined {
     if (config.type === "alphanumeric") {
         if (typeof configValue !== "string") {
             throw Error(`configuration ${config.displayName} must be a text`);
         } else if (configValue.length === 0) {
-            // If empty, use default value
-            return prev ?? config.default;
+            // If empty, use default value or undefined
+            return config.default;
         } else {
             if (!/^[a-zA-Z0-9]+$/.test(configValue)) throw Error(`configuration ${config.displayName} must only contain a-z A-z 0-9`);
             if (config.minLength !== undefined && configValue.length < config.minLength)
@@ -154,7 +159,7 @@ function validateConfigValue(config: Configuration, configValue: any, prev: stri
         }
     } else if (config.type === "numeric") {
         if (configValue === "" || configValue === null || configValue === undefined) {
-            return prev ?? config.default;
+            return config.default;
         }
         const num = Number(configValue);
         if (Number.isNaN(num)) {
@@ -175,8 +180,8 @@ function validateConfigValue(config: Configuration, configValue: any, prev: stri
         if (typeof configValue !== "string") {
             throw Error(`configuration ${config.displayName} must be a valid option`);
         } else if (configValue.length === 0) {
-            // If empty, use default value
-            return prev ?? config.default;
+            // If empty, use default value or undefined
+            return config.default;
         } else {
             if (!config.values.includes(configValue)) {
                 throw Error(

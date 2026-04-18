@@ -305,7 +305,8 @@ function CreateServerConfigurations({ game, configValues, setConfigValues }: Cre
     const createOnly = configurations.filter((c) => c.isCreationOnly === true);
     return (
         <div>
-            <div style={{ fontWeight: "bold", marginBottom: "12px" }}>Game Configuration</div>
+            <div style={{ fontWeight: "bold", marginBottom: "12px" }}>Game Configuration.</div>
+            <div>Leave empty to use game default values</div>
             <table className="createServerGrid">
                 <tbody>
                     {nonCreateOnly.map((c: Configuration) => (

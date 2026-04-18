@@ -1,0 +1,89 @@
+name: Release (infra + game)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "bin/**"
+      - "lib/**"
+      - "game_server/**"
+
+concurrency:
+  group: versioning
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Detect changes
+        id: changes
+        run: |
+          git diff --name-only HEAD~1 > files.txt
+
+          grep -qE "^(backend|frontend|bin|lib)/" files.txt && echo "infra=true" >> $GITHUB_OUTPUT || echo "infra=false" >> $GITHUB_OUTPUT
+          grep -qE "^game_server/" files.txt && echo "game=true" >> $GITHUB_OUTPUT || echo "game=false" >> $GITHUB_OUTPUT
+
+      - name: Compute tag
+        id: tag
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+
+          # Get latest stable (non-rc) tag
+          LATEST=$(git tag --sort=-creatordate \
+            | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -n1)
+
+          INFRA_VERSION=$(echo $LATEST | grep -oP '(?<=infra-)[\d.]+')
+          GAMES_VERSION=$(echo $LATEST | grep -oP '(?<=games-)[\d.]+')
+
+          IFS='.' read -r IMAJ IMIN IPAT <<< "$INFRA_VERSION"
+          IFS='.' read -r GMAJ GMIN GPAT <<< "$GAMES_VERSION"
+
+          # bump versions based on changes
+          if [ "${{ steps.changes.outputs.infra }}" = "true" ]; then
+            IPAT=$((IPAT + 1))
+          fi
+
+          if [ "${{ steps.changes.outputs.game }}" = "true" ]; then
+            GPAT=$((GPAT + 1))
+          fi
+
+          TAG="infra-${IMAJ}.${IMIN}.${IPAT}_games-${GMAJ}.${GMIN}.${GPAT}"
+
+          if [ "$BRANCH" = "develop" ]; then
+            TAG="${TAG}-rc.${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "Creating tag: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Package game_server folder
+        run: |
+          tar -czf game_server.tar.gz game_server
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ github.ref_name == 'develop' }}
+          files: game_server.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
