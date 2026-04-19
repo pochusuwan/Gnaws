@@ -248,9 +248,9 @@ const createEc2 = async (
                     },
                 },
             ],
-            CreditSpecification: {
-                CpuCredits: "standard",
-            },
+            ...(instanceType.startsWith("t") && {
+                CreditSpecification: { CpuCredits: "standard" },
+            }),
             InstanceInitiatedShutdownBehavior: "stop",
             IamInstanceProfile: { Arn: EC2_PROFILE_ARN },
             TagSpecifications: [
@@ -278,6 +278,7 @@ const createEc2 = async (
 
         return { instanceId, securityGroupId };
     } catch (err: any) {
+        console.error(`Failed to create EC2 instance: ${err?.message}`);
         return {
             instanceId,
             securityGroupId,

@@ -1,0 +1,30 @@
+{
+    "id": "satisfactory",
+    "displayName": "Satisfactory",
+    "ec2": {
+        "instanceType": "t3.large",
+        "minimumInstanceType": "t3.medium",
+        "storage": 8,
+        "ports": [
+            {
+                "port": 7777,
+                "protocol": "tcp"
+            },
+            {
+                "port": 7777,
+                "protocol": "udp"
+            },
+            {
+                "port": 8888,
+                "protocol": "tcp"
+            }
+        ]
+    },
+    "termsOfService": [
+        {
+            "name": "SteamCMD License Agreement",
+            "url": "https://store.steampowered.com/subscriber_agreement/",
+            "type": "checkbox"
+        }
+    ]
+}
