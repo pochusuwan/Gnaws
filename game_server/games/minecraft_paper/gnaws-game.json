@@ -20,6 +20,12 @@
             "type": "checkbox"
         }
     ],
+    "messages": [
+        {
+            "type": "info",
+            "text": "Generating the world is CPU-intensive. It is recommended to use a larger instance type, then switch to a smaller one once the server is running smoothly."
+        }
+    ],
     "configurations": [
         {
             "id": "levelSeed",

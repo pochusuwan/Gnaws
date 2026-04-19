@@ -104,6 +104,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             {page === SERVER_ACTION && (
                 <ServerActionButtons
                     disabled={inProgress || !hasAdminPermission(userRole)}
+                    backupDisabled={inProgress}
                     callAction={callAction}
                     callStopInstance={callStopInstance}
                     callTerminateAction={callTerminateAction}
@@ -139,12 +140,13 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
 type ServerActionProps = {
     disabled: boolean;
+    backupDisabled: boolean;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => void;
     callStopInstance: () => void;
     callTerminateAction: () => void;
 };
 function ServerActionButtons(props: ServerActionProps) {
-    const { disabled, callAction, callStopInstance, callTerminateAction } = props;
+    const { backupDisabled, disabled, callAction, callStopInstance, callTerminateAction } = props;
     return (
         <div className="serverAdminPanelButtonGrid">
             <AdminPanelButton
@@ -166,7 +168,7 @@ function ServerActionButtons(props: ServerActionProps) {
                 onClick={callStopInstance}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={backupDisabled}
                 label="Backup Server Save"
                 description="Backup current server save files to S3 storage. Note that some games only save periodically or when shutting down. This does not force the game to save, so recent progress may not be included if the server is running. EC2 instance must be running to run this command."
                 onClick={() => callAction("Backup", false)}
