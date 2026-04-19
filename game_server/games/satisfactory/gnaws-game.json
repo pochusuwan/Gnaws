@@ -4,7 +4,7 @@
     "ec2": {
         "instanceType": "t3.large",
         "minimumInstanceType": "t3.medium",
-        "storage": 8,
+        "storage": 12,
         "ports": [
             {
                 "port": 7777,
