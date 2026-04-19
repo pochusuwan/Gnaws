@@ -70,6 +70,17 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (!Array.isArray(params?.ports)) {
         return clientError("Invalid ports");
     }
+    let customSubdomain = params?.customSubdomain;
+    if (typeof customSubdomain !== "string") {
+        return clientError("Invalid subdomain");
+    } else if (customSubdomain.length > 0) {
+        const isValid = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$/.test(customSubdomain);
+        if (!isValid) {
+            return clientError("Subdomain must only contain letters, numbers, hyphens, and has 3 parts");
+        }
+    } else {
+        customSubdomain = undefined;
+    }
     const ports = params.ports
         .map((p: any) => {
             const port = p.port;
@@ -101,6 +112,9 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             releaseVersion,
             configurations
         },
+        configuration: {
+            customSubdomain
+        }
     };
     try {
         await dynamoClient.send(
@@ -125,6 +139,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
     if (res.instanceId && res.securityGroupId && !res.errorMessage) {
         // Successfully create EC2. Update server item in DDB and start initialize workflow
         server.ec2 = {
+            ...server.ec2,
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
