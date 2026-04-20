@@ -2,8 +2,8 @@
     "id": "satisfactory",
     "displayName": "Satisfactory",
     "ec2": {
-        "instanceType": "t3.medium",
-        "minimumInstanceType": "t3.medium",
+        "instanceType": "t3.large",
+        "minimumInstanceType": "t3.large",
         "storage": 10,
         "ports": [
             {
