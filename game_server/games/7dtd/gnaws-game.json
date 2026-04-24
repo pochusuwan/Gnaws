@@ -1,0 +1,38 @@
+{
+    "id": "7dtd",
+    "displayName": "7DTD",
+    "ec2": {
+        "instanceType": "t3.xlarge",
+        "minimumInstanceType": "t3.large",
+        "storage": 20,
+        "ports": [
+            {
+                "port": 26900,
+                "protocol": "tcp"
+            },
+            {
+                "port": 26900,
+                "protocol": "udp"
+            },
+            {
+                "port": 26901,
+                "protocol": "udp"
+            },
+            {
+                "port": 26902,
+                "protocol": "udp"
+            },
+            {
+                "port": 26903,
+                "protocol": "udp"
+            }
+        ]
+    },
+    "termsOfService": [
+        {
+            "name": "SteamCMD License Agreement",
+            "url": "https://store.steampowered.com/subscriber_agreement/",
+            "type": "checkbox"
+        }
+    ]
+}

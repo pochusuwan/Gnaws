@@ -171,7 +171,7 @@ function ServerActionButtons(props: ServerActionProps) {
                 disabled={backupDisabled}
                 label="Backup Server Save"
                 description="Backup current server save files to S3 storage. Note that some games only save periodically or when shutting down. This does not force the game to save, so recent progress may not be included if the server is running. EC2 instance must be running to run this command."
-                onClick={() => callAction("Backup", false)}
+                onClick={() => callAction("Backup", true)}
             />
             <AdminPanelButton
                 disabled={disabled}

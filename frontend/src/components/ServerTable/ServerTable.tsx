@@ -66,9 +66,8 @@ export default function ServerTable(props: ServerTableProps) {
                     <tr>
                         <th>Name</th>
                         <th>Status</th>
-                        <th>Task</th>
                         <th>IP Address</th>
-                        <th>Scheduled<br />Shutdown</th>
+                        <th>Scheduled Shutdown</th>
                         <th>Player Count</th>
                         <th>Last Backup</th>
                         <th>Actions</th>
@@ -110,11 +109,6 @@ function ServerRow(props: ServerRowProps) {
         [serverAction, server.name],
     );
 
-    const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
-    let currentTask = server.workflow?.currentTask;
-    if (currentTask) {
-        currentTask += ": " + server.workflow?.status;
-    }
     let timeSinceBackup;
     if (server.status?.lastBackup) {
         const timeSince = (Date.now() - new Date(server.status.lastBackup).getTime()) / HOUR_IN_MS;
@@ -139,11 +133,20 @@ function ServerRow(props: ServerRowProps) {
         }
     });
 
+    let status = "";
+    if (server.status?.status) {
+        status = server.status.status;
+    }
+    let currentTask = "";
+    if (server.workflow && server.workflow.currentTask && server.workflow.status !== "success") {
+        currentTask = server.workflow.currentTask + ": " + server.workflow?.status;
+    }
+    const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
+
     return (
         <tr onClick={() => props.onClick(server.name)}>
             <Cell value={server.name} loading={showSpinner} />
-            <Cell value={server.status?.status} />
-            <Cell value={currentTask} />
+            <Cell value={<>{status}{currentTask && <><br />{currentTask}</>}</>} />
             <Cell value={<>{server.configuration?.customSubdomain}{server.configuration?.customSubdomain && <br/>}{server.ec2?.ipAddress}</>} />
             <Cell value={shutdownTime} />
             <Cell value={server.status?.playerCount} />
