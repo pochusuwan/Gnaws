@@ -76,3 +76,5 @@ else
         sed -i "s|</users>|    ${ADMIN_ENTRY}\n</users>|" "$ADMIN_CONFIG_FILE"
     fi
 fi
+
+exec ./startserver.sh -configfile=gnaws.serverconfig.xml

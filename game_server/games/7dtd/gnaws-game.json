@@ -4,7 +4,7 @@
     "ec2": {
         "instanceType": "t3.xlarge",
         "minimumInstanceType": "t3.large",
-        "storage": 20,
+        "storage": 24,
         "ports": [
             {
                 "port": 26900,
@@ -33,6 +33,252 @@
             "name": "SteamCMD License Agreement",
             "url": "https://store.steampowered.com/subscriber_agreement/",
             "type": "checkbox"
+        }
+    ],
+    "messages": [
+        {
+            "type": "info",
+            "text": "Server performance depends on stage of the game and number of zombies. See performance related configurations below."
+        },
+        {
+            "type": "info",
+            "text": "If you notice packet drop (zombie die for some player but not other), consider switching to higher network throughput instance such as c5n"
+        }
+    ],
+    "configurations": [
+        {
+            "id": "GameWorld",
+            "displayName": "GameWorld",
+            "description": "Select already generated world or RWG for random world generation. For random world generation, also set WorldGenSeed and WorldGenSize.",
+            "type": "enum",
+            "values": ["Navezgane", "Pregen06k01", "Pregen06k02", "Pregen08k01", "Pregen08k02", "RWG"],
+            "default": "Navezgane",
+            "isCreationOnly": true
+        },
+        {
+            "id": "WorldGenSeed",
+            "displayName": "WorldGenSeed",
+            "description": "If RWG, this is the seed for the generation of the new world.",
+            "type": "alphanumeric",
+            "maxLength": 64,
+            "default": "MyGame",
+            "isCreationOnly": true
+        },
+        {
+            "id": "WorldGenSize",
+            "displayName": "WorldGenSize",
+            "description": "If RWG, this controls the width and height of the created world.",
+            "type": "enum",
+            "values": ["6144", "8192", "10240"],
+            "default": "6144",
+            "isCreationOnly": true
+        },
+        {
+            "id": "DayNightLength",
+            "displayName": "DayNightLength",
+            "description": "Real time minutes per in game day. Default is 60 minutes.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "DayLightLength",
+            "displayName": "DayLightLength",
+            "description": "In game hours the sun shines per day. Default is 18 hours.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1,
+            "maxValue": 23
+        },
+        {
+            "id": "ServerPassword",
+            "displayName": "Server Password",
+            "description": "Password to join the server. Leave empty for no password.",
+            "type": "alphanumeric",
+            "maxLength": 64
+        },
+        {
+            "id": "AdminSteamUserId",
+            "displayName": "Admin UserId",
+            "description": "Set admin user with Steam userId 17 digits number. Leave empty for no admin.",
+            "type": "alphanumeric",
+            "maxLength": 64
+        },
+        {
+            "id": "GameDifficulty",
+            "displayName": "GameDifficulty",
+            "description": "0 = Easiest, 5 = Hardest (0-Scavenger, 1-Adventurer, 2-Nomad, 3-Warrior, 4-Survivalist, 5-Insane)",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 5
+        },
+        {
+            "id": "XPMultiplier",
+            "displayName": "XPMultiplier",
+            "description": "XP gain multiplier",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "LootAbundance",
+            "displayName": "LootAbundance",
+            "description": "Loot multiplier. This only affects stack sizes, not chance to get loot.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "LootRespawnDays",
+            "displayName": "LootRespawnDays",
+            "description": "Number of days for loot to respawn.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "AirDropFrequency",
+            "displayName": "AirDropFrequency",
+            "description": "How often airdrop occur in game hours. 0 = Never",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "QuestProgressionDailyLimit",
+            "displayName": "QuestProgressionDailyLimit",
+            "description": "Limits the number of quests that contribute to quest tier progression a player can complete each day. Quests after the limit can still be completed for rewards.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "EnemyDifficulty",
+            "displayName": "EnemyDifficulty",
+            "description": "0 = Normal, 1 = Feral",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 1
+        },
+        {
+            "id": "ZombieFeralSense",
+            "displayName": "ZombieFeralSense",
+            "description": "0 = Off, 1 = Day, 2 = Night, 3 = All",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 3
+        },
+        {
+            "id": "ZombieMove",
+            "displayName": "ZombieMove",
+            "description": "0 = Walk, 1 = Jog, 2 = Run, 3 = Sprint, 4 = Nightmare",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 4
+        },
+        {
+            "id": "ZombieMoveNight",
+            "displayName": "ZombieMoveNight",
+            "description": "0 = Walk, 1 = Jog, 2 = Run, 3 = Sprint, 4 = Nightmare",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 4
+        },
+        {
+            "id": "ZombieFeralMove",
+            "displayName": "ZombieFeralMove",
+            "description": "0 = Walk, 1 = Jog, 2 = Run, 3 = Sprint, 4 = Nightmare",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 4
+        },
+        {
+            "id": "ZombieBMMove",
+            "displayName": "ZombieBMMove",
+            "description": "0 = Walk, 1 = Jog, 2 = Run, 3 = Sprint, 4 = Nightmare",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 4
+        },
+        {
+            "id": "AISmellMode",
+            "displayName": "AISmellMode",
+            "description": "0 = Off, 1 = Walk, 2 = Jog, 3 = Run, 4 = Sprint, 5 = Nightmare",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0,
+            "maxValue": 5
+        },
+        {
+            "id": "BloodMoonFrequency",
+            "displayName": "BloodMoonFrequency",
+            "description": "What frequency (in days) should a blood moon take place. Set to 0 for no blood moons",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "BloodMoonRange",
+            "displayName": "BloodMoonRange",
+            "description": "How many days can the actual blood moon day randomly deviate from the above setting.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "BloodMoonEnemyCount",
+            "displayName": "BloodMoonEnemyCount",
+            "description": "This is the number of zombies that can be alive (spawned at the same time) at any time PER PLAYER during a blood moon horde, however, MaxSpawnedZombies overrides this number in multiplayer games. Also note that your game stage sets the max number of zombies PER PARTY. Low game stage values can result in lower number of zombies than the BloodMoonEnemyCount setting. Changing this setting has a huge impact on performance.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "ServerMaxAllowedViewDistance",
+            "displayName": "ServerMaxAllowedViewDistance",
+            "description": "Max view distance a client may request (6 - 12). High impact on memory usage and performance.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 6,
+            "maxValue": 12
+        },
+        {
+            "id": "MaxQueuedMeshLayers",
+            "displayName": "MaxQueuedMeshLayers",
+            "description": "Maximum amount of Chunk mesh layers that can be enqueued during mesh generation. Reducing this will improve memory usage but may increase Chunk generation time.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "DynamicMeshEnabled",
+            "displayName": "DynamicMeshEnabled",
+            "description": "Whether Dynamic Mesh system enabled. Disabling will improve performance.",
+            "type": "boolean",
+            "default": true
+        },
+        {
+            "id": "MaxSpawnedZombies",
+            "displayName": "MaxSpawnedZombies",
+            "description": "This setting covers the entire map. There can only be this many zombies on the entire map at one time. Changing this setting has a huge impact on performance.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
+        },
+        {
+            "id": "MaxSpawnedAnimals",
+            "displayName": "MaxSpawnedAnimals",
+            "description": "If your server has a large number of players you can increase this limit to add more wildlife. Animals don't consume as much CPU as zombies.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 0
         }
     ]
 }
