@@ -1,6 +1,9 @@
 {
     "id": "7dtd",
-    "displayName": "7DTD",
+    "displayName": "7 Days to Die",
+    "metadata": {
+        "setupDurationMinute": 60
+    },
     "ec2": {
         "instanceType": "t3.xlarge",
         "minimumInstanceType": "t3.large",
@@ -74,23 +77,6 @@
             "isCreationOnly": true
         },
         {
-            "id": "DayNightLength",
-            "displayName": "DayNightLength",
-            "description": "Real time minutes per in game day. Default is 60 minutes.",
-            "type": "numeric",
-            "isIntegerOnly": true,
-            "minValue": 1
-        },
-        {
-            "id": "DayLightLength",
-            "displayName": "DayLightLength",
-            "description": "In game hours the sun shines per day. Default is 18 hours.",
-            "type": "numeric",
-            "isIntegerOnly": true,
-            "minValue": 1,
-            "maxValue": 23
-        },
-        {
             "id": "ServerPassword",
             "displayName": "Server Password",
             "description": "Password to join the server. Leave empty for no password.",
@@ -112,6 +98,23 @@
             "isIntegerOnly": true,
             "minValue": 0,
             "maxValue": 5
+        },
+        {
+            "id": "DayNightLength",
+            "displayName": "DayNightLength",
+            "description": "Real time minutes per in game day. Default is 60 minutes.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1
+        },
+        {
+            "id": "DayLightLength",
+            "displayName": "DayLightLength",
+            "description": "In game hours the sun shines per day. Default is 18 hours.",
+            "type": "numeric",
+            "isIntegerOnly": true,
+            "minValue": 1,
+            "maxValue": 23
         },
         {
             "id": "XPMultiplier",

@@ -1,6 +1,9 @@
 {
     "id": "satisfactory",
     "displayName": "Satisfactory",
+    "metadata": {
+        "setupDurationMinute": 8
+    },
     "ec2": {
         "instanceType": "t3.large",
         "minimumInstanceType": "t3.large",

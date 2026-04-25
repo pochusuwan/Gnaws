@@ -1,7 +1,11 @@
 {
     "id": "minecraft_paper",
     "displayName": "Minecraft - Paper",
+    "metadata": {
+        "setupDurationMinute": 8
+    },
     "ec2": {
+        "initialInstanceType": "t3a.large",
         "instanceType": "t3a.medium",
         "minimumInstanceType": "t3a.small",
         "storage": 8,

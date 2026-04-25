@@ -28,7 +28,7 @@ export const useGames = (user: User | null) => {
             if (gamesResponse.length > 0) {
                 const games: { [id: string]: Game } = {};
                 gamesResponse.forEach((game) => (games[game.id] = game));
-                setGames(loadedState({ games, initialGame: gamesResponse[0].id, version: state.data.version }));
+                setGames(loadedState({ games, initialGame: "_blank_server", version: state.data.version }));
             } else {
                 setGames(errorState("No games available"));
             }

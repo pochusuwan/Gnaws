@@ -50,7 +50,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     }, [props.games, game, setGame]);
 
     const setDataFromGame = useCallback((game: Game) => {
-        setInstanceType(game.ec2.instanceType);
+        setInstanceType(game.ec2.initialInstanceType ?? game.ec2.instanceType);
         setStorage(game.ec2.storage);
         setPorts(game.ec2.ports.map((p) => ({ ...p })));
         const terms = game.termsOfService ?? [];
@@ -235,6 +235,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     </tr> */}
                 </tbody>
             </table>
+            {selectedGame?.metadata?.setupDurationMinute !== undefined && (
+                <div>Estimated setup time: {selectedGame?.metadata?.setupDurationMinute} minutes</div>
+            )}
             {/* 
             Hide ports. User dont need to see this.
             {ports.map((port, i) => (

@@ -1,6 +1,9 @@
 {
     "id": "minecraft",
     "displayName": "Minecraft",
+    "metadata": {
+        "setupDurationMinute": 5
+    },
     "ec2": {
         "instanceType": "t3a.large",
         "minimumInstanceType": "t3a.medium",

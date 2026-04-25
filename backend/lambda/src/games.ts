@@ -144,6 +144,7 @@ async function parseGameFiles(): Promise<Game[]> {
             const displayName = parsed.displayName;
             const instanceType = parsed.ec2?.instanceType;
             const minimumInstanceType = parsed.ec2?.minimumInstanceType;
+            const initialInstanceType = typeof parsed.ec2?.initialInstanceType === "string" ? parsed.ec2?.initialInstanceType : undefined;
             const storage = parsed.ec2?.storage;
             const ports = parsed.ec2?.ports;
             if (
@@ -156,6 +157,11 @@ async function parseGameFiles(): Promise<Game[]> {
             ) {
                 continue;
             }
+            const metadata: Game["metadata"] = {};
+            if (typeof parsed.metadata?.setupDurationMinute === "number") {
+                metadata.setupDurationMinute = parsed.metadata.setupDurationMinute;
+            }
+
             const parsedPort: Port[] = [];
             ports.forEach((port) => {
                 const portNumber = port.port;
@@ -251,7 +257,9 @@ async function parseGameFiles(): Promise<Game[]> {
             games.push({
                 id,
                 displayName,
+                metadata,
                 ec2: {
+                    initialInstanceType,
                     instanceType,
                     minimumInstanceType,
                     storage,

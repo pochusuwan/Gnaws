@@ -1,6 +1,9 @@
 {
     "id": "palworld",
     "displayName": "Palworld",
+    "metadata": {
+        "setupDurationMinute": 15
+    },
     "ec2": {
         "instanceType": "t3a.xlarge",
         "minimumInstanceType": "t3a.large",

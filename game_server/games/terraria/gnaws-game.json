@@ -1,6 +1,9 @@
 {
     "id": "terraria",
     "displayName": "Terraria",
+    "metadata": {
+        "setupDurationMinute": 20
+    },
     "ec2": {
         "instanceType": "t3.medium",
         "minimumInstanceType": "t3.small",

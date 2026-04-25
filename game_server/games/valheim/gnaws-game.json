@@ -1,6 +1,9 @@
 {
     "id": "valheim",
     "displayName": "Valheim",
+    "metadata": {
+        "setupDurationMinute": 15
+    },
     "ec2": {
         "instanceType": "t3.medium",
         "minimumInstanceType": "t3.small",
