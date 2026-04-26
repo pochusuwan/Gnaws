@@ -213,8 +213,8 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                             <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
                         </td>
                         <td>
-                            Set server CPU and memory. {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players)
-                            recommended. This can be changed later.
+                            Set server CPU and memory. {selectedGame?.ec2?.minimumInstanceType} (2-4 players){" "}
+                            {selectedGame?.ec2?.instanceType} (5-8 players) recommended. This can be changed later.
                         </td>
                     </tr>
                     <tr>
@@ -223,7 +223,8 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                             <input type="text" value={customSubdomain} onChange={(e) => setCustomSubdomain(e.target.value)} />
                         </td>
                         <td>
-                            The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can assign a subdomain (e.g. mc.example.com) so players always connect using the same address.
+                            The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can
+                            assign a subdomain (e.g. mc.example.com) so players always connect using the same address.
                         </td>
                     </tr>
                     {/* <tr>
@@ -264,17 +265,20 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                 <div>Modify pre-configured ports will require manual server modification.</div>
             </div> */}
             <div className="createServerPageDivider"></div>
-            <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {selectedGame?.messages !== undefined && selectedGame.messages.length > 0 && (
-                <div>
-                    <div>Additional Infomation:</div>
-                    <ul className="createServerPageList">
-                        {selectedGame.messages.map((m, i) => (
-                            <li key={i}>{m.text}</li>
-                        ))}
-                    </ul>
-                </div>
+                <>
+                    <div>
+                        <div>Additional Infomation:</div>
+                        <ul className="createServerPageList">
+                            {selectedGame.messages.map((m, i) => (
+                                <li key={i}>{m.text}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="createServerPageDivider"></div>
+                </>
             )}
+            <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {terms.length > 0 && (
                 <div>
                     <div>Accept Terms and Conditions:</div>

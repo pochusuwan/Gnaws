@@ -39,11 +39,13 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
     // Terminate server action dialog
     const { open: terminateOpen, onResult: terminateResult, confirm: terminateConfirm } = useConfirm();
+    // Stop action backup dialog
+    const { open: stopBackupOpen, onResult: stopBackupResult, confirm: stopBackupConfirm } = useConfirm();
     // Stop instance action dialog
     const { open: stopInstanceOpen, onResult: stopInstanceResult, confirm: stopInstanceConfirm } = useConfirm();
 
     const callAction = useCallback(
-        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => {
+        async (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | boolean | number | undefined }) => {
             if (server !== null) {
                 lastAction.current = action;
                 const payload = { serverName: server.name, action: action.toLowerCase(), ...params };
@@ -55,6 +57,14 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
         },
         [server],
     );
+
+    const callStop = useCallback(async () => {
+        const shouldBackup = await stopBackupConfirm();
+        if (shouldBackup === null) {
+            return;
+        }
+        callAction("Stop", true, { shouldBackup: shouldBackup.result });
+    }, [server, callAction]);
 
     const callStopInstance = useCallback(async () => {
         const result = await stopInstanceConfirm();
@@ -106,6 +116,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                     disabled={inProgress || !hasAdminPermission(userRole)}
                     backupDisabled={inProgress}
                     callAction={callAction}
+                    callStop={callStop}
                     callStopInstance={callStopInstance}
                     callTerminateAction={callTerminateAction}
                 />
@@ -134,6 +145,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
                     inputValue={""}
                 />
             )}
+            {stopBackupOpen && <ConfirmDialog message={"Do you want to back up the server?"} onResult={stopBackupResult} />}
         </div>
     );
 }
@@ -142,13 +154,26 @@ type ServerActionProps = {
     disabled: boolean;
     backupDisabled: boolean;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => void;
+    callStop: () => void;
     callStopInstance: () => void;
     callTerminateAction: () => void;
 };
 function ServerActionButtons(props: ServerActionProps) {
-    const { backupDisabled, disabled, callAction, callStopInstance, callTerminateAction } = props;
+    const { backupDisabled, disabled, callAction, callStop, callStopInstance, callTerminateAction } = props;
     return (
         <div className="serverAdminPanelButtonGrid">
+            <AdminPanelButton
+                disabled={disabled}
+                label="Start"
+                description="Start EC2 instance then start game server. This is the same button as the in the table."
+                onClick={() => callAction("Start", true)}
+            />
+            <AdminPanelButton
+                disabled={disabled}
+                label="Stop"
+                description="Stop game server then stop the EC2 instance. This is the same button as the in the table."
+                onClick={() => callStop()}
+            />
             <AdminPanelButton
                 disabled={disabled}
                 label="Start Instance"

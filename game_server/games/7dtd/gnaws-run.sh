@@ -64,16 +64,18 @@ set_property "MaxSpawnedAnimals" CONFIG_MaxSpawnedAnimals
 # Set admin with steam id or remove if no value
 AdminSteamUserId="${CONFIG_AdminSteamUserId-}"
 AdminLineTag="<!--Gnaws-->"
-if [[ -z "$AdminSteamUserId" || ! "$AdminSteamUserId" =~ ^[0-9]+$ ]]; then
-    # Remove managed entry if exists
-    sed -i "/$AdminLineTag/d" "$ADMIN_CONFIG_FILE"
-else
-    ADMIN_ENTRY="<user platform=\"Steam\" userid=\"$AdminSteamUserId\" name=\"Admin\" permission_level=\"0\" />$AdminLineTag"
-    # Replace existing managed entry or insert
-    if grep -q "$AdminLineTag" "$ADMIN_CONFIG_FILE"; then
-        sed -i "s|<user[^>]*>$AdminLineTag|${ADMIN_ENTRY}|" "$ADMIN_CONFIG_FILE"
+if [[ -f "$ADMIN_CONFIG_FILE" ]]; then
+    if [[ -z "$AdminSteamUserId" || ! "$AdminSteamUserId" =~ ^[0-9]+$ ]]; then
+        # Remove managed entry if exists
+        sed -i "/$AdminLineTag/d" "$ADMIN_CONFIG_FILE"
     else
-        sed -i "s|</users>|    ${ADMIN_ENTRY}\n</users>|" "$ADMIN_CONFIG_FILE"
+        ADMIN_ENTRY="<user platform=\"Steam\" userid=\"$AdminSteamUserId\" name=\"Admin\" permission_level=\"0\" />$AdminLineTag"
+        # Replace existing managed entry or insert
+        if grep -q "$AdminLineTag" "$ADMIN_CONFIG_FILE"; then
+            sed -i "s|<user[^>]*>$AdminLineTag|${ADMIN_ENTRY}|" "$ADMIN_CONFIG_FILE"
+        else
+            sed -i "s|</users>|    ${ADMIN_ENTRY}\n</users>|" "$ADMIN_CONFIG_FILE"
+        fi
     fi
 fi
 
