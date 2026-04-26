@@ -38,6 +38,8 @@ Running a game server has always been a pain:
 - **Friend access controls** — Assign roles so trusted friends can start/stop the server.
 - **Your account, your data** — Everything lives in your AWS account. No third-party platform.
 - **Game configuration** — Configure supported game configuration with simple web UI.
+- **Real-time CPU and memory monitoring** — See server performance in realtime to optimize gameplay and cost.
+- **Scheduled shutdown** — Automatically shuts down the server after a set time so you don't forget to turn it off.
 
 ---
 
@@ -72,12 +74,8 @@ Running a game server has always been a pain:
 
 ## Supported Games
 
-- Minecraft (Java)
-- Minecraft (Paper)
-- Palworld
-- Valheim
-
-> Don't see your game? SSH into the instance and install it manually
+- Minecraft (Java), Minecraft (Paper), Palworld, Valheim, 7 Days to Die, Satisfactory, Terraria
+- Don't see your game? Open a GitHub issue to request it, or SSH into the instance and install it manually.
 
 ---
 
