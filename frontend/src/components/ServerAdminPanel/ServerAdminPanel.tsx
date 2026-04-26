@@ -106,7 +106,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
     return (
         <div className="serverAdminPanel">
             <div className="adminPanelRow">
-                <h2 style={{ margin: 0 }}>Server Admin: {server.name}</h2>
+                <h2 style={{ margin: 0 }}>Server: {server.name}</h2>
                 {showSpinner && <Spinner />}
             </div>
             <div className="adminPanelMessage">{message}</div>
