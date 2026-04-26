@@ -2,7 +2,7 @@
     "id": "7dtd",
     "displayName": "7 Days to Die",
     "metadata": {
-        "setupDurationMinute": 60
+        "setupDurationMinute": 20
     },
     "ec2": {
         "instanceType": "t3.xlarge",

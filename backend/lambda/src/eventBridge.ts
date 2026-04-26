@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from "aws-lambda";
 import { clientError, success } from "./util";
-import { getAllServersFromDB, getServerFromDB, updateServerAttributes } from "./servers";
+import { aquireWorkflowLock, getAllServersFromDB, getServerFromDB, updateServerAttributes } from "./servers";
 import { ec2Client, sfnClient } from "./clients";
 import { DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { SERVER_NAME_TAG_PREFIX } from "./createServer";
@@ -161,6 +161,16 @@ async function checkScheduledShutdown(): Promise<void> {
             if (!instanceId) {
                 continue;
             }
+            try {
+                await aquireWorkflowLock(instanceId, "stop");
+            } catch (e: any) {
+                if (e.name === "ConditionalCheckFailedException") {
+                    console.debug(`Another action in progress for server: ${server.name}`);
+                } else {
+                    console.error(`Failed to get workflow lock for server ${server.name}: ${e.message}`);
+                }
+                continue;
+            }
             const result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
                 backupBucketName: BACKUP_BUCKET_NAME,
                 shouldBackup: true,
@@ -172,9 +182,6 @@ async function checkScheduledShutdown(): Promise<void> {
                         executionId: result.executionId,
                         status: "running",
                         lastUpdated: result.startedAt.toISOString(),
-                    },
-                    scheduledShutdown: {
-                        shutdownTime: undefined,
                     },
                 });
             }
