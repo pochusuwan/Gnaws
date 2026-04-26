@@ -1,6 +1,9 @@
 {
     "id": "minecraft",
     "displayName": "Minecraft",
+    "metadata": {
+        "setupDurationMinute": 5
+    },
     "ec2": {
         "instanceType": "t3a.large",
         "minimumInstanceType": "t3a.medium",
@@ -24,6 +27,10 @@
         {
             "type": "info",
             "text": "You're setting up a Vanilla server. For better performance and lower hosting costs, we recommend Minecraft - Paper, a highly optimized Minecraft server that is fully compatible with Vanilla worlds and clients. Note that new Minecraft versions may take longer to be supported on Paper."
+        },
+        {
+            "type": "info",
+            "text": "Generating the world is CPU-intensive. It is recommended to use a larger instance type, then switch to a smaller one once the server is running smoothly."
         }
     ],
     "configurations": [

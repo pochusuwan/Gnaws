@@ -29,6 +29,8 @@ export function success(body: any): APIGatewayProxyResult {
 }
 
 export function sanatizeServer(server: Server, isAdmin: boolean): Server {
-    server.game.configurations = server.game.configurations?.filter(c => isAdmin || !c.isAdminOnly);
+    if (server.game !== undefined) {
+        server.game.configurations = server.game.configurations?.filter(c => isAdmin || !c.isAdminOnly);
+    }
     return server;
 }

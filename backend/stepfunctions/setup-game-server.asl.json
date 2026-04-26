@@ -276,7 +276,7 @@
     },
     "WaitGameServerOnline": {
       "Type": "Wait",
-      "Seconds": 30,
+      "Seconds": 60,
       "Next": "CheckGameServerStatus"
     },
     "CheckGameServerStatus": {

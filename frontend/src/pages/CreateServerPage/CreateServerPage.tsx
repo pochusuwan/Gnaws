@@ -28,6 +28,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     const [instanceType, setInstanceType] = useState("");
     const [storage, setStorage] = useState(4);
     const [ports, setPorts] = useState<Port[]>([]);
+    const [customSubdomain, setCustomSubdomain] = useState("");
     const [message, setMessage] = useState("");
     const [terms, setTerms] = useState<Terms[]>([]);
     const [configValues, setConfigValues] = useState<Record<string, string | number | boolean>>({});
@@ -49,7 +50,7 @@ export default function CreateServerPage(props: CreateServerPageProps) {
     }, [props.games, game, setGame]);
 
     const setDataFromGame = useCallback((game: Game) => {
-        setInstanceType(game.ec2.instanceType);
+        setInstanceType(game.ec2.initialInstanceType ?? game.ec2.instanceType);
         setStorage(game.ec2.storage);
         setPorts(game.ec2.ports.map((p) => ({ ...p })));
         const terms = game.termsOfService ?? [];
@@ -121,6 +122,13 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             setMessage("Invalid storage. Storage must be between 4 and 128 GiB");
             return;
         }
+        if (customSubdomain !== "") {
+            const isValid = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$/.test(customSubdomain);
+            if (!isValid) {
+                setMessage("Invalid subdomain. Must only contain letters, numbers, hyphens, and has 3 parts");
+                return;
+            }
+        }
 
         const parsedPorts = [];
         for (let i = 0; i < ports.length; i++) {
@@ -144,8 +152,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
             ports,
             releaseVersion: VERSION_OVERRIDE ?? version,
             configurations: configValues,
+            customSubdomain,
         });
-    }, [configValues, serverName, game, instanceType, storage, ports]);
+    }, [configValues, serverName, game, instanceType, storage, ports, customSubdomain]);
 
     // Update states from create server response
     useEffect(() => {
@@ -204,8 +213,18 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                             <input type="text" value={instanceType} onChange={(e) => setInstanceType(e.target.value)} />
                         </td>
                         <td>
-                            Set server CPU and memory. {selectedGame?.ec2?.minimumInstanceType} (2-4 players) {selectedGame?.ec2?.instanceType} (5-8 players)
-                            recommended. This can be changed later.
+                            Set server CPU and memory. {selectedGame?.ec2?.minimumInstanceType} (2-4 players){" "}
+                            {selectedGame?.ec2?.instanceType} (5-8 players) recommended. This can be changed later.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Custom Subdomain:</td>
+                        <td>
+                            <input type="text" value={customSubdomain} onChange={(e) => setCustomSubdomain(e.target.value)} />
+                        </td>
+                        <td>
+                            The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can
+                            assign a subdomain (e.g. mc.example.com) so players always connect using the same address.
                         </td>
                     </tr>
                     {/* <tr>
@@ -217,6 +236,9 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                     </tr> */}
                 </tbody>
             </table>
+            {selectedGame?.metadata?.setupDurationMinute !== undefined && (
+                <div>Estimated setup time: {selectedGame?.metadata?.setupDurationMinute} minutes</div>
+            )}
             {/* 
             Hide ports. User dont need to see this.
             {ports.map((port, i) => (
@@ -243,17 +265,20 @@ export default function CreateServerPage(props: CreateServerPageProps) {
                 <div>Modify pre-configured ports will require manual server modification.</div>
             </div> */}
             <div className="createServerPageDivider"></div>
-            <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {selectedGame?.messages !== undefined && selectedGame.messages.length > 0 && (
-                <div>
-                    <div>Additional Infomation:</div>
-                    <ul className="createServerPageList">
-                        {selectedGame.messages.map((m, i) => (
-                            <li key={i}>{m.text}</li>
-                        ))}
-                    </ul>
-                </div>
+                <>
+                    <div>
+                        <div>Additional Infomation:</div>
+                        <ul className="createServerPageList">
+                            {selectedGame.messages.map((m, i) => (
+                                <li key={i}>{m.text}</li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="createServerPageDivider"></div>
+                </>
             )}
+            <CreateServerConfigurations game={selectedGame} configValues={configValues} setConfigValues={setConfigValues} />
             {terms.length > 0 && (
                 <div>
                     <div>Accept Terms and Conditions:</div>

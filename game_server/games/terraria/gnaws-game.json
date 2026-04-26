@@ -1,0 +1,61 @@
+{
+    "id": "terraria",
+    "displayName": "Terraria",
+    "metadata": {
+        "setupDurationMinute": 20
+    },
+    "ec2": {
+        "instanceType": "t3.medium",
+        "minimumInstanceType": "t3.small",
+        "storage": 8,
+        "ports": [
+            {
+                "port": 7777,
+                "protocol": "tcp"
+            }
+        ]
+    },
+    "supportServerCommand": true,
+    "messages": [
+        {
+            "type": "info",
+            "text": "Generating the world is CPU-intensive. It is recommended to use a larger instance type, then switch to a smaller one once the server is running smoothly."
+        }
+    ],
+    "configurations": [
+        {
+            "id": "worldSize",
+            "type": "enum",
+            "values": ["1", "2", "3"],
+            "default": "1",
+            "displayName": "World Size",
+            "description": "1(small), 2(medium), and 3(large)",
+            "isCreationOnly": true
+        },
+        {
+            "id": "seed",
+            "type": "alphanumeric",
+            "maxLength": 64,
+            "displayName": "World Seed",
+            "description": "The seed for the generated world. Leave empty for random seed.",
+            "isCreationOnly": true
+        },
+        {
+            "id": "difficulty",
+            "type": "enum",
+            "values": ["0", "1", "2", "3"],
+            "default": "0",
+            "displayName": "Difficulty",
+            "description": "0(normal), 1(expert), 2(master), 3(journey)",
+            "isCreationOnly": true
+        },
+        {
+            "id": "password",
+            "type": "alphanumeric",
+            "displayName": "Server Password",
+            "description": "Password to join the server. Leave empty for no password.",
+            "minLength": 1,
+            "maxLength": 20
+        }
+    ]
+}

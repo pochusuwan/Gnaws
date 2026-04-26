@@ -130,7 +130,11 @@ export type Configuration = AlphanumericConfig | NumericConfig | BooleanConfig |
 export type Game = {
     id: string;
     displayName: string;
+    metadata: {
+        setupDurationMinute?: number;
+    }
     ec2: {
+        initialInstanceType?: string;
         instanceType: string;
         minimumInstanceType: string;
         storage: number;

@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Modify server properties
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini"
+CONFIG_PATH="$SCRIPT_DIR/Pal/Saved/Config/LinuxServer"
+CONFIG_FILE="$CONFIG_PATH/PalWorldSettings.ini"
 DEFAULT_FILE="$SCRIPT_DIR/DefaultPalWorldSettings.ini"
 CONF_FILE="$SCRIPT_DIR/gnaws-game.conf"
 
@@ -12,6 +13,7 @@ if [[ -f "$SCRIPT_DIR/gnaws-game.conf" ]]; then
 fi
 
 # Copy default config file. If you want to manually set value, modify the default file.
+mkdir -p "$CONFIG_PATH"
 cp "$DEFAULT_FILE" "$CONFIG_FILE"
 
 set_property() {

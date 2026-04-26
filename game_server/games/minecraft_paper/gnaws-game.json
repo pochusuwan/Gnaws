@@ -1,7 +1,11 @@
 {
     "id": "minecraft_paper",
     "displayName": "Minecraft - Paper",
+    "metadata": {
+        "setupDurationMinute": 8
+    },
     "ec2": {
+        "initialInstanceType": "t3a.large",
         "instanceType": "t3a.medium",
         "minimumInstanceType": "t3a.small",
         "storage": 8,
@@ -18,6 +22,12 @@
             "name": "Minecraft EULA",
             "url": "https://aka.ms/MinecraftEULA",
             "type": "checkbox"
+        }
+    ],
+    "messages": [
+        {
+            "type": "info",
+            "text": "Generating the world is CPU-intensive. It is recommended to use a larger instance type, then switch to a smaller one once the server is running smoothly."
         }
     ],
     "configurations": [

@@ -1,0 +1,43 @@
+{
+    "id": "satisfactory",
+    "displayName": "Satisfactory",
+    "metadata": {
+        "setupDurationMinute": 8
+    },
+    "ec2": {
+        "instanceType": "t3.large",
+        "minimumInstanceType": "t3.large",
+        "storage": 10,
+        "ports": [
+            {
+                "port": 7777,
+                "protocol": "tcp"
+            },
+            {
+                "port": 7777,
+                "protocol": "udp"
+            },
+            {
+                "port": 8888,
+                "protocol": "tcp"
+            }
+        ]
+    },
+    "messages": [
+        {
+            "type": "info",
+            "text": "When starting the server for the first time, claim it and set an admin password using the in-game Server Manager. Other players can join by adding the server through their own Server Manager. See the Satisfactory dedicated server guide for more details. https://satisfactory.wiki.gg/wiki/Dedicated_servers"
+        },
+        {
+            "type": "info",
+            "text": "CPU and memory requirements increase as the game progresses. If performance degrades, consider upgrading to a compute-optimized instance (C family)."
+        }
+    ],
+    "termsOfService": [
+        {
+            "name": "SteamCMD License Agreement",
+            "url": "https://store.steampowered.com/subscriber_agreement/",
+            "type": "checkbox"
+        }
+    ]
+}

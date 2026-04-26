@@ -1,6 +1,9 @@
 {
     "id": "_blank_server",
     "displayName": "Blank Server",
+    "metadata": {
+        "setupDurationMinute": 5
+    },
     "ec2": {
         "instanceType": "t3.medium",
         "minimumInstanceType": "t3.small",

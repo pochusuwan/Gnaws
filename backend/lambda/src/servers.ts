@@ -38,7 +38,7 @@ const BACKUP_BUCKET_NAME = process.env.BACKUP_BUCKET_NAME!;
 
 const SERVER_TABLE = process.env.SERVER_TABLE_NAME!;
 const WORKFLOW_TABLE = process.env.WORKFLOW_TABLE_NAME!;
-const LOCK_TIMEOUT_MS = 60 * 60 * 1000;
+const LOCK_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 const GET_STATUS_TIMEOUT = 20 * 1000;
 
 const ACTION_START = "start";
@@ -64,7 +64,7 @@ const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
 const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_START]: ALL_USERS,
     [ACTION_STOP]: ALL_USERS,
-    [ACTION_BACKUP]: ADMIN_USERS,
+    [ACTION_BACKUP]: ALL_USERS,
     [ACTION_UPDATE]: ADMIN_USERS,
     [ACTION_START_INSTANCE]: ADMIN_USERS,
     [ACTION_STOP_INSTANCE]: ADMIN_USERS,
@@ -249,7 +249,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
 
     let result;
     if (action === ACTION_START) {
-        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN, { gameConfig: await buildGameConfigPayload(server) });
+        result = await startWorkflow(server.name, instanceId, START_SERVER_FUNCTION_ARN, {
+            gameConfig: await buildGameConfigPayload(server),
+        });
     }
     if (action === ACTION_STOP) {
         result = await startWorkflow(server.name, instanceId, STOP_SERVER_FUNCTION_ARN, {
@@ -268,7 +270,7 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
             try {
                 await getGames();
             } catch (e: any) {
-                console.error(`Failed to update games: ${e.message}`)
+                console.error(`Failed to update games: ${e.message}`);
                 return serverError("Failed to reinstall. Failed update games list.");
             }
             const releaseVersion = await getStoredLatestVersion();
@@ -276,9 +278,16 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
                 server.game = {
                     ...server.game,
                     releaseVersion,
-                    configurations: await buildGameServerConfigForReinstall(server.game?.id, server.game.configurations)
-                }
-                result = await startSetupWorkflow(server.name, instanceId, server.game?.id, releaseVersion, await buildGameConfigPayload(server), true);
+                    configurations: await buildGameServerConfigForReinstall(server.game?.id, server.game.configurations),
+                };
+                result = await startSetupWorkflow(
+                    server.name,
+                    instanceId,
+                    server.game?.id,
+                    releaseVersion,
+                    await buildGameConfigPayload(server),
+                    true,
+                );
                 await updateServerAttributes(server.name, {
                     game: server.game,
                 });
@@ -331,20 +340,19 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
 };
 
 export const aquireWorkflowLock = async (resourceId: string, action: string) => {
+    const now = Date.now();
     await dynamoClient.send(
         new PutItemCommand({
             TableName: WORKFLOW_TABLE,
             Item: {
                 resourceId: { S: resourceId },
                 workflow: { S: action },
-                startedAt: { S: new Date().toISOString() },
+                lockTime: { N: now.toString() },
             },
-            ConditionExpression: "attribute_not_exists(resourceId)",
-            // Always block for now if workflow exist
-            // ConditionExpression: "attribute_not_exists(resourceId) OR startedAt < :expiry",
-            // ExpressionAttributeValues: {
-            // ":expiry": { N: (now - LOCK_TIMEOUT_MS).toString() },
-            // },
+            ConditionExpression: "attribute_not_exists(resourceId) OR lockTime < :staleLockThreshold",
+            ExpressionAttributeValues: {
+                ":staleLockThreshold": { N: (now - LOCK_TIMEOUT_MS).toString() },
+            },
         }),
     );
 };
