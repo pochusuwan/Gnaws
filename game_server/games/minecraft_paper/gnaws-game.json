@@ -61,7 +61,7 @@
             "type": "numeric",
             "isIntegerOnly": true,
             "displayName": "Spawn Protection",
-            "description": "Set spawn protection area. Set to 0 to disable.",
+            "description": "Set spawn protection area. Set to 0 to disable..",
             "minValue": 0,
             "maxValue": 256
         }

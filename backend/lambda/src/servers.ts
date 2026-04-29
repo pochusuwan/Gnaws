@@ -589,7 +589,7 @@ async function getServerMonitoringMetrics(server: Server): Promise<APIGatewayPro
         }
     }
 
-    // Possible race condition to start multiple execution. That is ok
+    // Possible race condition to start multiple execution. That is ok..
     if (next.executionId === undefined && Date.now() - (next.lastCompletedAt ?? 0) > GET_METRICS_TIMEOUT_MS) {
         try {
             const response = await ssmClient.send(
