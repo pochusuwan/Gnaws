@@ -41,6 +41,10 @@ Running a game server has always been a pain:
 - **Real-time CPU and memory monitoring** — See server performance in realtime to optimize gameplay and cost.
 - **Scheduled shutdown** — Automatically shuts down the server after a set time so you don't forget to turn it off.
 
+<img src="assets/sample-create-server.png" width="800">
+<img src="assets/sample-table.png" width="800">
+<img src="assets/sample-monitor.png" width="800">
+
 ---
 
 ## How It Works
