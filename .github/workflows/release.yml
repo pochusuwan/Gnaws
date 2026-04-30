@@ -1,0 +1,44 @@
+name: Create Release
+ 
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. v1.2.3)"
+        required: true
+      branch:
+        description: "Branch to release from"
+        required: true
+        type: choice
+        options:
+          - releaseTest
+          - releaseTest2
+      prerelease:
+        description: "Mark as pre-release? (develop/releaseTest builds)"
+        type: boolean
+        default: false
+ 
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: production
+ 
+    # Safety check: only allow the repo owner to proceed
+    if: github.actor == github.repository_owner
+ 
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+ 
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ inputs.version }}" \
+            --title "${{ inputs.version }}" \
+            --target "${{ inputs.branch }}" \
+            --generate-notes \
+            ${{ inputs.prerelease == 'true' && '--prerelease' || '--latest' }}
+ 
