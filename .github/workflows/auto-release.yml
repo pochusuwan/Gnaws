@@ -1,51 +1,62 @@
-name: Release (infra + game)
+name: Create Release
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - "bin/**"
-      - "lib/**"
-      - "game_server/**"
-
-concurrency:
-  group: versioning
-  cancel-in-progress: false
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to release from"
+        required: true
+        type: choice
+        options:
+          - main
+          - develop
+      changes:
+        description: "What changed?"
+        required: true
+        type: choice
+        options:
+          - both
+          - infra
+          - game
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: production
+
+    if: github.actor == github.repository_owner
 
     steps:
-      - name: Checkout repo
+      - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.branch }}
           fetch-depth: 0
 
       - name: Fetch tags
         run: git fetch --tags
 
-      - name: Detect changes
-        id: changes
-        run: |
-          git diff --name-only HEAD~1 > files.txt
-
-          grep -qE "^(backend|frontend|bin|lib)/" files.txt && echo "infra=true" >> $GITHUB_OUTPUT || echo "infra=false" >> $GITHUB_OUTPUT
-          grep -qE "^game_server/" files.txt && echo "game=true" >> $GITHUB_OUTPUT || echo "game=false" >> $GITHUB_OUTPUT
-
       - name: Compute tag
         id: tag
         run: |
-          BRANCH="${GITHUB_REF##*/}"
+          BUMP="${{ inputs.bump }}"
+          CHANGES="${{ inputs.changes }}"
 
           # Get latest stable (non-rc) tag
           LATEST=$(git tag --sort=-creatordate \
             | grep -E '^infra-[0-9]+\.[0-9]+\.[0-9]+_games-[0-9]+\.[0-9]+\.[0-9]+$' \
             | head -n1)
+
+          echo "Latest stable tag: $LATEST"
 
           INFRA_VERSION=$(echo $LATEST | grep -oP '(?<=infra-)[\d.]+')
           GAMES_VERSION=$(echo $LATEST | grep -oP '(?<=games-)[\d.]+')
@@ -53,37 +64,48 @@ jobs:
           IFS='.' read -r IMAJ IMIN IPAT <<< "$INFRA_VERSION"
           IFS='.' read -r GMAJ GMIN GPAT <<< "$GAMES_VERSION"
 
-          # bump versions based on changes
-          if [ "${{ steps.changes.outputs.infra }}" = "true" ]; then
-            IPAT=$((IPAT + 1))
+          # Bump infra version
+          if [ "$CHANGES" = "infra" ] || [ "$CHANGES" = "both" ]; then
+            if [ "$BUMP" = "major" ]; then
+              IMAJ=$((IMAJ + 1)); IMIN=0; IPAT=0
+            elif [ "$BUMP" = "minor" ]; then
+              IMIN=$((IMIN + 1)); IPAT=0
+            else
+              IPAT=$((IPAT + 1))
+            fi
           fi
 
-          if [ "${{ steps.changes.outputs.game }}" = "true" ]; then
-            GPAT=$((GPAT + 1))
+          # Bump game version
+          if [ "$CHANGES" = "game" ] || [ "$CHANGES" = "both" ]; then
+            if [ "$BUMP" = "major" ]; then
+              GMAJ=$((GMAJ + 1)); GMIN=0; GPAT=0
+            elif [ "$BUMP" = "minor" ]; then
+              GMIN=$((GMIN + 1)); GPAT=0
+            else
+              GPAT=$((GPAT + 1))
+            fi
           fi
 
           TAG="infra-${IMAJ}.${IMIN}.${IPAT}_games-${GMAJ}.${GMIN}.${GPAT}"
 
-          if [ "$BRANCH" = "develop" ]; then
+          # Append rc suffix for develop
+          if [ "${{ inputs.branch }}" = "develop" ]; then
             TAG="${TAG}-rc.${GITHUB_RUN_NUMBER}"
           fi
 
-          echo "Creating tag: $TAG"
-          git tag "$TAG"
-          git push origin "$TAG"
-
+          echo "New tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Package game_server folder
-        run: |
-          tar -czf game_server.tar.gz game_server
+      - name: Package game_server
+        run: tar -czf game_server.tar.gz game_server
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Release ${{ steps.tag.outputs.tag }}
-          prerelease: ${{ github.ref_name == 'develop' }}
-          files: game_server.tar.gz
+      - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            game_server.tar.gz \
+            --title "Release ${{ steps.tag.outputs.tag }}" \
+            --target "${{ inputs.branch }}" \
+            --generate-notes \
+            ${{ inputs.branch == 'develop' && '--prerelease' || '--latest' }}
