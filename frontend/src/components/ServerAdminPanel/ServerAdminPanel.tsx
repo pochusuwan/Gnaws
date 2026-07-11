@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import useApiCall from "../../hooks/useApiCall";
 import type { Server } from "../../types";
 import "./ServerAdminPanel.css";
-import { hasAdminPermission, serverHasRunningTask, serverRefreshingStatus } from "../../utils";
+import { hasAdminPermission, hasUserPermission, serverAllowsUser, serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import PageSelector from "../../components/PageSelector/PageSelector";
@@ -28,7 +28,7 @@ type ServerAdminPanelProps = {
     replaceServerData: (server: Server) => void;
 };
 export default function ServerAdminPanel(props: ServerAdminPanelProps) {
-    const userRole = useUser().role;
+    const user = useUser();
     const [page, setPage] = useState(SERVER_ACTION);
     const serverRef = useRef(props.server);
     serverRef.current = props.server;
@@ -102,6 +102,8 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
     const inProgress = state.state === "Loading";
     const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
+    const userActionsDisabled = inProgress || !hasUserPermission(user.role) || !serverAllowsUser(server, user);
+    const adminActionsDisabled = inProgress || !hasAdminPermission(user.role);
 
     return (
         <div className="serverAdminPanel">
@@ -113,17 +115,17 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
             <PageSelector current={page} onSelect={setPage} pages={PAGES} />
             {page === SERVER_ACTION && (
                 <ServerActionButtons
-                    disabled={inProgress || !hasAdminPermission(userRole)}
-                    backupDisabled={inProgress}
+                    userActionsDisabled={userActionsDisabled}
+                    adminActionsDisabled={adminActionsDisabled}
                     callAction={callAction}
                     callStop={callStop}
                     callStopInstance={callStopInstance}
                     callTerminateAction={callTerminateAction}
                 />
             )}
-            {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} setMessage={setMessage} />}
+            {page === SERVER_CONFIG && <ServerConfigPanel server={server} callAction={callAction} disabled={adminActionsDisabled} setMessage={setMessage} />}
             {page === SERVER_DATA && <pre className="jsonView">{JSON.stringify(server, null, 2)}</pre>}
-            {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} disabled={inProgress || !hasAdminPermission(userRole)} />}
+            {page === GAME_ACTION && <GameActionPanel server={server} callAction={callAction} disabled={adminActionsDisabled} />}
             {page === GAME_CONFIG && <GameConfigPanel server={server} replaceServerData={props.replaceServerData}/>}
             {page === MONITOR && <MonitorPanel server={server} />}
             {stopInstanceOpen && (
@@ -151,73 +153,73 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 }
 
 type ServerActionProps = {
-    disabled: boolean;
-    backupDisabled: boolean;
+    userActionsDisabled: boolean;
+    adminActionsDisabled: boolean;
     callAction: (action: string, refreshAfterSuccess: boolean, params?: { [key: string]: string | number | undefined }) => void;
     callStop: () => void;
     callStopInstance: () => void;
     callTerminateAction: () => void;
 };
 function ServerActionButtons(props: ServerActionProps) {
-    const { backupDisabled, disabled, callAction, callStop, callStopInstance, callTerminateAction } = props;
+    const { userActionsDisabled, adminActionsDisabled, callAction, callStop, callStopInstance, callTerminateAction } = props;
     return (
         <div className="serverAdminPanelButtonGrid">
             <AdminPanelButton
-                disabled={disabled}
+                disabled={userActionsDisabled}
                 label="Start"
                 description="Start EC2 instance then start game server. This is the same button as the in the table."
                 onClick={() => callAction("Start", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={userActionsDisabled}
                 label="Stop"
                 description="Stop game server then stop the EC2 instance. This is the same button as the in the table."
                 onClick={() => callStop()}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Start Instance"
                 description="Start EC2 instance without starting the game server."
                 onClick={() => callAction("Start_Instance", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Stop Game Server"
                 description="Stop game server without stopping the EC2 instance."
                 onClick={() => callAction("Stop_Game", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Force Stop Instance"
                 description="Force stop that shuts down the EC2 instance without gracefully stopping the game server first. Unsaved game progress may be lost."
                 onClick={callStopInstance}
             />
             <AdminPanelButton
-                disabled={backupDisabled}
+                disabled={userActionsDisabled}
                 label="Backup Server Save"
                 description="Backup current server save files to S3 storage. Note that some games only save periodically or when shutting down. This does not force the game to save, so recent progress may not be included if the server is running. EC2 instance must be running to run this command."
                 onClick={() => callAction("Backup", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Update Game Server Version"
                 description="Update the game server to the latest version. Save files are preserved, but newer versions may be incompatible with existing saves. Create a backup before updating. EC2 instance must be running and server not running to run this command."
                 onClick={() => callAction("Update", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Remove workflow lock"
                 description="Clear the workflow lock if the server is stuck after a failed action. The lock prevents multiple operations from running at once. Removing it does not change the server state."
                 onClick={() => callAction("Remove_Lock", false)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Reinstall Server"
                 description="Reinstalls system scripts and game dependencies without touching your save files. Use this to fix a broken or misbehaving server. Make sure the instance is running and the game server is stopped before reinstalling. Create a backup before reinstalling."
                 onClick={() => callAction("Reinstall", true)}
             />
             <AdminPanelButton
-                disabled={disabled}
+                disabled={adminActionsDisabled}
                 label="Terminate Server"
                 description="Permanently delete the server and all its resources. This cannot be undone. Any backups in S3 storage will be preserved and can be used to restore to a new server."
                 onClick={callTerminateAction}

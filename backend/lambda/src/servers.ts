@@ -29,6 +29,7 @@ import {
     getNewShutdownTime,
     toggleScheduledShutdown,
     setServerCustomSubdomain,
+    setAllowedUsers,
 } from "./serverConfig";
 import { getStoredLatestVersion } from "./versioning";
 import { buildGameConfigPayload, buildGameServerConfigForReinstall } from "./gameConfig";
@@ -58,6 +59,7 @@ const ACTION_ADD_HOUR = "add_hour";
 const ACTION_GET_MONITORING_METRICS = "get_monitoring_metrics";
 const ACTION_SET_CUSTOM_SUBDOMAIN = "set_custom_subdomain";
 const ACTION_REINSTALL = "reinstall";
+const ACTION_SET_ALLOWED_USERS = "set_allowed_users";
 
 const ALL_USERS = [ROLE_OWNER, ROLE_ADMIN, ROLE_USER];
 const ADMIN_USERS = [ROLE_OWNER, ROLE_ADMIN];
@@ -79,6 +81,7 @@ const SERVER_ACTIONS: { [action: string]: string[] } = {
     [ACTION_GET_MONITORING_METRICS]: ADMIN_USERS,
     [ACTION_SET_CUSTOM_SUBDOMAIN]: ADMIN_USERS,
     [ACTION_REINSTALL]: ADMIN_USERS,
+    [ACTION_SET_ALLOWED_USERS]: ADMIN_USERS,
 };
 
 export const getServers = async (user: User, params: any): Promise<APIGatewayProxyResult> => {
@@ -196,6 +199,18 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     if (!server) {
         return clientError("Server not found");
     }
+
+    // For actions available to all users, enforce the per-server allowedUsers restriction for regular users
+    if (SERVER_ACTIONS[action]?.includes(ROLE_USER) && user.role === ROLE_USER) {
+        const allowedUsers = server.configuration?.allowedUsers;
+        if (allowedUsers) {
+            const allowedList = allowedUsers.split(",").map((u) => u.trim()).filter((u) => u.length > 0);
+            if (allowedList.length > 0 && !allowedList.includes(user.username)) {
+                return forbidden();
+            }
+        }
+    }
+
     const instanceId = server.ec2?.instanceId;
     if (!instanceId) {
         return serverError("Server has no instance id");
@@ -233,6 +248,9 @@ export const serverAction = async (user: User, params: any): Promise<APIGatewayP
     }
     if (action === ACTION_SET_CUSTOM_SUBDOMAIN) {
         return setServerCustomSubdomain(server, params.subdomain);
+    }
+    if (action === ACTION_SET_ALLOWED_USERS) {
+        return setAllowedUsers(server, params.allowedUsers);
     }
 
     // Acquire lock

@@ -84,7 +84,12 @@ export const getUserFromJwt = async (cookies: string[] | undefined = []): Promis
     return null;
 };
 
+const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
+
 async function loginWithUsernamePassword(username: string, password: string, setPassword: boolean): Promise<APIGatewayProxyResult> {
+    if (!USERNAME_REGEX.test(username)) {
+        return invalidCredential();
+    }
     let user = await getUserFromDB(username);
     // Owner user created during stack creation. If role is owner, use owner login flow.
     if (user?.role === ROLE_OWNER) {

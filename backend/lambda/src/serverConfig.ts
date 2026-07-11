@@ -114,6 +114,31 @@ export async function changeInstanceType(server: Server, instanceType: any): Pro
     }
 }
 
+export async function setAllowedUsers(server: Server, allowedUsers: any): Promise<APIGatewayProxyResult> {
+    try {
+        if (typeof allowedUsers !== "string") {
+            return clientError("Invalid allowedUsers");
+        }
+        const trimmed = allowedUsers.trim();
+        if (trimmed.length > 0) {
+            const usernames = trimmed.split(",").map((u) => u.trim());
+            if (usernames.some((u) => !/^[a-zA-Z0-9]+$/.test(u))) {
+                return clientError("Invalid username in allowedUsers");
+            }
+        }
+        await updateServerAttributes(server.name, {
+            configuration: {
+                ...server.configuration,
+                allowedUsers: trimmed,
+            },
+        });
+        return success({ message: "success" });
+    } catch (e: any) {
+        console.error(`Failed to set allowed users ${e.message}`);
+        return serverError("Failed to set allowed users");
+    }
+}
+
 export async function createRoute53RecordForServer(server: Server): Promise<void> {
     try {
         const subdomain = server.configuration?.customSubdomain;

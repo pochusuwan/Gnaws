@@ -1,4 +1,4 @@
-import { Role, type Configuration, type Server } from "./types";
+import { Role, type Configuration, type Server, type User } from "./types";
 
 export function serverRefreshingStatus(server: Server): boolean {
     const statusLastRequest = server.status?.lastRequest;
@@ -29,6 +29,14 @@ export function hasAdminPermission(role: Role): boolean {
 
 export function hasOwnerPermission(role: Role): boolean {
     return role === Role.Owner;
+}
+
+export function serverAllowsUser(server: Server, user: User): boolean {
+    if (hasAdminPermission(user.role)) return true;
+    const allowedUsers = server.configuration?.allowedUsers;
+    if (!allowedUsers) return true;
+    const list = allowedUsers.split(",").map((u) => u.trim()).filter((u) => u.length > 0);
+    return list.length === 0 || list.includes(user.username);
 }
 
 export function buildConfigHint(config: Configuration): string {

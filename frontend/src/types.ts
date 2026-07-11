@@ -56,6 +56,7 @@ export type Server = {
         autoShutdownMinute?: number;
         scheduledShutdownDisabled?: boolean;
         customSubdomain?: string;
+        allowedUsers?: string;
     };
     scheduledShutdown?: {
         shutdownTime?: string;
