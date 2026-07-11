@@ -56,6 +56,7 @@ export type Server = {
         autoShutdownMinute?: number;
         scheduledShutdownDisabled?: boolean;
         customSubdomain?: string;
+        allowedUsers?: string;
     };
     scheduledShutdown?: {
         shutdownTime?: string;
@@ -70,7 +71,8 @@ export type Server = {
         startedAt?: number;
         lastCompletedAt?: number;
         entries?: MetricEntry[];
-    }
+    };
+    userCanAct?: boolean;
 };
 
 export type MetricEntry = {

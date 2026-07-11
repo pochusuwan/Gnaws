@@ -31,6 +31,10 @@ export function hasOwnerPermission(role: Role): boolean {
     return role === Role.Owner;
 }
 
+export function serverAllowsUser(server: Server): boolean {
+    return server.userCanAct ?? true;
+}
+
 export function buildConfigHint(config: Configuration): string {
     if (config.type === "alphanumeric") {
         if (config.minLength !== undefined && config.maxLength !== undefined) return `${config.minLength}–${config.maxLength} characters.`;

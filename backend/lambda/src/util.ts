@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from "aws-lambda";
 import { Server } from "./types";
+import { User, ROLE_ADMIN, ROLE_OWNER } from "./users";
 
 export function response(code: number, body: any): APIGatewayProxyResult {
     return {
@@ -28,9 +29,22 @@ export function success(body: any): APIGatewayProxyResult {
     return response(200, body)
 }
 
-export function sanatizeServer(server: Server, isAdmin: boolean): Server {
+export function sanatizeServer(server: Server, user: User): Server {
+    const isAdmin = user.role === ROLE_ADMIN || user.role === ROLE_OWNER;
     if (server.game !== undefined) {
         server.game.configurations = server.game.configurations?.filter(c => isAdmin || !c.isAdminOnly);
+    }
+    const allowedUsers = server.configuration?.allowedUsers;
+    if (!isAdmin && allowedUsers) {
+        const list = allowedUsers.split(",").map((u) => u.trim()).filter((u) => u.length > 0);
+        server.userCanAct = list.length === 0 || list.includes(user.username);
+    } else {
+        server.userCanAct = true;
+    }
+    if (!isAdmin && server.configuration !== undefined) {
+        const config = { ...server.configuration };
+        delete config.allowedUsers;
+        server.configuration = config;
     }
     return server;
 }

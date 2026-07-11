@@ -5,8 +5,8 @@
         "setupDurationMinute": 8
     },
     "ec2": {
-        "instanceType": "t3.large",
-        "minimumInstanceType": "t3.large",
+        "instanceType": "r6a.xlarge",
+        "minimumInstanceType": "r6a.large",
         "storage": 10,
         "ports": [
             {

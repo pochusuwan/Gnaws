@@ -4,6 +4,8 @@ import "./ServerConfigPanel.css";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
 import InstanceTypeGuide from "../InstanceTypeGuide/InstanceTypeGuide";
+import { useUser } from "../../hooks/useUser";
+import { hasAdminPermission } from "../../utils";
 
 const STORAGE_COST_PER_GIB_PER_MONTH = 0.08;
 
@@ -15,6 +17,7 @@ type ServerConfigPanelProps = {
 };
 export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     const { server, callAction } = props;
+    const isAdmin = hasAdminPermission(useUser().role);
 
     // Increase storage dialog
     const { open: increaseStorageOpen, onResult: increaseStorageResult, confirm: increaseStorageConfirm } = useConfirm();
@@ -22,6 +25,8 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     const { open: instanceTypeOpen, onResult: instanceTypeResult, confirm: instanceTypeConfirm } = useConfirm();
     // Custom subdomain dialog
     const { open: customSubdomainOpen, onResult: customSubdomainResult, confirm: customSubdomainConfirm } = useConfirm();
+    // Allowed users dialog
+    const { open: allowedUsersOpen, onResult: allowedUsersResult, confirm: allowedUsersConfirm } = useConfirm();
 
     const callIncreaseStorage = useCallback(async () => {
         const result = await increaseStorageConfirm();
@@ -72,6 +77,13 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         }
     }, [callAction]);
 
+    const callSetAllowedUsers = useCallback(async () => {
+        const result = await allowedUsersConfirm();
+        if (result?.result) {
+            callAction("set_allowed_users", true, { allowedUsers: result.input ?? "" });
+        }
+    }, [callAction]);
+
     const callChangeInstanceType = useCallback(async () => {
         const result = await instanceTypeConfirm();
         const instanceType = result?.input;
@@ -84,6 +96,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         <div>
             <div>Instance Type: {server.ec2?.instanceType}</div>
             <div>Custom Subdomain: {server.configuration?.customSubdomain ?? "-"}</div>
+            {isAdmin && <div>Allowed Users: {server.configuration?.allowedUsers || "-"}</div>}
             <div className="serverConfigPanelButtonGrid">
                 <AdminPanelButton
                     disabled={props.disabled}
@@ -109,6 +122,12 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                     description="The server's IP address changes every time it starts. If you have a domain hosted in AWS Route 53, you can assign a subdomain (e.g. mc.example.com) so players always connect using the same address. Instance restart required to take effect."
                     onClick={callSetCustomSubdomain}
                 />
+                <AdminPanelButton
+                    disabled={props.disabled}
+                    label="Set Allowed Users"
+                    description="Restrict which users can perform actions on this server. When set, only the listed users can start, stop, backup, or extend the shutdown timer. Admins are always exempt. Leave empty to allow all users."
+                    onClick={callSetAllowedUsers}
+                />
                 {customSubdomainOpen && (
                     <ConfirmDialog
                         message={buildCustomSubdomainMessage}
@@ -125,6 +144,20 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
                         noMessage="Cancel"
                         onResult={increaseStorageResult}
                         inputValue={""}
+                    />
+                )}
+                {allowedUsersOpen && (
+                    <ConfirmDialog
+                        message={
+                            <div>
+                                <div>Enter a comma-separated list of usernames allowed to perform actions on this server.</div>
+                                <div>Leave empty to allow all users. Admins are always exempt.</div>
+                            </div>
+                        }
+                        yesMessage="Confirm"
+                        noMessage="Cancel"
+                        onResult={allowedUsersResult}
+                        inputValue={server.configuration?.allowedUsers ?? ""}
                     />
                 )}
                 {instanceTypeOpen && (

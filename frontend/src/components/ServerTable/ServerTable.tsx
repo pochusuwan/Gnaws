@@ -5,7 +5,7 @@ import "./ServerTable.css";
 import Spinner from "../Spinner/Spinner";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import { useUser } from "../../hooks/useUser";
-import { hasUserPermission, serverHasRunningTask, serverRefreshingStatus } from "../../utils";
+import { hasUserPermission, serverAllowsUser, serverHasRunningTask, serverRefreshingStatus } from "../../utils";
 import { useCurrentTime } from "../../hooks/useCurrentTime";
 
 type ServerTableProps = {
@@ -101,7 +101,7 @@ type ServerRowProps = {
 function ServerRow(props: ServerRowProps) {
     const { server, serverAction, actionInProgress } = props;
 
-    const userRole = useUser().role;
+    const user = useUser();
     const onActionClick = useCallback(
         (action: ServerAction) => {
             props.serverAction(server.name, action);
@@ -152,7 +152,7 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.status?.playerCount} />
             <Cell value={timeSinceBackup} />
             <td>
-                {hasUserPermission(userRole) ? (
+                {hasUserPermission(user.role) && serverAllowsUser(server) ? (
                     <div className="actionRow">
                         {actions.map((action) => (
                             <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>
