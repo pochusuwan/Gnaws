@@ -71,7 +71,8 @@ export type Server = {
         startedAt?: number;
         lastCompletedAt?: number;
         entries?: MetricEntry[];
-    }
+    };
+    userCanAct?: boolean;
 };
 
 export type MetricEntry = {

@@ -102,7 +102,7 @@ export default function ServerAdminPanel(props: ServerAdminPanelProps) {
 
     const inProgress = state.state === "Loading";
     const showSpinner = serverRefreshingStatus(server) || serverHasRunningTask(server);
-    const userActionsDisabled = inProgress || !hasUserPermission(user.role) || !serverAllowsUser(server, user);
+    const userActionsDisabled = inProgress || !hasUserPermission(user.role) || !serverAllowsUser(server);
     const adminActionsDisabled = inProgress || !hasAdminPermission(user.role);
 
     return (

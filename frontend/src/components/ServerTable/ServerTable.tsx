@@ -152,7 +152,7 @@ function ServerRow(props: ServerRowProps) {
             <Cell value={server.status?.playerCount} />
             <Cell value={timeSinceBackup} />
             <td>
-                {hasUserPermission(user.role) && serverAllowsUser(server, user) ? (
+                {hasUserPermission(user.role) && serverAllowsUser(server) ? (
                     <div className="actionRow">
                         {actions.map((action) => (
                             <button key={action} disabled={actionInProgress} onClick={() => onActionClick(action)}>

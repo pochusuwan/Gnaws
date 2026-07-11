@@ -4,6 +4,8 @@ import "./ServerConfigPanel.css";
 import { ConfirmDialog, useConfirm } from "../ConfirmDialog/ConfirmDialog";
 import AdminPanelButton from "../AdminPanelButton/AdminPanelButton";
 import InstanceTypeGuide from "../InstanceTypeGuide/InstanceTypeGuide";
+import { useUser } from "../../hooks/useUser";
+import { hasAdminPermission } from "../../utils";
 
 const STORAGE_COST_PER_GIB_PER_MONTH = 0.08;
 
@@ -15,6 +17,7 @@ type ServerConfigPanelProps = {
 };
 export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     const { server, callAction } = props;
+    const isAdmin = hasAdminPermission(useUser().role);
 
     // Increase storage dialog
     const { open: increaseStorageOpen, onResult: increaseStorageResult, confirm: increaseStorageConfirm } = useConfirm();
@@ -93,7 +96,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
         <div>
             <div>Instance Type: {server.ec2?.instanceType}</div>
             <div>Custom Subdomain: {server.configuration?.customSubdomain ?? "-"}</div>
-            <div>Allowed Users: {server.configuration?.allowedUsers || "any"}</div>
+            {isAdmin && <div>Allowed Users: {server.configuration?.allowedUsers || "-"}</div>}
             <div className="serverConfigPanelButtonGrid">
                 <AdminPanelButton
                     disabled={props.disabled}

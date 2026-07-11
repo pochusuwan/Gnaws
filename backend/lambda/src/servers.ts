@@ -109,7 +109,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     }
 
     if (!refreshStatus) {
-        return success({ servers: servers.map((s) => sanatizeServer(s, user.role === ROLE_ADMIN || user.role === ROLE_OWNER)) });
+        return success({ servers: servers.map((s) => sanatizeServer(s, user)) });
     }
 
     const now = new Date();
@@ -144,7 +144,7 @@ export const getServers = async (user: User, params: any): Promise<APIGatewayPro
     if (!isSuccess) {
         return serverError("Failed to get servers status");
     }
-    return success({ servers: servers.map((s) => sanatizeServer(s, user.role === ROLE_ADMIN || user.role === ROLE_OWNER)) });
+    return success({ servers: servers.map((s) => sanatizeServer(s, user)) });
 };
 
 export const getAllServersFromDB = async (): Promise<Server[]> => {
