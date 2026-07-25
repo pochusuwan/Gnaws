@@ -338,7 +338,7 @@ function CreateServerConfigurations({ game, configValues, setConfigValues }: Cre
                         <ConfigurationInput key={c.id} config={c} value={configValues[c.id]} onChange={(v) => onChange(c.id, v)} />
                     ))}
                     {createOnly.length > 0 && (
-                        <tr style={{ backgroundColor: "#e0e0e0" }}>
+                        <tr className="createServerCreationOnlyHeader">
                             <td colSpan={3}>Cannot be changed after creation:</td>
                         </tr>
                     )}
@@ -361,7 +361,7 @@ type ConfigurationInputProps = {
 function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps) {
     if (config.type === "boolean") {
         return (
-            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+            <tr className={config.isCreationOnly ? "createServerCreationOnly" : undefined}>
                 <td>{config.displayName}:</td>
                 <td>
                     <input
@@ -380,7 +380,7 @@ function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps
     }
     if (config.type === "enum") {
         return (
-            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+            <tr className={config.isCreationOnly ? "createServerCreationOnly" : undefined}>
                 <td>{config.displayName}:</td>
                 <td>
                     <select id={config.id} value={(value as string) ?? config.default} onChange={(e) => onChange(e.target.value)}>
@@ -398,7 +398,7 @@ function ConfigurationInput({ config, value, onChange }: ConfigurationInputProps
         );
     }
     return (
-        <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+        <tr className={config.isCreationOnly ? "createServerCreationOnly" : undefined}>
             <td>{config.displayName}:</td>
             <td>
                 <input

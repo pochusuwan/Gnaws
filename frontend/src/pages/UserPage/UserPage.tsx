@@ -116,7 +116,7 @@ function UserRow(props: RowProps) {
         [props.user.username, props.onUpdate],
     );
     return (
-        <div className="userRow" style={{ backgroundColor: props.editting ? "lightgreen" : "transparent" }}>
+        <div className={`userRow${props.editting ? " userRowEditing" : ""}`}>
             <div className="userValue">{props.user.username}</div>
             <select id={props.user.username} defaultValue={props.user.role} onChange={onChange} disabled={props.user.role === Role.Owner}>
                 {Object.values(Role).map((role) => (

@@ -159,7 +159,7 @@ function UpdateDialog(props: UpdateDialogProps) {
                     </a>
                 </div>
                 <div>2. Run this command</div>
-                <pre style={{ padding: "10px", background: "#f4f4f4", borderRadius: "5px" }}>
+                <pre className="updateDialogPre">
                     <code>{UPDATE_SCRIPT}</code>
                 </pre>
                 <button onClick={copyCallback}>{isCopied ? "Copied!" : "Copy"}</button>

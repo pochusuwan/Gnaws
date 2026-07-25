@@ -143,7 +143,7 @@ function ConfigurationInput({ id, config, value, onChange, editting }: Configura
             );
         }
         return (
-            <tr style={{ backgroundColor: config.isCreationOnly ? "#e0e0e0" : undefined }}>
+            <tr className={config.isCreationOnly ? "configCreationOnly" : undefined}>
                 <td>{config.displayName}:</td>
                 <td>{valContent}</td>
                 <td>

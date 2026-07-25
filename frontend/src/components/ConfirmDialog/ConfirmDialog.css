@@ -14,7 +14,7 @@
     padding: 16px;
     min-width: 300px;
     width: fit-content;
-    background: #fff;
+    background: var(--dialog-bg);
     display: flex;
     flex-direction: column;
     justify-content: center;

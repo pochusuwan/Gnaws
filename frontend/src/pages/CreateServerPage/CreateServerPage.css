@@ -41,7 +41,7 @@
 .createServerPageDivider {
     width: 100%;
     height: 1px;
-    background-color: black;
+    background-color: var(--divider-color);
     margin-bottom: 4px;
 }
 
@@ -51,4 +51,12 @@
 
 .createServerPageList {
     margin: 0px;
+}
+
+.createServerCreationOnlyHeader {
+    background-color: var(--muted-bg);
+}
+
+.createServerCreationOnly {
+    background-color: var(--muted-bg);
 }
