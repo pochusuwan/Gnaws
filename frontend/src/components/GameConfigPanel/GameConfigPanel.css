@@ -31,3 +31,7 @@
 .gameConfigButton {
     width: 80px;
 }
+
+.configCreationOnly {
+    background-color: var(--muted-bg);
+}

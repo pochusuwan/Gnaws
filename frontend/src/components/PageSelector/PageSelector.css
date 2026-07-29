@@ -8,13 +8,13 @@
 
 .pageSelectorActive {
     padding: 6px 16px;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--border-color);
     border-radius: 8px 8px 0 0;
-    background: white;
+    background: var(--bg-surface);
     font-weight: 600;
     font-size: 18px;
 
-    border-bottom-color: white;
+    border-bottom-color: var(--bg-surface);
     margin-bottom: -1px;
     z-index: 1;
 }
@@ -25,9 +25,9 @@
 
 .pageSelectorInactive {
     padding: 6px 16px;
-    border: 1px solid #d0d0d0;
+    border: 1px solid var(--border-color);
     border-radius: 8px 8px 0 0;
-    background: #f0f0f0;
+    background: var(--muted-bg);
     font-weight: 400;
     font-size: 18px;
 }

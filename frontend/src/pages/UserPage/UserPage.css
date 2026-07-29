@@ -12,6 +12,16 @@
     padding-bottom: 4px;
 }
 
+.userRowEditing {
+    background-color: #d4edda;
+}
+
+@media (prefers-color-scheme: dark) {
+    .userRowEditing {
+        background-color: #1a3a2a;
+    }
+}
+
 .userValue {
     text-align: start;
     font-weight: 600;

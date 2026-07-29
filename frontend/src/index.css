@@ -7,6 +7,21 @@
     color: rgba(255, 255, 255, 0.87);
     background-color: #242424;
 
+    --bg-surface: #2a2a2a;
+    --bg-surface-hover: #333;
+    --bg-card: #2a2a2a;
+    --border-color: #444;
+    --text-primary: rgba(255, 255, 255, 0.87);
+    --text-secondary: #aaa;
+    --btn-bg: #3a3a3a;
+    --btn-border: #555;
+    --btn-hover-border: #777;
+    --input-bg: #1a1a1a;
+    --table-header-bg: #333;
+    --dialog-bg: #2a2a2a;
+    --divider-color: #555;
+    --muted-bg: #333;
+
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -25,13 +40,14 @@ button {
     font-size: 1em;
     font-weight: 500;
     font-family: inherit;
-    background-color: #f0f0f0;
+    background-color: var(--btn-bg);
+    color: var(--text-primary);
     cursor: pointer;
     transition: border-color 0.25s;
-    border-color: #e2e2e2;
+    border-color: var(--btn-border);
 }
 button:hover {
-    border-color: #525252;
+    border-color: var(--btn-hover-border);
 }
 button:focus,
 button:focus-visible {
@@ -42,6 +58,21 @@ button:focus-visible {
     :root {
         color: #213547;
         background-color: #ffffff;
+
+        --bg-surface: #ffffff;
+        --bg-surface-hover: #f5f5f5;
+        --bg-card: #ffffff;
+        --border-color: #d0d0d0;
+        --text-primary: #213547;
+        --text-secondary: #666;
+        --btn-bg: #f0f0f0;
+        --btn-border: #e2e2e2;
+        --btn-hover-border: #525252;
+        --input-bg: #ffffff;
+        --table-header-bg: #cccccc;
+        --dialog-bg: #ffffff;
+        --divider-color: gray;
+        --muted-bg: #f0f0f0;
     }
 }
 

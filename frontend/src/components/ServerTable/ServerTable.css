@@ -3,13 +3,13 @@
     border-collapse: collapse;
 }
 .serverTable th {
-    border: 1px solid #acacac;
+    border: 1px solid var(--border-color);
     width: 1px;
     white-space: nowrap;
-    background-color: #cccccc;
+    background-color: var(--table-header-bg);
 }
 .serverTable td {
-    border: 1px solid #acacac;
+    border: 1px solid var(--border-color);
     width: 1px;
     white-space: nowrap;
 }
