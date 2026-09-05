@@ -523,6 +523,10 @@ const increaseStorage = async (server: Server, storage: any): Promise<APIGateway
     if (typeof storage !== "number" || storage < 4 || storage > 128) {
         return clientError("Invalid storage size");
     }
+    const currentStorage = server.ec2?.storage;
+    if (typeof currentStorage === "number" && storage <= currentStorage) {
+        return clientError(`Storage must be greater than the current ${currentStorage} GiB`);
+    }
 
     try {
         const instanceId = server.ec2?.instanceId;
@@ -542,6 +546,9 @@ const increaseStorage = async (server: Server, storage: any): Promise<APIGateway
                 Size: storage,
             }),
         );
+        await updateServerAttributes(server.name, {
+            ec2: { ...server.ec2, storage },
+        });
         return success({ message: "Storage increase initiated" });
     } catch (e: any) {
         return serverError(`Failed to increase storage: ${e.message || "Unknown error"}`);
