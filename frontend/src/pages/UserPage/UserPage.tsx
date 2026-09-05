@@ -1,38 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
-import { Role, type NetworkDataState, type User } from "../../types";
+import { Role, type NetworkDataState, type NewUser, type User } from "../../types";
 import "./UserPage.css";
 import { useUser } from "../../hooks/useUser";
-import { hasAdminPermission } from "../../utils";
-import useApiCall from "../../hooks/useApiCall";
+import { hasAdminPermission, roleRank } from "../../utils";
 import { EditableField } from "../../components/EditableField/EditableField";
+import { ConfirmDialog, useConfirm } from "../../components/ConfirmDialog/ConfirmDialog";
 
 type UserPageProps = {
     users: NetworkDataState<User[]>;
     loadUsers: () => void;
     updateUsers: (users: { [username: string]: Role }) => Promise<boolean>;
+    addUser: (username: string) => Promise<NewUser | undefined>;
+    regeneratePin: (username: string) => Promise<string | undefined>;
 };
 
 export default function UserPage(props: UserPageProps) {
-    const userRole = useUser().role;
+    const currentUser = useUser();
+    const userRole = currentUser.role;
     const [editingUsers, setEditingUsers] = useState<{ [username: string]: Role }>({});
     const [updateUsersMessage, setUpdateUsersMessage] = useState("");
-    const { call: getInviteCodeCall, state: inviteCodeState } = useApiCall<{ code: string }>("getInviteCode");
-    const { call: randomizeInviteCode, state: randomizeInviteCodeState } = useApiCall<{ code: string }>("randomizeInviteCode");
-    const [inviteCode, setInviteCode] = useState("");
+    const [newUsername, setNewUsername] = useState("");
+    const [addUserMessage, setAddUserMessage] = useState("");
+    const [addingUser, setAddingUser] = useState(false);
     useEffect(() => {
         if (hasAdminPermission(userRole)) {
             props.loadUsers();
-            getInviteCodeCall();
         }
     }, [userRole, props.loadUsers]);
 
-    useEffect(() => {
-        if (randomizeInviteCodeState.state === "Loaded") {
-            setInviteCode(randomizeInviteCodeState.data.code);
-        } else if (inviteCodeState.state === "Loaded") {
-            setInviteCode(inviteCodeState.data.code);
+    const submitAddUser = useCallback(async () => {
+        setAddUserMessage("");
+        setAddingUser(true);
+        const user = await props.addUser(newUsername);
+        setAddingUser(false);
+        if (user) {
+            setNewUsername("");
+            setAddUserMessage(`Added ${user.username} — PIN: ${user.pin}`);
+        } else {
+            setAddUserMessage("Failed to add user");
         }
-    }, [randomizeInviteCodeState, inviteCodeState]);
+    }, [props.addUser, newUsername]);
 
     const onUpdate = useCallback(
         (username: string, role?: Role) => {
@@ -71,27 +78,33 @@ export default function UserPage(props: UserPageProps) {
 
     return (
         <div>
-            <div style={{ textAlign: "start" }}>All users except the owner log in using a shared invite code</div>
-            <div className="inviteCodeRow">
-                <EditableField label={"Invite Code"} value={inviteCode} editing={false} onValueChange={setInviteCode} />
-                <button
-                    disabled={inviteCodeState.state !== "Loaded" || randomizeInviteCodeState.state === "Loading"}
-                    onClick={() => randomizeInviteCode()}
-                >
-                    Randomize
+            <div style={{ textAlign: "start" }}>Each user (except the owner) logs in with their own 4-digit PIN, set by an admin</div>
+            <div className="addUserRow">
+                <EditableField label={"New username"} value={newUsername} editing={true} onValueChange={setNewUsername} />
+                <button disabled={!newUsername || addingUser} onClick={submitAddUser}>
+                    Add user
                 </button>
             </div>
+            <div>{addUserMessage}</div>
             <div className="userTable">
-                <div style={{ fontWeight: "bold" }}>Set users permissions</div>
+                <div className="userTableHeader">
+                    <div style={{ fontWeight: "bold" }}>Set users permissions</div>
+                    {Object.values(editingUsers).length > 0 && <button onClick={submitUpdate}>Update</button>}
+                <div>{updateUsersMessage}</div>
+                </div>
                 <div>New — View server list and IP addresses only</div>
                 <div>User — Can start and stop servers</div>
                 <div>Admin — Can start, stop, create, modify servers, and manage permissions</div>
-                <div>Owner — All permissions, including changing the invite code</div>
                 {props.users.data.map((user) => (
-                    <UserRow key={user.username} user={user} onUpdate={onUpdate} editting={editingUsers[user.username] !== undefined} />
+                    <UserRow
+                        key={user.username}
+                        user={user}
+                        currentUser={currentUser}
+                        onUpdate={onUpdate}
+                        regeneratePin={props.regeneratePin}
+                        editting={editingUsers[user.username] !== undefined}
+                    />
                 ))}
-                {Object.values(editingUsers).length > 0 && <button onClick={submitUpdate}>Update</button>}
-                <div>{updateUsersMessage}</div>
             </div>
         </div>
     );
@@ -99,11 +112,16 @@ export default function UserPage(props: UserPageProps) {
 
 type RowProps = {
     user: User;
+    currentUser: User;
     onUpdate?: (username: string, role?: Role) => void;
+    regeneratePin: (username: string) => Promise<string | undefined>;
     editting?: boolean;
     disabled?: boolean;
 };
 function UserRow(props: RowProps) {
+    const [regenerating, setRegenerating] = useState(false);
+    const [newPin, setNewPin] = useState("");
+    const { open: confirmRegenOpen, onResult: confirmRegenResult, confirm: confirmRegen } = useConfirm();
     const onChange = useCallback(
         (e: React.ChangeEvent<HTMLSelectElement>) => {
             const selectedRole = e.target.value as Role;
@@ -115,16 +133,50 @@ function UserRow(props: RowProps) {
         },
         [props.user.username, props.onUpdate],
     );
+    const onRegeneratePin = useCallback(async () => {
+        const confirmed = await confirmRegen();
+        if (!confirmed?.result) return;
+        setRegenerating(true);
+        setNewPin("");
+        const pin = await props.regeneratePin(props.user.username);
+        setRegenerating(false);
+        if (pin) setNewPin(pin);
+    }, [confirmRegen, props.regeneratePin, props.user.username]);
+    const isSelf = props.currentUser.username === props.user.username;
+    const outranksTarget = roleRank(props.currentUser.role) > roleRank(props.user.role);
+    // Mirror the backend updateUsers rules: a role can be changed only for a lower-ranked,
+    // non-owner user, and never your own.
+    const canChangeRole = !isSelf && props.user.role !== Role.Owner && outranksTarget;
+    // Backend regeneratePin allows a lower-ranked target or yourself, never the owner.
+    const canManagePin = props.user.role !== Role.Owner && (isSelf || outranksTarget);
+    // Owner is not an assignable permission; only keep it as an option on the owner's own (disabled) row.
+    const roleOptions =
+        props.user.role === Role.Owner ? Object.values(Role) : Object.values(Role).filter((role) => role !== Role.Owner);
     return (
         <div className={`userRow${props.editting ? " userRowEditing" : ""}`}>
             <div className="userValue">{props.user.username}</div>
-            <select id={props.user.username} defaultValue={props.user.role} onChange={onChange} disabled={props.user.role === Role.Owner}>
-                {Object.values(Role).map((role) => (
-                    <option key={role} value={role} disabled={role === Role.Owner}>
+            <select id={props.user.username} defaultValue={props.user.role} onChange={onChange} disabled={!canChangeRole}>
+                {roleOptions.map((role) => (
+                    <option key={role} value={role}>
                         {role.charAt(0).toUpperCase() + role.slice(1)}
                     </option>
                 ))}
             </select>
+            {canManagePin && (
+                <>
+                    <button onClick={onRegeneratePin} disabled={regenerating}>
+                        New PIN
+                    </button>
+                    {newPin && <div>New PIN: {newPin}. Copy it now, it won't be shown again</div>}
+                </>
+            )}
+            {confirmRegenOpen && (
+                <ConfirmDialog
+                    message={`Generate a new PIN for ${isSelf ? "yourself" : props.user.username}? The current PIN stops working immediately.`}
+                    yesMessage="Regenerate"
+                    onResult={confirmRegenResult}
+                />
+            )}
         </div>
     );
 }

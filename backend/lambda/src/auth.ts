@@ -1,14 +1,13 @@
-import { User, getUserFromDB, ROLE_OWNER, createUser, ROLE_ADMIN } from "./users";
+import { User, getUserFromDB, ROLE_OWNER, USERNAME_REGEX } from "./users";
 import { APIGatewayProxyResult } from "aws-lambda";
 import jwt from "jsonwebtoken";
-import { forbidden, invalidCredential, serverError, success } from "./util";
+import { invalidCredential, serverError, success } from "./util";
 import { dynamoClient } from "./clients";
-import { GetItemCommand, PutItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import * as bcrypt from "bcryptjs";
 
 const JWT_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
-const INVITE_CODE_SECRET = "INVITE_CODE";
 const OWNER_PASSWORD_HASH_SECRET = "OWNER_PASSWORD_HASH";
 const JWT_SECRET = "JWT_SECRET";
 const SECRET_TABLE = process.env.SECRET_TABLE_NAME!;
@@ -21,7 +20,7 @@ export async function logout(params: any): Promise<APIGatewayProxyResult> {
     return {
         statusCode: 200,
         headers: {
-            "Set-Cookie": `jwt=; HttpOnly; Secure; Path=/; Max-Age=${JWT_TTL_SECONDS}; SameSite=None`,
+            "Set-Cookie": `jwt=; HttpOnly; Secure; Path=/; Max-Age=0; SameSite=None`,
             "Access-Control-Allow-Credentials": "true",
         },
         body: JSON.stringify({}),
@@ -84,31 +83,22 @@ export const getUserFromJwt = async (cookies: string[] | undefined = []): Promis
     return null;
 };
 
-const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
-
 async function loginWithUsernamePassword(username: string, password: string, setPassword: boolean): Promise<APIGatewayProxyResult> {
     if (!USERNAME_REGEX.test(username)) {
         return invalidCredential();
     }
-    let user = await getUserFromDB(username);
+    // Login is the one place that needs the stored PIN, to compare it below.
+    const user = await getUserFromDB(username, true);
     // Owner user created during stack creation. If role is owner, use owner login flow.
     if (user?.role === ROLE_OWNER) {
         return await ownerLogin(user, password, setPassword);
     }
 
-    // Non-owner, use invite code
-    const inviteCode = await getSecret(INVITE_CODE_SECRET);
-    if (!inviteCode) {
-        throw Error("Invite code not found");
-    }
-    // Invite code are stored as plain text
-    if (password !== inviteCode) {
+    // Non-owner accounts are provisioned by an admin/owner ahead of time and log in with
+    // their own per-account PIN. Plain-text compare is fine: this is a low-stakes 4-digit
+    // PIN, not a real password, and it's stored in plain text so admins can view it too.
+    if (!user?.pin || password !== user.pin) {
         return invalidCredential();
-    }
-
-    // If invite code is correct, create user with role new
-    if (user == null) {
-        user = await createUser(username);
     }
     return await loginSuccess(user);
 }
@@ -185,45 +175,4 @@ async function loginSuccess(user: User): Promise<APIGatewayProxyResult> {
             },
         }),
     };
-}
-
-export async function getInviteCode(requestUser: User, params: any): Promise<APIGatewayProxyResult> {
-    if (requestUser.role !== ROLE_ADMIN && requestUser.role !== ROLE_OWNER) {
-        return forbidden();
-    }
-    try {
-        return success({ code: await getSecret(INVITE_CODE_SECRET) });
-    } catch (e: any) {
-        console.error(`Failed to get invite code: ${e.message}`);
-        return serverError("Failed to get invite code");
-    }
-}
-
-export async function randomizeInviteCode(requestUser: User, params: any): Promise<APIGatewayProxyResult> {
-    if (requestUser.role !== ROLE_OWNER) {
-        return forbidden();
-    }
-
-    const newCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-    try {
-        await dynamoClient.send(
-            new UpdateItemCommand({
-                TableName: SECRET_TABLE,
-                Key: {
-                    id: { S: INVITE_CODE_SECRET },
-                },
-                UpdateExpression: "SET #value = :code",
-                ExpressionAttributeNames: {
-                    "#value": "value",
-                },
-                ExpressionAttributeValues: {
-                    ":code": { S: newCode },
-                },
-            }),
-        );
-        return success({ code: newCode });
-    } catch (e: any) {
-        console.error(`Failed to update invite code ${e.message}`);
-        return serverError("Failed to update invite code");
-    }
 }

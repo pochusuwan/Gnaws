@@ -374,27 +374,6 @@ export class GnawsStack extends cdk.Stack {
                 }),
             });
         }
-        // Create 4-digit invite code
-        const inviteCode = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-        new cr.AwsCustomResource(this, "GnawsInviteCode", {
-            onCreate: {
-                service: "DynamoDB",
-                action: "putItem",
-                parameters: {
-                    TableName: this.secretTable.tableName,
-                    Item: {
-                        id: { S: "INVITE_CODE" },
-                        value: { S: inviteCode },
-                    },
-                    ConditionExpression: "attribute_not_exists(id)",
-                },
-                ignoreErrorCodesMatching: "ConditionalCheckFailedException",
-                physicalResourceId: cr.PhysicalResourceId.of("GnawsInviteCode"),
-            },
-            policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
-                resources: [this.secretTable.tableArn],
-            }),
-        });
         new cr.AwsCustomResource(this, "GnawsJwtSecret", {
             onCreate: {
                 service: "DynamoDB",

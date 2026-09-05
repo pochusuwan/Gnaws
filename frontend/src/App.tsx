@@ -23,7 +23,7 @@ export default function App() {
     const [page, setPage] = useState(SERVERS_PAGE);
     const [user, setUser] = useState<User | null>(null);
     const { servers, refreshServer, replaceServerData } = useServers(user);
-    const { users, loadUsers, updateUsers } = useUsers(user);
+    const { users, loadUsers, updateUsers, addUser, regeneratePin } = useUsers(user);
     const { games, loadGames } = useGames(user);
     const { call: checkNewReleaseCall, state: checkNewReleaseState } = useApiCall<{ hasInfraUpdate: boolean }>("checkNewRelease");
     const hasUpdate = checkNewReleaseState.state === "Loaded" && checkNewReleaseState.data.hasInfraUpdate;
@@ -47,7 +47,9 @@ export default function App() {
                     <LoggedIn clearUser={() => setUser(null)} hasUpdate={hasUpdate} />
                     <PageSelector pages={PAGES} current={page} onSelect={setPage} />
                     {page === SERVERS_PAGE && <ServerPage servers={servers} refreshServer={refreshServer} replaceServerData={replaceServerData} />}
-                    {page === USERS_PAGE && <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} />}
+                    {page === USERS_PAGE && (
+                        <UserPage users={users} loadUsers={loadUsers} updateUsers={updateUsers} addUser={addUser} regeneratePin={regeneratePin} />
+                    )}
                     {page === CREATE_SERVER_PAGE && <CreateServerPage games={games} loadGames={loadGames} refreshServer={refreshServer} />}
                 </div>
             </MetricsProvider>
