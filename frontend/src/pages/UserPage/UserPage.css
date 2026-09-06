@@ -5,6 +5,13 @@
     gap: 8px;
 }
 
+.userTableHeader {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
 .userRow {
     display: flex;
     flex-direction: row;
@@ -28,7 +35,7 @@
     width: 150px;
 }
 
-.inviteCodeRow {
+.addUserRow {
     display: flex;
     flex-direction: row;
     gap: 16px;

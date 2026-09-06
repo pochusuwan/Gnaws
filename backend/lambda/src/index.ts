@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from "aws-lambda";
 import { Request } from "./types";
-import { getInviteCode, getUserFromJwt, login, logout, randomizeInviteCode } from "./auth";
-import { getUsers, updateUsers } from "./users";
+import { getUserFromJwt, login, logout } from "./auth";
+import { addUser, getUsers, regeneratePin, updateUsers } from "./users";
 import { getServers, serverAction } from "./servers";
 import { createServer } from "./createServer";
 import { initCreateServer } from "./initCreateServer";
@@ -21,10 +21,10 @@ const CREATE_SERVER_TYPE = "createServer";
 const SERVER_ACTION_TYPE = "serverAction";
 const INIT_CRATE_SERVER_TYPE = "initCreateServer";
 const CHECK_NEW_RELEASE_TYPE = "checkNewRelease";
-const GET_INVITE_CODE = "getInviteCode";
 const GET_GAME = "getGame";
 const SAVE_GAME_CONFIG = "saveGameConfig";
-const RANDOM_INVITE_CODE = "randomizeInviteCode";
+const ADD_USER_TYPE = "addUser";
+const REGENERATE_PIN_TYPE = "regeneratePin";
 const ALLOWED_REQUESTS = [
     LOGIN_TYPE,
     LOGOUT_TYPE,
@@ -35,10 +35,10 @@ const ALLOWED_REQUESTS = [
     INIT_CRATE_SERVER_TYPE,
     CREATE_SERVER_TYPE,
     CHECK_NEW_RELEASE_TYPE,
-    GET_INVITE_CODE,
-    RANDOM_INVITE_CODE,
     GET_GAME,
     SAVE_GAME_CONFIG,
+    ADD_USER_TYPE,
+    REGENERATE_PIN_TYPE,
 ];
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResult> => {
@@ -87,11 +87,11 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     if (requestType === UPDATE_USERS_TYPE) {
         return await updateUsers(user, params);
     }
-    if (requestType === GET_INVITE_CODE) {
-        return await getInviteCode(user, params);
+    if (requestType === ADD_USER_TYPE) {
+        return await addUser(user, params);
     }
-    if (requestType === RANDOM_INVITE_CODE) {
-        return await randomizeInviteCode(user, params);
+    if (requestType === REGENERATE_PIN_TYPE) {
+        return await regeneratePin(user, params);
     }
     if (requestType === GET_SERVERS_TYPE) {
         return await getServers(user, params);

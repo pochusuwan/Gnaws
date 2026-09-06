@@ -25,6 +25,7 @@ export type Server = {
         status?: string;
         ipAddress?: string;
         message?: string;
+        storage?: number; // EBS volume size in GiB
     };
     status?: {
         status?: string;

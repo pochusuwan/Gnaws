@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadedState, loadingState, type NetworkDataState, type Role, type User } from "../types";
+import { loadedState, loadingState, Role, type NetworkDataState, type NewUser, type User } from "../types";
 import useApiCall from "./useApiCall";
 
 export const useUsers = (user: User | null) => {
@@ -7,6 +7,8 @@ export const useUsers = (user: User | null) => {
     const [users, setUsers] = useState<NetworkDataState<User[]>>(loadingState());
     const { call: callLoadUsers, state } = useApiCall<{ users: User[] }>("getUsers");
     const { call: callUpdateUsers } = useApiCall<{ success: boolean }>("updateUsers");
+    const { call: callAddUser } = useApiCall<{ user: NewUser }>("addUser");
+    const { call: callRegeneratePin } = useApiCall<{ pin: string }>("regeneratePin");
 
     const loadUsers = useCallback(async () => {
         if (!initialized.current) {
@@ -19,7 +21,13 @@ export const useUsers = (user: User | null) => {
         if (state.state === "Error") {
             setUsers(state);
         } else if (state.state === "Loaded") {
-            setUsers(loadedState(state.data.users.sort((a, b) => a.username.toLowerCase() > b.username.toLowerCase() ? 1 : -1)));
+            // Owner first, then everyone else alphabetically by username.
+            const sorted = [...state.data.users].sort((a, b) => {
+                if (a.role === Role.Owner && b.role !== Role.Owner) return -1;
+                if (b.role === Role.Owner && a.role !== Role.Owner) return 1;
+                return a.username.toLowerCase() > b.username.toLowerCase() ? 1 : -1;
+            });
+            setUsers(loadedState(sorted));
         } else {
             setUsers(loadingState());
         }
@@ -53,5 +61,28 @@ export const useUsers = (user: User | null) => {
         }
     }, [user]);
 
-    return { users, loadUsers, updateUsers };
+    const addUser = useCallback(
+        async (username: string) => {
+            const res = await callAddUser({ username });
+            if (res?.user && users.state === "Loaded") {
+                const { username, role } = res.user;
+                setUsers(loadedState([...users.data, { username, role, hasPin: true }]));
+            }
+            return res?.user;
+        },
+        [users, callAddUser],
+    );
+
+    const regeneratePin = useCallback(
+        async (username: string) => {
+            const res = await callRegeneratePin({ username });
+            if (res?.pin && users.state === "Loaded") {
+                setUsers(loadedState(users.data.map((u) => (u.username === username ? { ...u, hasPin: true } : u))));
+            }
+            return res?.pin;
+        },
+        [users, callRegeneratePin],
+    );
+
+    return { users, loadUsers, updateUsers, addUser, regeneratePin };
 };

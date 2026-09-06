@@ -143,6 +143,7 @@ export const createServer = async (user: User, params: any): Promise<APIGatewayP
             instanceType,
             instanceId: res.instanceId,
             securityGroupId: res.securityGroupId,
+            storage,
         };
         // Update server table
         try {

@@ -28,33 +28,47 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     // Allowed users dialog
     const { open: allowedUsersOpen, onResult: allowedUsersResult, confirm: allowedUsersConfirm } = useConfirm();
 
+    const currentStorage = server.ec2?.storage;
+
     const callIncreaseStorage = useCallback(async () => {
         const result = await increaseStorageConfirm();
         if (result?.result) {
             const newSize = parseInt(result?.input ?? "");
             if (isNaN(newSize)) {
                 props.setMessage("Invalid storage size.");
+            } else if (currentStorage != null && newSize <= currentStorage) {
+                props.setMessage(`Storage must be greater than the current ${currentStorage} GiB.`);
             } else {
                 callAction("Increase_Storage", false, { storage: newSize });
             }
         }
-    }, [server, callAction]);
-    const buildStorageConfirmationMessage = useCallback((input: string) => {
-        const num = parseInt(input);
-        const message = isNaN(num) ? "Invalid storage size." : `Estimated cost: $${num * STORAGE_COST_PER_GIB_PER_MONTH}/month.`;
-        return (
-            <div>
+    }, [server, currentStorage, callAction]);
+    const buildStorageConfirmationMessage = useCallback(
+        (input: string) => {
+            const num = parseInt(input);
+            let message: string;
+            if (isNaN(num)) {
+                message = "Invalid storage size.";
+            } else if (currentStorage != null && num <= currentStorage) {
+                message = `Must be greater than the current ${currentStorage} GiB.`;
+            } else {
+                message = `Estimated cost: $${num * STORAGE_COST_PER_GIB_PER_MONTH}/month.`;
+            }
+            const currentLabel = currentStorage != null ? `${currentStorage} GiB` : "unknown";
+            return (
                 <div>
-                    See pricing details{" "}
-                    <a href="https://aws.amazon.com/ebs/pricing/" target="_blank" rel="noopener noreferrer">
-                        here
-                    </a>
+                    <div>
+                        Current storage: {currentLabel}. Enter a larger size in GiB.{" "}
+                        <a href="https://aws.amazon.com/ebs/pricing/" target="_blank" rel="noopener noreferrer">
+                            EBS pricing
+                        </a>
+                    </div>
+                    <div>{message}</div>
                 </div>
-                <div>Enter new storage size in GiB.</div>
-                <div>{message}</div>
-            </div>
-        );
-    }, []);
+            );
+        },
+        [currentStorage],
+    );
 
     const buildCustomSubdomainMessage = useCallback((input: string) => {
         const isValid = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+$/.test(input);
@@ -95,6 +109,7 @@ export default function ServerConfigPanel(props: ServerConfigPanelProps) {
     return (
         <div>
             <div>Instance Type: {server.ec2?.instanceType}</div>
+            <div>Storage: {server.ec2?.storage ? `${server.ec2.storage} GiB` : "-"}</div>
             <div>Custom Subdomain: {server.configuration?.customSubdomain ?? "-"}</div>
             {isAdmin && <div>Allowed Users: {server.configuration?.allowedUsers || "-"}</div>}
             <div className="serverConfigPanelButtonGrid">

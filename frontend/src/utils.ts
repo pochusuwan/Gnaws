@@ -31,6 +31,11 @@ export function hasOwnerPermission(role: Role): boolean {
     return role === Role.Owner;
 }
 
+const ROLE_RANK: Record<Role, number> = { [Role.New]: 0, [Role.User]: 1, [Role.Admin]: 2, [Role.Owner]: 3 };
+export function roleRank(role: Role): number {
+    return ROLE_RANK[role];
+}
+
 export function serverAllowsUser(server: Server): boolean {
     return server.userCanAct ?? true;
 }

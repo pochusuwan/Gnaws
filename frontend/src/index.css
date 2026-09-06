@@ -16,6 +16,8 @@
     --btn-bg: #3a3a3a;
     --btn-border: #555;
     --btn-hover-border: #777;
+    --btn-disabled-bg: #2b2b2b;
+    --btn-disabled-border: #3a3a3a;
     --input-bg: #1a1a1a;
     --table-header-bg: #333;
     --dialog-bg: #2a2a2a;
@@ -53,6 +55,14 @@ button:focus,
 button:focus-visible {
     outline: 4px auto -webkit-focus-ring-color;
 }
+button:disabled,
+button:disabled:hover {
+    background-color: var(--btn-disabled-bg);
+    border-color: var(--btn-disabled-border);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
 
 @media (prefers-color-scheme: light) {
     :root {
@@ -68,6 +78,8 @@ button:focus-visible {
         --btn-bg: #f0f0f0;
         --btn-border: #e2e2e2;
         --btn-hover-border: #525252;
+        --btn-disabled-bg: #ebebeb;
+        --btn-disabled-border: #dcdcdc;
         --input-bg: #ffffff;
         --table-header-bg: #cccccc;
         --dialog-bg: #ffffff;

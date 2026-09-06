@@ -74,7 +74,7 @@ export default function LoginForm(props: Props) {
                         />
                     </div>
                     <button type="submit" onClick={() => login()} disabled={state.state === "Loading"}>
-                        Login / Create Account
+                        Login
                     </button>
                 </form>
                 {confirmPasswordOpen && (

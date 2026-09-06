@@ -11,6 +11,14 @@ export enum Role {
 export type User = {
     username: string;
     role: Role;
+    hasPin?: boolean;
+};
+
+// A user right after creation — the PIN is only ever available here, once.
+export type NewUser = {
+    username: string;
+    role: Role;
+    pin: string;
 };
 
 export type ServerGameConfig = {
@@ -34,6 +42,7 @@ export type Server = {
         status?: string;
         ipAddress?: string;
         message?: string;
+        storage?: number; // EBS volume size in GiB
     };
     status?: {
         status?: string;
