@@ -6,6 +6,7 @@ import ServerPage from "./pages/ServerPage/ServerPage.tsx";
 import UserPage from "./pages/UserPage/UserPage.tsx";
 import CreateServerPage from "./pages/CreateServerPage/CreateServerPage.tsx";
 import { useServers } from "./hooks/useServers.ts";
+import { useShutdownAlerts } from "./hooks/useShutdownAlerts.ts";
 import { useUsers } from "./hooks/useUsers.ts";
 import { UserContext } from "./hooks/useUser.ts";
 import { useGames } from "./hooks/useGames.ts";
@@ -27,6 +28,8 @@ export default function App() {
     const { games, loadGames } = useGames(user);
     const { call: checkNewReleaseCall, state: checkNewReleaseState } = useApiCall<{ hasInfraUpdate: boolean }>("checkNewRelease");
     const hasUpdate = checkNewReleaseState.state === "Loaded" && checkNewReleaseState.data.hasInfraUpdate;
+
+    useShutdownAlerts(servers, user);
 
     useEffect(() => {
         if (user !== null) {
