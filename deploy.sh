@@ -137,8 +137,6 @@ echo ""
 echo "=============================================="
 echo ""
 
-exit 0
-
 # Set deployed regions
 if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
     if [ -z "$DEPLOYED_REGIONS" ]; then
