@@ -95,6 +95,33 @@ if [ "$IS_UPDATE" = false ]; then
     fi
 fi
 
+# Custom domain for the web UI (optional). Defaults come from the last run's
+# values in .env — press Enter at each prompt to keep the shown value.
+CURRENT_DOMAIN=""
+CURRENT_CERT=""
+if [ -f .env ]; then
+    CURRENT_DOMAIN=$(grep -E '^CLOUDFRONT_DOMAIN_NAME=' .env | cut -d= -f2- || true)
+    CURRENT_CERT=$(grep -E '^CLOUDFRONT_CERT_ARN=' .env | cut -d= -f2- || true)
+fi
+
+echo ""
+echo "Optional: Use your own domain for the web UI and game server (needs an ACM cert in us-east-1)."
+echo "Leave both blank to use the default CloudFront URL."
+read -r -p "Custom domain${CURRENT_DOMAIN:+ [$CURRENT_DOMAIN]}: " INPUT_DOMAIN
+CF_DOMAIN=${INPUT_DOMAIN:-$CURRENT_DOMAIN}
+read -r -p "Certificate ARN${CURRENT_CERT:+ [$CURRENT_CERT]}: " INPUT_CERT
+CF_CERT=${INPUT_CERT:-$CURRENT_CERT}
+
+if { [ -n "$CF_DOMAIN" ] && [ -z "$CF_CERT" ]; } || { [ -z "$CF_DOMAIN" ] && [ -n "$CF_CERT" ]; }; then
+    echo "Set both the custom domain and the certificate ARN, or leave both blank."
+    exit 1
+fi
+
+# Save for next time; bin/gnaws.ts reads these via dotenv.
+printf 'CLOUDFRONT_DOMAIN_NAME=%s\nCLOUDFRONT_CERT_ARN=%s\n' "$CF_DOMAIN" "$CF_CERT" > .env
+export CLOUDFRONT_DOMAIN_NAME="$CF_DOMAIN"
+export CLOUDFRONT_CERT_ARN="$CF_CERT"
+
 echo ""
 echo "=============================================="
 echo "  Deployment started in $AWS_REGION"
@@ -109,6 +136,8 @@ echo "  https://console.aws.amazon.com/cloudformation"
 echo ""
 echo "=============================================="
 echo ""
+
+exit 0
 
 # Set deployed regions
 if [[ ",$DEPLOYED_REGIONS," != *",$AWS_REGION,"* ]]; then
