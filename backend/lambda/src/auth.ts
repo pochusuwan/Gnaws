@@ -20,7 +20,7 @@ export async function logout(params: any): Promise<APIGatewayProxyResult> {
     return {
         statusCode: 200,
         headers: {
-            "Set-Cookie": `jwt=; HttpOnly; Secure; Path=/; Max-Age=0; SameSite=None`,
+            "Set-Cookie": `jwt=; HttpOnly; Secure; Path=/; Max-Age=0; SameSite=Lax`,
             "Access-Control-Allow-Credentials": "true",
         },
         body: JSON.stringify({}),
@@ -165,7 +165,10 @@ async function loginSuccess(user: User): Promise<APIGatewayProxyResult> {
     return {
         statusCode: 200,
         headers: {
-            "Set-Cookie": `jwt=${token}; HttpOnly; Secure; Path=/; Max-Age=${JWT_TTL_SECONDS}; SameSite=None`,
+            // SameSite=Lax (not None): the frontend calls the API same-origin through
+            // CloudFront (<website>/api/*), so this is a first-party cookie. Lax keeps
+            // it working in browsers that block third-party cookies.
+            "Set-Cookie": `jwt=${token}; HttpOnly; Secure; Path=/; Max-Age=${JWT_TTL_SECONDS}; SameSite=Lax`,
             "Access-Control-Allow-Credentials": "true",
         },
         body: JSON.stringify({
