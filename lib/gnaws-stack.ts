@@ -42,7 +42,6 @@ export class GnawsStack extends cdk.Stack {
     // Frontend
     private websiteBucket: s3.Bucket;
     private cfnDistribution: cloudfront.Distribution;
-    private websiteUrls: string[];
     // State Machines
     private startServerFunction: sfn.StateMachine;
     private stopServerFunction: sfn.StateMachine;
@@ -52,8 +51,6 @@ export class GnawsStack extends cdk.Stack {
     private updateServerFunction: sfn.StateMachine;
     private terminateServerFunction: sfn.StateMachine;
     private autoShutdownServerFunction: sfn.StateMachine;
-    // Controller lambda
-    private apiUrl: string;
     // Network
     private vpc: ec2.Vpc;
     private subnetId: string;
@@ -188,25 +185,46 @@ export class GnawsStack extends cdk.Stack {
         this.terminateServerFunction.grantStartExecution(backend);
         this.autoShutdownServerFunction.grantStartExecution(backend);
 
-        // Http API Gateway for requests from frontend
+        // Http API Gateway for requests from frontend.
+        //
+        // The frontend always calls the API same-origin at <website>/api/call: in
+        // production the CloudFront distribution routes /api/* to this API (behavior
+        // added below), in dev the Vite server proxies it. Same origin means the JWT
+        // cookie is first-party, so browsers that block third-party cookies still send
+        // it, and no CORS is involved. The only cross-origin caller is a dev browser
+        // hitting the API URL directly without the Vite proxy, hence localhost only.
+        // (Do not add the website origin here: the distribution references this API
+        // for the /api/* behavior, so referencing the distribution's domain back here
+        // would be a CloudFormation circular dependency.)
         const api = new apigwv2.HttpApi(this, "GnawsApiGateway", {
             corsPreflight: {
-                // TODO: change origin
-                allowOrigins: ["http://localhost:5174", ...this.websiteUrls],
+                allowOrigins: ["http://localhost:5174"],
                 allowMethods: [apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS],
                 allowHeaders: ["Content-Type", "Authorization"],
                 allowCredentials: true,
             },
         });
         api.addRoutes({
-            path: "/call",
+            path: "/api/call",
             methods: [apigwv2.HttpMethod.POST],
             integration: new integrations.HttpLambdaIntegration("GnawsCallLambdaIntegration", backend),
         });
 
-        const apiUrl = api.url;
-        if (apiUrl === undefined) throw "No API url";
-        this.apiUrl = apiUrl;
+        // Serve the API from the same domain as the website: <website>/api/* -> API
+        // Gateway. CACHING_DISABLED because these are per-request authenticated calls;
+        // ALL_VIEWER_EXCEPT_HOST_HEADER forwards every viewer header (so the jwt cookie
+        // and any Authorization header reach the Lambda) except Host, which must stay
+        // the API Gateway domain or API Gateway returns 403.
+        this.cfnDistribution.addBehavior(
+            "/api/*",
+            new cloudfrontOrigins.HttpOrigin(`${api.apiId}.execute-api.${this.region}.amazonaws.com`),
+            {
+                viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+                cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+                originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            },
+        );
 
         new events.Rule(this, "GnawsWatchdogSchedule", {
             schedule: events.Schedule.rate(Duration.minutes(10)),
@@ -253,29 +271,42 @@ export class GnawsStack extends cdk.Stack {
         const oac = new cloudfront.S3OriginAccessControl(this, "GnawsOAC", {
             originAccessControlName: `${this.stackName}-${this.region}`,
         });
+
+        // Rewrite extensionless paths (bare visits, would-be client routes) to the SPA
+        // entrypoint. This replaces a distribution-wide "403 -> /index.html" error
+        // response: that response is global to the distribution, so once the API is
+        // served from the same distribution (the /api/* behavior added in buildBackend)
+        // it would also turn legitimate 403 JSON from the API into the HTML page.
+        const spaFallback = new cloudfront.Function(this, "GnawsSpaFallback", {
+            runtime: cloudfront.FunctionRuntime.JS_2_0,
+            code: cloudfront.FunctionCode.fromInline(
+                [
+                    "function handler(event) {",
+                    "  var request = event.request;",
+                    "  var uri = request.uri;",
+                    "  var lastSegment = uri.slice(uri.lastIndexOf('/') + 1);",
+                    "  if (lastSegment.indexOf('.') === -1) {",
+                    "    request.uri = '/index.html';",
+                    "  }",
+                    "  return request;",
+                    "}",
+                ].join("\n"),
+            ),
+        });
+
         this.cfnDistribution = new cloudfront.Distribution(this, "GnawsWebsiteDistribution", {
             defaultBehavior: {
                 allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
                 compress: true,
                 origin: cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket, { originAccessControl: oac }),
                 viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                functionAssociations: [{ function: spaFallback, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
             },
             defaultRootObject: "index.html",
             domainNames: domainName ? [domainName] : undefined,
             certificate: cloudFrontCertArn ? acm.Certificate.fromCertificateArn(this, "GnawsCloudFrontCert", cloudFrontCertArn) : undefined,
-            errorResponses: [
-                {
-                    httpStatus: 403,
-                    responseHttpStatus: 403,
-                    responsePagePath: "/index.html",
-                    ttl: cdk.Duration.minutes(30),
-                },
-            ],
             minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
         });
-        this.websiteUrls = [domainName, this.cfnDistribution.domainName]
-            .filter((url) => typeof url === "string")
-            .map((url) => `https://${url}`);
 
         // Grant Cloundfront distribution access
         this.websiteBucket.addToResourcePolicy(
@@ -304,19 +335,14 @@ export class GnawsStack extends cdk.Stack {
             cacheControl: [s3deploy.CacheControl.fromString("max-age=86400,public,immutable")],
             exclude: ["index.html"],
         });
+        // index.html served no-cache so a new deploy's hashed asset references are
+        // picked up immediately. The API base is a build-time constant ("/api/"), so
+        // there is no per-deploy config file to inject.
         new s3deploy.BucketDeployment(this, "GnawsDeployWebsite", {
-            sources: [
-                s3deploy.Source.asset("frontend/dist"),
-                s3deploy.Source.data(
-                    "config.json",
-                    JSON.stringify({
-                        apiUrl: this.apiUrl,
-                    }),
-                ),
-            ],
+            sources: [s3deploy.Source.asset("frontend/dist")],
             cacheControl: [s3deploy.CacheControl.fromString("no-cache")],
             destinationBucket: this.websiteBucket,
-            include: ["index.html", "config.json"],
+            include: ["index.html"],
         });
     }
 
