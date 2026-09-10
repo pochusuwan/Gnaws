@@ -29,7 +29,7 @@ export default function App() {
     const { call: checkNewReleaseCall, state: checkNewReleaseState } = useApiCall<{ hasInfraUpdate: boolean }>("checkNewRelease");
     const hasUpdate = checkNewReleaseState.state === "Loaded" && checkNewReleaseState.data.hasInfraUpdate;
 
-    useShutdownAlerts(servers, user);
+    useShutdownAlerts(servers);
 
     useEffect(() => {
         if (user !== null) {

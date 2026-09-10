@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import type { NetworkDataState, Server, User } from "../types";
+import type { NetworkDataState, Server } from "../types";
 import { serverAllowsUser } from "../utils";
 import { playChime, resumeAudioContext, setAlertIndicators, showShutdownNotification } from "../alertEffects";
 
@@ -18,7 +18,7 @@ function shouldAlert(server: Server): boolean {
 // auto-shutdown is near, but only while the page is open in a tab. Nothing is
 // looped or repeated: each threshold fires once, and extending the shutdown
 // re-arms it.
-export function useShutdownAlerts(servers: NetworkDataState<Server[]>, user: User | null): void {
+export function useShutdownAlerts(servers: NetworkDataState<Server[]>): void {
     // Keys `${name}|${shutdownTime}|${threshold}` already alerted. The timestamp
     // in the key means a new shutdown time is treated as a fresh countdown.
     const alerted = useRef<Set<string>>(new Set());
@@ -29,33 +29,31 @@ export function useShutdownAlerts(servers: NetworkDataState<Server[]>, user: Use
         let soonestMinutes = Infinity;
         const liveKeys = new Set<string>();
 
-        if (user) {
-            for (const server of list) {
-                if (!shouldAlert(server)) continue;
+        for (const server of list) {
+            if (!shouldAlert(server)) continue;
 
-                const shutdownTime = server.scheduledShutdown?.shutdownTime;
-                if (!shutdownTime) continue;
+            const shutdownTime = server.scheduledShutdown?.shutdownTime;
+            if (!shutdownTime) continue;
 
-                const minutesLeft = (new Date(shutdownTime).getTime() - now) / 60_000;
-                if (minutesLeft <= 0) continue;
-                if (minutesLeft <= ALERT_THRESHOLDS_MIN[0]) {
-                    soonestMinutes = Math.min(soonestMinutes, minutesLeft);
-                }
+            const minutesLeft = (new Date(shutdownTime).getTime() - now) / 60_000;
+            if (minutesLeft <= 0) continue;
+            if (minutesLeft <= ALERT_THRESHOLDS_MIN[0]) {
+                soonestMinutes = Math.min(soonestMinutes, minutesLeft);
+            }
 
-                let crossedNewThreshold = false;
-                for (const threshold of ALERT_THRESHOLDS_MIN) {
-                    if (minutesLeft > threshold) continue;
-                    const key = `${server.name}|${shutdownTime}|${threshold}`;
-                    liveKeys.add(key);
-                    if (!alerted.current.has(key)) {
-                        alerted.current.add(key);
-                        crossedNewThreshold = true;
-                    }
+            let crossedNewThreshold = false;
+            for (const threshold of ALERT_THRESHOLDS_MIN) {
+                if (minutesLeft > threshold) continue;
+                const key = `${server.name}|${shutdownTime}|${threshold}`;
+                liveKeys.add(key);
+                if (!alerted.current.has(key)) {
+                    alerted.current.add(key);
+                    crossedNewThreshold = true;
                 }
-                if (crossedNewThreshold) {
-                    playChime();
-                    showShutdownNotification(server, minutesLeft);
-                }
+            }
+            if (crossedNewThreshold) {
+                playChime();
+                showShutdownNotification(server, minutesLeft);
             }
         }
 
@@ -65,7 +63,7 @@ export function useShutdownAlerts(servers: NetworkDataState<Server[]>, user: Use
         }
 
         setAlertIndicators(soonestMinutes !== Infinity, soonestMinutes);
-    }, [servers, user]);
+    }, [servers]);
 
     useEffect(() => {
         check();
